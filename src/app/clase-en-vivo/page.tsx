@@ -48,7 +48,7 @@ export default function LiveClassPage() {
           </div>
           
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-8 rounded-3xl border border-outline-variant shadow-sm relative overflow-hidden">
-            {/* Background design element */}
+            {/* Elemento de diseño de fondo */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
             
             <div className="relative z-10">
@@ -77,12 +77,12 @@ export default function LiveClassPage() {
           </div>
         </div>
 
-        {/* Main Content (8 cols) */}
+        {/* Contenido Principal (8 cols) */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           <AttendanceList />
         </div>
 
-        {/* Sidebar (4 cols) */}
+        {/* Barra Lateral (4 cols) */}
         <aside className="lg:col-span-4 flex flex-col gap-6">
           <TopicSelector subjectId={subject?.id} />
           <SessionNotes />
