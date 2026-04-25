@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insights &amp; Analytics - Teacher PWA</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#757684",
+                    "primary-fixed-dim": "#b8c4ff",
+                    "surface-dim": "#d1dbec",
+                    "primary": "#00288e",
+                    "on-surface-variant": "#444653",
+                    "on-secondary-fixed": "#002114",
+                    "secondary": "#006c4a",
+                    "surface-variant": "#d9e3f4",
+                    "surface-container-low": "#eef4ff",
+                    "surface": "#f8f9ff",
+                    "secondary-container": "#82f5c1",
+                    "on-primary-fixed-variant": "#173bab",
+                    "on-primary-container": "#a8b8ff",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed": "#cde5ff",
+                    "surface-bright": "#f8f9ff",
+                    "secondary-fixed-dim": "#68dba9",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed": "#001d32",
+                    "on-primary-fixed": "#001453",
+                    "tertiary-container": "#004f7b",
+                    "on-background": "#121c28",
+                    "on-surface": "#121c28",
+                    "inverse-on-surface": "#eaf1ff",
+                    "primary-container": "#1e40af",
+                    "surface-container-highest": "#d9e3f4",
+                    "on-tertiary-container": "#7ac2ff",
+                    "on-error": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-surface": "#27313e",
+                    "on-secondary-fixed-variant": "#005137",
+                    "secondary-fixed": "#85f8c4",
+                    "on-secondary-container": "#00714e",
+                    "primary-fixed": "#dde1ff",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed-dim": "#94ccff",
+                    "surface-container": "#e5eeff",
+                    "on-primary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-high": "#dfe9fa",
+                    "outline-variant": "#c4c5d5",
+                    "inverse-primary": "#b8c4ff",
+                    "background": "#f8f9ff",
+                    "on-tertiary-fixed-variant": "#004b74",
+                    "surface-tint": "#3755c3",
+                    "tertiary": "#003758"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "max_width": "1440px",
+                    "margin": "24px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "base": "4px",
+                    "sm": "8px",
+                    "gutter": "20px",
+                    "lg": "24px"
+            },
+            "fontFamily": {
+                    "h3": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "h2": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "h1": ["Inter"]
+            },
+            "fontSize": {
+                    "h3": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "h2": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "h1": ["30px", {"lineHeight": "38px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9ff;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background">
+<!-- TopAppBar -->
+<header class="bg-slate-50 dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 docked full-width top-0 sticky z-40">
+<div class="flex justify-between items-center px-6 py-3 w-full">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-primary-fixed ring-2 ring-primary-container">
+<img alt="Teacher Profile" class="w-full h-full object-cover" data-alt="professional portrait of a smiling female teacher in a modern office setting with soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsKwEBC1OphLXkQ8A8G3CMrQTTlbElxOCwoGQKSBR09fj7fmWOobbt_2WSwg4jqYCSXlqzWXagppvLm9xwgr2HpzS0DzCFBzyqsosv2Kle0-JQAMZNTSItl_vjWm-44tFGNnSEWHTqcsdmHY5w0o2_r1AeK_X6DLJl6G5_MgQnyJK7VwCwd28Nygz0JVZQFwsYuT-32NB6vPd8664jMHFL1eZC8BgPNg27YA07sfp4VISfKF22Wtq979nXa3jayblXZ5q1gN4Sy44"/>
+</div>
+<h1 class="text-lg font-semibold text-slate-900 dark:text-white font-h3">Insights &amp; Planning</h1>
+</div>
+<div class="flex items-center gap-4">
+<!-- Connectivity Indicator -->
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container rounded-full">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-[10px] font-label-sm uppercase tracking-wider text-secondary-fixed-dim">Connected</span>
+</div>
+<button class="material-symbols-outlined text-blue-800 dark:text-blue-400 active:opacity-70 transition-opacity">sync</button>
+</div>
+</div>
+</header>
+<!-- Sidebar Navigation (Desktop) -->
+<nav class="hidden lg:flex flex-col h-screen fixed left-0 top-0 bg-white dark:bg-slate-950 w-72 border-r border-gray-100 dark:border-gray-800 shadow-sm z-50">
+<div class="p-6">
+<span class="text-xl font-bold text-blue-900 dark:text-blue-100">Academic Lead</span>
+<p class="text-slate-500 text-sm">v2.4.0</p>
+</div>
+<div class="flex-1 px-4">
+<a class="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-3 mb-1 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg px-4 py-3 mb-1" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-medium">Student Analytics</span>
+</a>
+<a class="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-3 mb-1 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">auto_stories</span>
+<span class="font-medium">Curriculum</span>
+</a>
+<a class="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-3 mb-1 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium">System Settings</span>
+</a>
+</div>
+<div class="p-4 border-t border-gray-100">
+<div class="flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded-full bg-surface-dim"></div>
+<div>
+<p class="text-sm font-bold">Academic Lead</p>
+<p class="text-xs text-secondary">Connected</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="lg:ml-72 min-h-screen pb-24 md:pb-8">
+<div class="max-w-7xl mx-auto px-margin pt-lg space-y-lg">
+<!-- Filters Section -->
+<section class="bg-surface-container-lowest border border-outline-variant p-md rounded-xl space-y-md">
+<h2 class="font-h3 text-h3 text-primary">Data Scope Filters</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<div class="space-y-xs">
+<label class="text-label-sm text-outline font-medium">Select Grade</label>
+<select class="w-full bg-surface border border-outline-variant rounded-lg p-md text-body-md focus:ring-primary focus:border-primary">
+<option>Grade 10 - Advanced</option>
+<option>Grade 11 - General</option>
+<option>Grade 12 - Honors</option>
+</select>
+</div>
+<div class="space-y-xs">
+<label class="text-label-sm text-outline font-medium">Subject</label>
+<select class="w-full bg-surface border border-outline-variant rounded-lg p-md text-body-md focus:ring-primary focus:border-primary">
+<option>Mathematics</option>
+<option>Physics</option>
+<option>Chemistry</option>
+</select>
+</div>
+<div class="space-y-xs">
+<label class="text-label-sm text-outline font-medium">Student Profile</label>
+<select class="w-full bg-surface border border-outline-variant rounded-lg p-md text-body-md focus:ring-primary focus:border-primary">
+<option>All Students</option>
+<option>At Risk Group</option>
+<option>High Performers</option>
+</select>
+</div>
+</div>
+</section>
+<!-- Analytics Dashboard Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+<!-- Course Productivity Card -->
+<div class="bg-white border border-outline-variant rounded-xl p-lg flex flex-col justify-between shadow-sm">
+<div>
+<div class="flex justify-between items-start mb-md">
+<h3 class="font-h3 text-primary">Course Productivity</h3>
+<span class="material-symbols-outlined text-secondary">trending_up</span>
+</div>
+<div class="flex items-end gap-2 mb-4">
+<span class="text-display text-primary">94%</span>
+<span class="text-label-md text-secondary pb-2">+3.2% vs target</span>
+</div>
+<div class="w-full bg-surface-container-highest h-3 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 94%"></div>
+</div>
+<div class="flex justify-between mt-2 text-label-sm text-outline">
+<span>Current</span>
+<span>Target: 90%</span>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant mt-lg">Efficiency is trending above the quarterly benchmark for Mathematics 10-A.</p>
+</div>
+<!-- Absenteeism Tracking Card -->
+<div class="bg-white border border-outline-variant rounded-xl p-lg shadow-sm">
+<div class="flex justify-between items-start mb-md">
+<h3 class="font-h3 text-primary">Absenteeism</h3>
+<span class="material-symbols-outlined text-error">warning</span>
+</div>
+<div class="space-y-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<p class="text-body-md font-semibold">High Risk Students</p>
+<p class="text-label-sm text-outline">3 Students &gt; 15% Absence</p>
+</div>
+</div>
+<span class="text-h2 text-error">8.2%</span>
+</div>
+<!-- Simple Trend Visualization -->
+<div class="h-20 flex items-end justify-between gap-1 px-1">
+<div class="bg-surface-container-high w-full h-[40%] rounded-t-sm"></div>
+<div class="bg-surface-container-high w-full h-[35%] rounded-t-sm"></div>
+<div class="bg-surface-container-high w-full h-[50%] rounded-t-sm"></div>
+<div class="bg-surface-container-high w-full h-[45%] rounded-t-sm"></div>
+<div class="bg-error w-full h-[80%] rounded-t-sm"></div>
+<div class="bg-error w-full h-[75%] rounded-t-sm"></div>
+<div class="bg-error w-full h-[90%] rounded-t-sm"></div>
+</div>
+<p class="text-label-sm text-center text-outline uppercase tracking-widest">Last 7 School Days</p>
+</div>
+</div>
+<!-- Curriculum Coverage -->
+<div class="bg-white border border-outline-variant rounded-xl p-lg shadow-sm flex flex-col">
+<h3 class="font-h3 text-primary mb-md">Curriculum Coverage</h3>
+<div class="space-y-lg flex-1">
+<div>
+<div class="flex justify-between text-label-md mb-xs text-on-surface">
+<span>Algebraic Functions</span>
+<span>85%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-2 rounded-full">
+<div class="bg-primary h-full rounded-full" style="width: 85%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-xs text-on-surface">
+<span>Trigonometry Basics</span>
+<span>100%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-2 rounded-full">
+<div class="bg-secondary h-full rounded-full" style="width: 100%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-xs text-on-surface">
+<span>Statistical Analysis</span>
+<span>22%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-2 rounded-full">
+<div class="bg-tertiary-container h-full rounded-full" style="width: 22%"></div>
+</div>
+</div>
+</div>
+<button class="mt-lg w-full py-md border border-primary text-primary font-label-md rounded-lg hover:bg-primary-container/10 transition-colors">
+                        View Detailed Syllabus
+                    </button>
+</div>
+<!-- Detailed Trends Visualization (Bento Style) -->
+<div class="md:col-span-2 lg:col-span-3 bg-white border border-outline-variant rounded-xl p-lg shadow-sm">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-xl gap-md">
+<div>
+<h3 class="font-h2 text-h2 text-primary">Performance Trends</h3>
+<p class="text-body-sm text-outline">Average score distribution across all active assessments</p>
+</div>
+<div class="flex bg-surface-container-low p-xs rounded-lg">
+<button class="px-md py-xs bg-white text-primary font-label-md rounded shadow-sm">Weekly</button>
+<button class="px-md py-xs text-outline font-label-md">Monthly</button>
+</div>
+</div>
+<!-- Graph Placeholder Area -->
+<div class="relative h-64 w-full flex items-end gap-4 pb-md border-b border-outline-variant">
+<!-- Simulated Y-Axis -->
+<div class="absolute -left-6 h-full flex flex-col justify-between text-[10px] text-outline">
+<span>100</span><span>75</span><span>50</span><span>25</span><span>0</span>
+</div>
+<!-- Bars -->
+<div class="flex-1 flex items-end gap-2 h-full">
+<div class="flex-1 bg-surface-container-highest group relative rounded-t-lg transition-all hover:bg-primary/50" style="height: 65%;">
+<div class="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-white text-[10px] px-2 py-1 rounded">65%</div>
+</div>
+<div class="flex-1 bg-surface-container-highest group relative rounded-t-lg transition-all hover:bg-primary/50" style="height: 72%;"></div>
+<div class="flex-1 bg-primary group relative rounded-t-lg transition-all" style="height: 88%;"></div>
+<div class="flex-1 bg-surface-container-highest group relative rounded-t-lg transition-all hover:bg-primary/50" style="height: 78%;"></div>
+<div class="flex-1 bg-surface-container-highest group relative rounded-t-lg transition-all hover:bg-primary/50" style="height: 82%;"></div>
+<div class="flex-1 bg-surface-container-highest group relative rounded-t-lg transition-all hover:bg-primary/50" style="height: 70%;"></div>
+<div class="flex-1 bg-surface-container-highest group relative rounded-t-lg transition-all hover:bg-primary/50" style="height: 68%;"></div>
+</div>
+</div>
+<div class="flex justify-between mt-md px-1 text-label-sm text-outline uppercase tracking-wider">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+<!-- Recent Activities Section -->
+<div class="lg:col-span-3 space-y-md">
+<h3 class="font-h3 text-primary">Student Health Alerts</h3>
+<div class="space-y-sm">
+<div class="bg-error-container/30 border-l-4 border-error p-md rounded-r-lg flex justify-between items-center">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-error">priority_high</span>
+<div>
+<p class="font-bold text-on-error-container">Critical Absence: James Miller</p>
+<p class="text-body-sm text-on-error-container opacity-80">Missed 4 consecutive Mathematics periods.</p>
+</div>
+</div>
+<button class="material-symbols-outlined text-error">mail</button>
+</div>
+<div class="bg-secondary-container/30 border-l-4 border-secondary p-md rounded-r-lg flex justify-between items-center">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div>
+<p class="font-bold text-on-secondary-container">Performance Spike: Elena Rodriguez</p>
+<p class="text-body-sm text-on-secondary-container opacity-80">Completed Physics Module 4 with 100% accuracy.</p>
+</div>
+</div>
+<button class="material-symbols-outlined text-secondary">star</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-2 pb-safe lg:hidden bg-white/95 dark:bg-slate-900/95 border-t border-gray-200 dark:border-gray-800 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)] z-50">
+<button class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-2 hover:text-blue-600 active:scale-90 duration-150 transition-all">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-[11px] font-medium tracking-wide">Reports</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-xl px-3 py-1.5 active:scale-90 duration-150 transition-all">
+<span class="material-symbols-outlined">assignment</span>
+<span class="text-[11px] font-medium tracking-wide">Tasks</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-2 hover:text-blue-600 active:scale-90 duration-150 transition-all">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="text-[11px] font-medium tracking-wide">Calendar</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-2 hover:text-blue-600 active:scale-90 duration-150 transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="text-[11px] font-medium tracking-wide">Alerts</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-white"></span>
+</button>
+</nav>
+<!-- Floating Action Button - Only on Home/Dash (Suppressed here as per guidelines) -->
+</body></html>
