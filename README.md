@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Teacher Classroom Suite (IETABA) 🎓
 
-## Getting Started
+Sistema de gestión institucional de alto nivel diseñado para el ecosistema educativo de la **IETABA**. Esta aplicación es una solución **PWA (Progressive Web App)** diseñada bajo el paradigma **Offline-First**, permitiendo a los docentes gestionar el aula sin depender de una conexión a internet constante.
 
-First, run the development server:
+![Licencia](https://img.shields.io/badge/Licencia-IETABA%20Internal-blue)
+![Next.js](https://img.shields.io/badge/Framework-Next.js%2015-black)
+![TailwindCSS](https://img.shields.io/badge/Styling-TailwindCSS%204-38B2AC)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Características Principales
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+*   **⚡ Dashboard de Alto Rendimiento:** Visualización en tiempo real de la carga académica y alertas de clase activa.
+*   **📶 Capacidad Offline-First:** Los datos se sincronizan automáticamente cuando hay conexión disponible. Todas las acciones se guardan en el almacenamiento local de forma persistente.
+*   **📊 Analítica Avanzada:** Tablero de estadísticas con análisis demográfico, riesgo académico y distribución de género.
+*   **📅 Horario Institucional:** Gestión visual de la malla horaria semanal con acceso directo a la asistencia.
+*   **📝 Control de Asistencia:** Toma de asistencia rápida con alertas integradas para cumpleaños y excelencia académica.
+*   **📁 Gestión de Datos:** Importación masiva de estudiantes y personal vía CSV con soporte para seriales de fecha de Excel.
+*   **💼 Perfiles Estudiantiles:** Fichas detalladas con historial académico y contacto directo con acudientes.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tecnologías
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend:** Next.js 15 (App Router), React 19.
+- **Estilos:** TailwindCSS 4, Lucide Icons.
+- **Persistencia:** LocalStorage API + Firebase Firestore (Cache persistente).
+- **Reportes:** jsPDF para generación de documentos institucionales.
+- **Utilidades:** PapaParse para procesamiento de datos masivos.
 
-## Learn More
+## 🚀 Inicio Rápido
 
-To learn more about Next.js, take a look at the following resources:
+1. **Instalación de dependencias:**
+   ```bash
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Ejecución en desarrollo:**
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Construcción para producción:**
+   ```bash
+   npm run build
+   ```
 
-## Deploy on Vercel
+## 📱 Instalación como PWA
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Esta aplicación puede ser instalada en dispositivos móviles o escritorio:
+1. Abre la aplicación en Chrome o Safari.
+2. Selecciona "Agregar a la pantalla de inicio" o "Instalar aplicación".
+3. ¡Listo! Accede instantáneamente desde tu menú de aplicaciones.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+Desarrollado con ❤️ para la comunidad educativa de **IETABA**.
+**EduManager — Gestión Docente de Nivel Superior**
