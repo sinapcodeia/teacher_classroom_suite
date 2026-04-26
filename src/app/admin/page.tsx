@@ -25,7 +25,7 @@ export default function AdminPage() {
   } = useApp();
 
   
-  const [activeTab, setActiveTab] = useState<"teachers" | "subjects" | "grades" | "students" | "stats" | "users">("stats");
+  const [activeTab, setActiveTab] = useState<"teachers" | "subjects" | "grades" | "courses" | "students" | "stats" | "users">("stats");
   const [isImporting, setIsImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<any>(null);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -77,7 +77,7 @@ export default function AdminPage() {
     if (activeTab === "students") {
       if (!confirm("¿Archivar este estudiante? El registro se conserva en la BD con estado inactivo.")) return;
       removeStudent(id);
-    } else if (activeTab === "teachers" || activeTab === "subjects" || activeTab === "grades") {
+    } else if (activeTab === "teachers" || activeTab === "subjects" || activeTab === "grades" || activeTab === "courses") {
       if (!confirm(`¿Confirmar eliminación del elemento "${id}" del listado?\n\nNo afecta registros de estudiantes.`)) return;
       removeMasterItem(activeTab, id);
     }
@@ -133,12 +133,21 @@ export default function AdminPage() {
           // Batch write to Firestore
           importStudents(newStudents).then(() => {
             setImportSummary({ count: newStudents.length, type: "Estudiantes" });
+            
+            // AUTOMATIC FEED: Extract unique grades and courses from student list
+            const uniqueGrades = Array.from(new Set(newStudents.map(s => s.grado.toUpperCase()))).filter(v => v);
+            const uniqueCourses = Array.from(new Set(newStudents.map(s => s.curso.toUpperCase()))).filter(v => v);
+            
+            // Update Master Data without overwriting existing
+            updateMasterData("grades", Array.from(new Set([...masterData.grades, ...uniqueGrades])));
+            updateMasterData("courses", Array.from(new Set([...masterData.courses, ...uniqueCourses])));
+            
           }).catch(err => {
             console.error("Error importando a Firestore:", err);
             setImportSummary({ count: newStudents.length, type: "Estudiantes (solo local)" });
           });
           if (fileInputRef.current) fileInputRef.current.value = "";
-          return; // skip the setIsImporting(false) at bottom
+          return; 
         } else if (activeTab !== "stats" && activeTab !== "users") {
 
           const names = dataRows.map(row => row[0]?.trim().toUpperCase()).filter(n => n);
@@ -158,6 +167,7 @@ export default function AdminPage() {
     if (activeTab === 'teachers') return masterData.teachers;
     if (activeTab === 'subjects') return masterData.subjects;
     if (activeTab === 'grades') return masterData.grades;
+    if (activeTab === 'courses') return masterData.courses;
     return [];
   };
 
@@ -244,6 +254,7 @@ export default function AdminPage() {
                 { id: "users",    label: "Identidades",  icon: Key,        color: "bg-indigo-500", hidden: !isSuperAdmin },
                 { id: "students", label: "Estudiantes", icon: Baby,       color: "bg-emerald-500" },
                 { id: "grades",   label: "Grados",      icon: GraduationCap, color: "bg-amber-500" },
+                { id: "courses",  label: "Cursos",      icon: LayoutGrid,    color: "bg-orange-500" },
                 { id: "subjects", label: "Materias",    icon: Book,       color: "bg-purple-500" },
                 { id: "teachers", label: "Docentes",    icon: Users,      color: "bg-rose-500" },
               ].filter(t => !t.hidden).map(tab => {

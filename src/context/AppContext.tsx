@@ -58,6 +58,7 @@ interface MasterData {
   subjects: string[];
   grades: string[];
   teachers: string[];
+  courses: string[]; // Grupos específicos (ej: 8-1, 8-2)
 }
 
 export interface TeacherProfile {
@@ -225,8 +226,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [masterData, setMasterData] = useState<MasterData>({
     subjects: ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
-    grades: ["5-1", "5-2", "6-3", "6-6", "7-2", "7-3", "7-4", "8-2", "8-3", "9-2", "9-4"],
+    grades: ["PRIMARIA", "6°", "7°", "8°", "9°", "10°", "11°"],
     teachers: ["ANTONIO RODRIGUEZ"],
+    courses: ["5-1", "5-2", "6-3", "6-6", "7-2", "7-3", "7-4", "8-2", "8-3", "9-2", "9-4"],
   });
 
   const [subjects, setSubjects] = useState<Subject[]>([
