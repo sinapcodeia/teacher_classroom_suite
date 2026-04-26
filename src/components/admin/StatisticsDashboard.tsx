@@ -5,7 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { 
   Users, UserCheck, UserX, Cake, Award, 
   BarChart3, PieChart, TrendingDown, MapPin, 
-  ChevronRight, AlertCircle, Calendar, X
+  ChevronRight, AlertCircle, Calendar, X, GraduationCap
 } from "lucide-react";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
@@ -452,11 +452,14 @@ export default function StatisticsDashboard() {
            { id: "rectoria", label: "Rectoría", color: "bg-on-surface", desc: "Balance Institucional" },
            { id: "coordinacion", label: "Coordinación", color: "bg-primary", desc: "Control Académico" },
            { id: "convivencia", label: "Convivencia", color: "bg-secondary", desc: "Seguimiento Social" },
-           { id: "profesorado", label: "Profesorado", color: "bg-tertiary", desc: "Agenda Docente" }
+           { id: "docentes", label: "Docentes", color: "bg-amber-600", desc: "Gestión y Seguimiento" }
          ].map(panel => (
            <button 
              key={panel.id} 
-             onClick={() => alert(`Accediendo al Panel de ${panel.label}...\nFuncionalidad autorizada para personal administrativo.`)}
+             onClick={() => {
+               if (panel.id === "docentes") window.location.href = "/admin?tab=teachers";
+               else alert(`Accediendo al Panel de ${panel.label}...\nFuncionalidad autorizada para personal administrativo.`);
+             }}
              className={`${panel.color} text-white p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 hover:scale-[1.05] active:scale-95 transition-all shadow-2xl border-4 border-white/10 group`}
            >
               <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-1 group-hover:rotate-12 transition-transform">
