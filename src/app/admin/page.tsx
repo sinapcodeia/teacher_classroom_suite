@@ -20,7 +20,8 @@ const excelDateToJS = (serial: any) => {
 export default function AdminPage() {
   const { 
     masterData, updateMasterData, students, setStudents, 
-    profile, setProfile, allUsers, refreshUsers, updateUserRole, createEmailUser 
+    profile, setProfile, allUsers, refreshUsers, updateUserRole, createEmailUser,
+    importStudents, removeStudent
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<"teachers" | "subjects" | "grades" | "students" | "stats" | "users">("stats");
@@ -72,7 +73,7 @@ export default function AdminPage() {
 
   const removeItem = (id: string) => {
     if (activeTab === "students") {
-      setStudents(students.map(s => s.id === id ? { ...s, isActive: false } : s));
+      removeStudent(id); // Firestore + state
     } else if (activeTab !== "stats" && activeTab !== "users") {
       const newList = masterData[activeTab].filter(i => i !== id);
       updateMasterData(activeTab, newList);
@@ -106,7 +107,6 @@ export default function AdminPage() {
           const newStudents = dataRows.map((row, index) => {
             const docNum = row[4]?.trim() || `TMP-${Date.now()}-${index}`;
             return {
-              id: `st-${docNum}-${Date.now()}-${index}`, 
               curso: row[0]?.trim() || "1",
               grado: row[2]?.trim() || "0",
               tipoDocumento: row[3]?.trim().toUpperCase() || "T.I.",
@@ -117,15 +117,25 @@ export default function AdminPage() {
               segundoNombre: row[8]?.trim().toUpperCase() || "",
               fechaNacimiento: excelDateToJS(row[9]?.trim()),
               genero: row[10]?.trim().toUpperCase() || "F",
-              avgGrade: Math.random() * 5,
+              avgGrade: 0,
               attendance: "100%",
-              present: true
+              present: true,
+              isActive: true,
             };
           }).filter(s => s.primerApellido && s.primerNombre);
-          
-          setStudents([...students, ...newStudents]);
-          setImportSummary({ count: newStudents.length, type: "Estudiantes" });
+
+          setIsImporting(false);
+          // Batch write to Firestore
+          importStudents(newStudents).then(() => {
+            setImportSummary({ count: newStudents.length, type: "Estudiantes" });
+          }).catch(err => {
+            console.error("Error importando a Firestore:", err);
+            setImportSummary({ count: newStudents.length, type: "Estudiantes (solo local)" });
+          });
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return; // skip the setIsImporting(false) at bottom
         } else if (activeTab !== "stats" && activeTab !== "users") {
+
           const names = dataRows.map(row => row[0]?.trim().toUpperCase()).filter(n => n);
           updateMasterData(activeTab, Array.from(new Set([...masterData[activeTab], ...names])));
           setImportSummary({ count: names.length, type: activeTab });
@@ -388,19 +398,27 @@ export default function AdminPage() {
                       </div>
 
                       <div className="flex items-center gap-4">
-                        <div className="bg-white px-4 py-2 rounded-xl border border-outline-variant/30 shadow-sm flex items-center gap-3">
-                           <span className="text-[9px] font-black uppercase opacity-30">Rol:</span>
-                           <select 
-                             value={user.role}
-                             onChange={(e) => updateUserRole(user.uid, e.target.value as any)}
-                             className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer text-primary"
-                           >
-                             <option value="RECTOR">Rector</option>
-                             <option value="COORDINADOR">Coordinador</option>
-                             <option value="BIENESTAR">Bienestar</option>
-                             <option value="DOCENTE">Docente</option>
-                           </select>
-                        </div>
+                        {/* Role: hide dropdown for SuperAdmin users */}
+                        {user.isSuperAdmin ? (
+                          <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2">
+                            <ShieldAlert size={13} className="text-rose-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-rose-600">MASTER</span>
+                          </div>
+                        ) : (
+                          <div className="bg-white px-4 py-2 rounded-xl border border-outline-variant/30 shadow-sm flex items-center gap-3">
+                            <span className="text-[9px] font-black uppercase opacity-30">Rol:</span>
+                            <select 
+                              value={user.role}
+                              onChange={(e) => updateUserRole(user.uid, e.target.value as any)}
+                              className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer text-primary"
+                            >
+                              <option value="RECTOR">Rector</option>
+                              <option value="COORDINADOR">Coordinador</option>
+                              <option value="BIENESTAR">Bienestar</option>
+                              <option value="DOCENTE">Docente</option>
+                            </select>
+                          </div>
+                        )}
                         {user.status === 'PENDING' && !user.isSuperAdmin && (
                           <button 
                             onClick={() => activateUser(user.uid, user.role)}

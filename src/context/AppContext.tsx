@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, updateDoc, writeBatch } from "firebase/firestore";
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -118,6 +118,8 @@ interface AppContextType {
   students: Student[];
   setStudents: (students: Student[]) => void;
   addStudent: (student: Omit<Student, "id">) => void;
+  importStudents: (incoming: Omit<Student, "id">[]) => Promise<void>;
+  removeStudent: (id: string) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
   addSubject: (subject: Omit<Subject, "id">) => void;
@@ -306,6 +308,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setSchedule(blocksToEntries(builtProfile.weeklySchedule));
           }
 
+          // ── Load students from Firestore (institutional data) ────────────
+          try {
+            const studentsSnap = await getDocs(collection(db, "students"));
+            const firestoreStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+            if (firestoreStudents.length > 0) setStudents(firestoreStudents);
+          } catch (err) {
+            console.warn("No se pudieron cargar estudiantes de Firestore:", err);
+          }
+
           setUser(firebaseUser);
         } catch (err) {
           console.error("Error al obtener perfil de usuario:", err);
@@ -421,25 +432,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // ── PERSISTENCIA LOCAL ─────────────────────────────────────────────────────
+  // ── PERSISTENCIA LOCAL (no students — Firestore es la fuente de verdad) ────
   useEffect(() => {
     const savedMasterData = localStorage.getItem("edu_masterData");
     const savedSubjects   = localStorage.getItem("edu_subjects");
-    const savedStudents   = localStorage.getItem("edu_students");
     const savedNotes      = localStorage.getItem("edu_sessionNotes");
     localStorage.removeItem("edu_schedule");
+    localStorage.removeItem("edu_students"); // clear old cache
     if (savedMasterData) try { setMasterData(JSON.parse(savedMasterData)); } catch { /* ignore */ }
     if (savedSubjects)   try { setSubjects(JSON.parse(savedSubjects));   } catch { /* ignore */ }
-    if (savedStudents)   try { setStudents(JSON.parse(savedStudents));   } catch { /* ignore */ }
     if (savedNotes) setSessionNotes(savedNotes);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("edu_masterData",    JSON.stringify(masterData));
     localStorage.setItem("edu_subjects",      JSON.stringify(subjects));
-    localStorage.setItem("edu_students",      JSON.stringify(students));
     localStorage.setItem("edu_sessionNotes",  sessionNotes);
-  }, [masterData, subjects, students, sessionNotes]);
+  }, [masterData, subjects, sessionNotes]);
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
   const logout = async () => { await signOut(auth); };
@@ -450,6 +459,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addStudent = (student: Omit<Student, "id">) => {
     setStudents(prev => [...prev, { ...student, id: `st-${Date.now()}` }]);
+  };
+
+  /** Batch-import students to Firestore (replaces/merges by nroDocumento as ID) */
+  const importStudents = async (incoming: Omit<Student, "id">[]) => {
+    const CHUNK = 400; // Firestore batch limit is 500
+    const withIds = incoming.map(s => ({
+      ...s,
+      id: `st-${s.nroDocumento}-${s.curso}`.replace(/\s+/g, "-"),
+      isActive: true,
+    }));
+
+    // Write in chunks
+    for (let i = 0; i < withIds.length; i += CHUNK) {
+      const batch = writeBatch(db);
+      const chunk = withIds.slice(i, i + CHUNK);
+      for (const student of chunk) {
+        batch.set(doc(db, "students", student.id), student);
+      }
+      await batch.commit();
+    }
+
+    // Merge into state (avoid duplicates by id)
+    setStudents(prev => {
+      const map = new Map(prev.map(s => [s.id, s]));
+      for (const s of withIds) map.set(s.id, s);
+      return Array.from(map.values());
+    });
+  };
+
+  /** Mark a student as inactive in Firestore */
+  const removeStudent = async (id: string) => {
+    try {
+      await updateDoc(doc(db, "students", id), { isActive: false });
+    } catch {
+      // doc may not exist in Firestore if it was only local
+    }
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
   };
 
   const addSubject = (subject: Omit<Subject, "id">) => {
@@ -469,7 +515,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user, authLoading, logout,
       profile, setProfile, updateProfile,
       subjects, setSubjects,
-      students, setStudents, addStudent,
+      students, setStudents, addStudent, importStudents, removeStudent,
       masterData, updateMasterData,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
