@@ -32,8 +32,17 @@ export default function LoginPage() {
       await signInWithPopup(auth, googleProvider);
     } catch (err: unknown) {
       const code = (err as { code?: string }).code || "unknown";
-      if (code !== "auth/popup-closed-by-user")
-        setError("Error de autenticación. Intenta de nuevo.");
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        // User closed popup — no error
+      } else if (code === "auth/invalid-api-key") {
+        setError("Error de configuración del servidor. Contacta al administrador.");
+      } else if (code === "auth/network-request-failed") {
+        setError("Sin conexión a internet. Verifica tu red e intenta de nuevo.");
+      } else if (code === "auth/unauthorized-domain") {
+        setError("Dominio no autorizado en Firebase. Contacta al administrador.");
+      } else {
+        setError(`Error de autenticación: ${code}`);
+      }
       setSigningIn(false);
     }
   };
@@ -44,8 +53,17 @@ export default function LoginPage() {
     setSigningIn(true);
     try {
       await loginWithEmail(email, password);
-    } catch {
-      setError("Correo o contraseña incorrectos.");
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code || "unknown";
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+        setError("Correo o contraseña incorrectos.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Demasiados intentos. Espera unos minutos o restablece tu contraseña.");
+      } else if (code === "auth/network-request-failed") {
+        setError("Sin conexión. Verifica tu red e intenta de nuevo.");
+      } else {
+        setError(`Error: ${code}`);
+      }
       setSigningIn(false);
     }
   };
