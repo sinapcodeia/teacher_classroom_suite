@@ -118,6 +118,23 @@ export default function StatisticsDashboard() {
       return monthDay === todayStr;
     });
 
+    // Cálculo de curso con más mujeres
+    const courseStats: Record<string, any[]> = {};
+    activeStudents.forEach(s => {
+      const c = s.curso || "N/A";
+      if (!courseStats[c]) courseStats[c] = [];
+      courseStats[c].push(s);
+    });
+    
+    let topFemaleCourse = { course: "N/A", ratio: 0, count: 0, students: [] as any[] };
+    Object.entries(courseStats).forEach(([course, students]) => {
+      const women = students.filter(s => s.genero === "F");
+      const ratio = women.length / students.length;
+      if (ratio > topFemaleCourse.ratio || (ratio === topFemaleCourse.ratio && women.length > topFemaleCourse.count)) {
+        topFemaleCourse = { course, ratio, count: women.length, students: women };
+      }
+    });
+
     return {
       activeStudents, total, 
       menList, womenList, 
