@@ -1,44 +1,215 @@
 @import "tailwindcss";
 
+/* ════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — EduManager v2.4
+   Todas las variables están aquí. Ningún valor debe estar
+   "quemado" en componentes. Si quieres cambiar un color,
+   tamaño o sombra, cámbialo AQUÍ y se propaga a todo.
+   ════════════════════════════════════════════════════════════ */
+
 @theme {
-  --color-primary: #00288e;
-  --color-primary-container: #1e40af;
-  --color-on-primary: #ffffff;
-  --color-secondary: #006c4a;
-  --color-secondary-container: #82f5c1;
-  --color-on-secondary-container: #00714e;
-  --color-tertiary: #003758;
-  --color-tertiary-container: #004f7b;
-  --color-background: #f8f9ff;
-  --color-on-background: #121c28;
-  --color-surface: #f8f9ff;
-  --color-on-surface: #121c28;
-  --color-surface-container: #e5eeff;
-  --color-surface-container-low: #eef4ff;
-  --color-surface-container-high: #dfe9fa;
-  --color-outline: #757684;
-  --color-outline-variant: #c4c5d5;
-  --color-error: #ba1a1a;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
+  /* ── Paleta de colores ────────────────────────────────── */
+  --color-primary:            #1a56db;
+  --color-primary-hover:      #1e40af;
+  --color-primary-muted:      rgba(26, 86, 219, 0.15);
+  --color-primary-container:  #93c5fd;
 
-  --font-inter: var(--font-inter);
+  --color-secondary:          #006c4a;
+  --color-secondary-hover:    #00714e;
+  --color-secondary-container:#82f5c1;
+
+  --color-error:              #ba1a1a;
+  --color-error-muted:        rgba(186, 26, 26, 0.15);
+
+  --color-success:            #166534;
+  --color-success-muted:      rgba(22, 101, 52, 0.2);
+  --color-success-text:       #4ade80;
+
+  /* ── Superficies ──────────────────────────────────────── */
+  --color-background:         #f8f9ff;
+  --color-on-background:      #121c28;
+
+  --color-surface:            #ffffff;
+  --color-on-surface:         #121c28;
+
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #eef4ff;
+  --color-surface-container:        #e5eeff;
+  --color-surface-container-high:   #dfe9fa;
+
+  --color-outline:            #757684;
+  --color-outline-variant:    #c4c5d5;
+
+  /* ── Dark Mode (Pantallas de Auth) ───────────────────── */
+  --dark-bg:          #040c1a;
+  --dark-surface:     #0f172a;
+  --dark-surface-2:   #1e293b;
+  --dark-border:      rgba(255, 255, 255, 0.1);
+  --dark-border-soft: rgba(255, 255, 255, 0.06);
+  --dark-text:        #ffffff;
+  --dark-text-muted:  rgba(255, 255, 255, 0.5);
+  --dark-text-faint:  rgba(255, 255, 255, 0.25);
+
+  /* ── Tipografía ───────────────────────────────────────── */
+  --font-family-inter: var(--font-inter), 'Inter', sans-serif;
+  --text-xs:  10px;
+  --text-sm:  12px;
+  --text-base:14px;
+  --text-lg:  16px;
+  --text-xl:  20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+
+  /* ── Bordes y radios ──────────────────────────────────── */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  24px;
+  --radius-2xl: 32px;
+  --radius-3xl: 48px;
+  --radius-full: 9999px;
+
+  /* ── Sombras ──────────────────────────────────────────── */
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:      0 4px 20px rgba(0,0,0,0.12);
+  --shadow-lg:      0 10px 40px rgba(0,0,0,0.18);
+  --shadow-xl:      0 20px 60px rgba(0,0,0,0.25);
+  --shadow-dark-xl: 0 32px 80px rgba(0,0,0,0.7);
+  --shadow-primary: 0 8px 24px rgba(26,86,219,0.35);
+
+  /* ── Animaciones ──────────────────────────────────────── */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast:   150ms;
+  --duration-normal: 250ms;
+  --duration-slow:   400ms;
 }
 
+/* ── Base ─────────────────────────────────────────────────── */
 @layer base {
-  * {
-    @apply border-outline-variant;
-  }
+  * { @apply border-outline-variant/30; }
   body {
-    @apply bg-background text-on-background font-inter;
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    font-family: var(--font-family-inter);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+  ::placeholder { color: var(--dark-text-faint); }
 }
 
-/* Custom Utilities */
-.docked {
-  position: sticky;
+/* ── Componentes Reutilizables ────────────────────────────── */
+
+/* Fondo oscuro de auth */
+.auth-bg {
+  background: var(--dark-bg);
+  background-image:
+    radial-gradient(ellipse at 10% 20%, rgba(26,86,219,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(0,56,200,0.08) 0%, transparent 50%);
+  min-height: 100vh;
 }
 
-.full-width {
+/* Card oscura para auth */
+.auth-card {
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-dark-xl);
+}
+
+/* Input oscuro */
+.auth-input {
   width: 100%;
+  padding: 14px 18px 14px 46px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-lg);
+  color: var(--dark-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-smooth),
+              background var(--duration-fast) var(--ease-smooth);
+  box-sizing: border-box;
 }
+.auth-input:focus {
+  border-color: var(--color-primary);
+  background: rgba(26,86,219,0.08);
+}
+
+/* Botón primario */
+.btn-primary {
+  width: 100%;
+  padding: 15px 24px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--shadow-primary);
+  transition: background var(--duration-normal) var(--ease-smooth),
+              transform var(--duration-fast) var(--ease-smooth);
+}
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Botón secundario outline */
+.btn-outline-accent {
+  width: 100%;
+  padding: 15px 24px;
+  background: var(--color-primary-muted);
+  border: 1px solid rgba(26,86,219,0.3);
+  border-radius: var(--radius-lg);
+  color: var(--color-primary-container);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-smooth);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn-outline-accent:hover { background: var(--color-primary); color: #fff; }
+.btn-outline-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Glassmorphism SOLO para overlays sobre fondos con imagen */
+.glass {
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* Card de contenido en light mode */
+.card-premium {
+  background: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Animaciones ──────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up var(--duration-slow) var(--ease-smooth) both;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.animate-float { animation: float 6s ease-in-out infinite; }
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+.animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }

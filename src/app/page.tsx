@@ -2,13 +2,14 @@
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
+import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp } from "@/context/AppContext";
-import { Plus, RefreshCw, Star, Calendar as CalendarIcon, ArrowRight, Clock, MapPin } from "lucide-react";
+import { RefreshCw, Calendar as CalendarIcon, ArrowRight, Clock } from "lucide-react";
 import Link from "next/link";
 import NextClassAlert from "@/components/dashboard/NextClassAlert";
 
 export default function Home() {
-  const { subjects, schedule, profile } = useApp();
+  const { schedule, profile } = useApp();
 
   const formattedDate = new Date().toLocaleDateString('es-ES', { 
     weekday: 'long', 
@@ -20,6 +21,7 @@ export default function Home() {
   const currentSession = schedule[0]; // Para la demo, mostramos la primera si no se encuentra clase activa
 
   return (
+    <RoleGuard>
     <div className="flex flex-col min-h-screen bg-surface-container-lowest font-inter">
       <TopAppBar />
       
@@ -128,5 +130,6 @@ export default function Home() {
 
       <BottomNavBar />
     </div>
+    </RoleGuard>
   );
 }
