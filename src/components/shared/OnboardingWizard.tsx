@@ -8,15 +8,15 @@ import { User, Phone, BookOpen, Calendar, ChevronRight, ChevronLeft, Check, Plus
 const ALL_GRADES = ["1°","2°","3°","4°","5°","6°","7°","8°","9°","10°","11°"];
 const DAYS = ["LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES"] as const;
 
-// Time slots for IETABA (7:30–13:30 with 10:00–10:30 break)
+// Time slots for IETABA (Official from image)
 const TIME_SLOTS = [
   { start: "07:30", end: "08:30", label: "07:30 – 08:30" },
   { start: "08:30", end: "09:30", label: "08:30 – 09:30" },
-  { start: "09:30", end: "10:00", label: "09:30 – 10:00" },
-  // 10:00 – 10:30 = BREAK
-  { start: "10:30", end: "11:30", label: "10:30 – 11:30" },
-  { start: "11:30", end: "12:30", label: "11:30 – 12:30" },
-  { start: "12:30", end: "13:30", label: "12:30 – 13:30" },
+  { start: "09:30", end: "10:30", label: "09:30 – 10:30" },
+  // 10:30 – 11:00 = DESCANSO
+  { start: "11:00", end: "11:50", label: "11:00 – 11:50" },
+  { start: "11:50", end: "12:40", label: "11:50 – 12:40" },
+  { start: "12:40", end: "13:30", label: "12:40 – 01:30" },
 ];
 
 const BLOCK_COLORS = [
@@ -133,7 +133,7 @@ function ScheduleGrid({
             {/* Break row */}
             <tr>
               <td className="p-2 text-center text-[9px] font-black text-amber-600 bg-amber-50 border-t border-amber-100">
-                🔴 10:00–10:30
+                🔴 10:30–11:00
               </td>
               {DAYS.map(d => (
                 <td key={d} className="p-2 bg-amber-50 border-t border-l border-amber-100 text-center text-[9px] font-bold text-amber-500">

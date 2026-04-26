@@ -5,10 +5,11 @@ import { useApp } from "@/context/AppContext";
 import Papa from "papaparse";
 import { 
   Users, Book, GraduationCap, ShieldCheck, 
-  Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, Info, RotateCcw,
+  Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, Info, RotateCcw, Clock,
   BarChart3, LayoutGrid, Key, ShieldAlert, Mail, UserPlus, Fingerprint, Plus, Loader2, Search, Pencil
 } from "lucide-react";
 import Link from "next/link";
+import RoleGuard from "@/components/shared/RoleGuard";
 import StatisticsDashboard from "@/components/admin/StatisticsDashboard";
 
 const excelDateToJS = (serial: any) => {
@@ -61,6 +62,14 @@ export default function AdminPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Política de Seguridad Institucional (Grado Militar)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(newUser.pass)) {
+      alert("⚠️ ERROR DE SEGURIDAD INSTITUCIONAL:\n\nLa contraseña debe tener al menos 8 caracteres, incluir una mayúscula y un número para garantizar la protección de datos.");
+      return;
+    }
+
     setLoading(true);
     try {
       await createEmailUser(newUser.email, newUser.pass, newUser.name, newUser.role);
@@ -197,7 +206,8 @@ export default function AdminPage() {
   const currentList = getCurrentList();
 
   return (
-    <div className="min-h-screen bg-surface-container-lowest font-inter">
+    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR"]}>
+      <div className="min-h-screen bg-surface-container-lowest font-inter">
       <header className="bg-on-surface text-white p-8 md:px-16 shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative overflow-hidden">
         {/* Background Decorative elements */}
         <div className="absolute top-0 right-0 p-12 opacity-5 rotate-12 scale-150 pointer-events-none"><ShieldCheck size={280} /></div>
@@ -227,7 +237,10 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-white leading-none">Acceso Total</p>
-                    <p className="text-[8px] font-bold text-rose-300 uppercase tracking-tighter mt-1">Nivel Máximo de Seguridad</p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                      <p className="text-[8px] font-black text-rose-300 uppercase tracking-[0.2em]">Escudo Institucional Activo</p>
+                    </div>
                   </div>
                 </div>
              )}
@@ -431,6 +444,14 @@ export default function AdminPage() {
                             {user.isSuperAdmin && <span className="text-[8px] font-black bg-primary text-white px-3 py-1 rounded-full tracking-widest uppercase">Master</span>}
                           </div>
                           <p className="text-[11px] font-bold text-on-surface-variant opacity-40 tracking-widest mt-1.5 uppercase">{user.email}</p>
+                          {user.lastLogin && (
+                            <div className="flex items-center gap-1.5 mt-2 opacity-40 text-primary">
+                              <Clock size={10} />
+                              <p className="text-[8px] font-black uppercase tracking-tighter">
+                                Conexión: {new Date(user.lastLogin).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -631,7 +652,8 @@ export default function AdminPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </RoleGuard>
   );
 }

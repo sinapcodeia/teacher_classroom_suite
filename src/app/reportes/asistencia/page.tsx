@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { Printer, ArrowLeft, Download, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import RoleGuard from "@/components/shared/RoleGuard";
 
 export default function AttendanceReportPage() {
   const { students, masterData, profile } = useApp();
@@ -30,7 +31,8 @@ export default function AttendanceReportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-container-lowest p-0 md:p-8 font-inter antialiased">
+    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR"]}>
+      <div className="min-h-screen bg-surface-container-lowest p-0 md:p-8 font-inter antialiased">
       {/* Controls - Hidden on Print */}
       <div className="max-w-[1200px] mx-auto mb-8 flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden">
         <div className="flex items-center gap-4">
@@ -215,6 +217,7 @@ export default function AttendanceReportPage() {
           }
         }
       `}</style>
-    </div>
+      </div>
+    </RoleGuard>
   );
 }

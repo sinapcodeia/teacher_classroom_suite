@@ -75,12 +75,14 @@ export default function LoginPage() {
     setSigningIn(true);
     try {
       await resetPassword(email);
-      setSuccess("Enlace enviado. Revisa tu bandeja de entrada.");
+      setSuccess("Si el correo está registrado, recibirás un enlace en pocos minutos.");
       setSigningIn(false);
       setTimeout(() => { setSuccess(""); setView("login"); }, 5000);
     } catch {
-      setError("Correo no encontrado en el sistema.");
+      // Incluso si falla en el backend, no revelamos el motivo al usuario para evitar enumeración de cuentas.
+      setSuccess("Si el correo está registrado, recibirás un enlace en pocos minutos.");
       setSigningIn(false);
+      setTimeout(() => { setSuccess(""); setView("login"); }, 5000);
     }
   };
 

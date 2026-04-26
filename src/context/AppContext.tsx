@@ -85,8 +85,9 @@ export interface TeacherProfile {
   teachingCourses: string[];   // ["5-1","5-2","6-3"]
   teachingSubjectsList: string[]; // ["TECNOLOGÍA","MATEMÁTICAS"]
 
-  // Onboarding
+  // Onboarding & Activity
   isProfileComplete: boolean;
+  lastLogin?: string;
 
   // Weekly schedule (structured)
   weeklySchedule: ScheduleBlock[];
@@ -102,6 +103,7 @@ interface AppUser {
   role: Profile["role"];
   status: "ACTIVE" | "PENDING";
   isSuperAdmin?: boolean;
+  lastLogin?: string;
 }
 
 interface AppContextType {
@@ -190,31 +192,36 @@ function blocksToEntries(blocks: ScheduleBlock[]): ScheduleEntry[] {
 }
 
 // ── DEFAULT SCHEDULE (sinapcodeia's real schedule as reference) ──────────────
+// ── DEFAULT SCHEDULE (Official IETABA - Jesus Antonio Rodriguez) ──────────────
 const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
-  { id:"s1",  day:"LUNES",     startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-amber-100 text-amber-900 border-amber-200" },
-  { id:"s2",  day:"LUNES",     startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-amber-100 text-amber-900 border-amber-200" },
-  { id:"s3",  day:"LUNES",     startTime:"09:30", endTime:"10:00", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s4",  day:"LUNES",     startTime:"10:30", endTime:"11:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s5",  day:"LUNES",     startTime:"11:30", endTime:"12:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s6",  day:"MARTES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-sky-100 text-sky-900 border-sky-200" },
-  { id:"s7",  day:"MARTES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-sky-100 text-sky-900 border-sky-200" },
-  { id:"s8",  day:"MARTES",    startTime:"09:30", endTime:"10:00", subject:"TECNOLOGÍA",  grade:"9°", course:"9-2", color:"bg-pink-100 text-pink-900 border-pink-200" },
-  { id:"s9",  day:"MARTES",    startTime:"10:30", endTime:"11:30", subject:"TECNOLOGÍA",  grade:"9°", course:"9-4", color:"bg-purple-100 text-purple-900 border-purple-200" },
-  { id:"s10", day:"MARTES",    startTime:"11:30", endTime:"12:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s11", day:"MIÉRCOLES", startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s12", day:"MIÉRCOLES", startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s13", day:"MIÉRCOLES", startTime:"09:30", endTime:"10:00", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s14", day:"MIÉRCOLES", startTime:"12:30", endTime:"13:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s15", day:"JUEVES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
-  { id:"s16", day:"JUEVES",    startTime:"09:30", endTime:"10:00", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s17", day:"JUEVES",    startTime:"11:30", endTime:"12:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-green-100 text-green-900 border-green-200" },
-  { id:"s18", day:"JUEVES",    startTime:"12:30", endTime:"13:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-green-100 text-green-900 border-green-200" },
-  { id:"s19", day:"VIERNES",   startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s20", day:"VIERNES",   startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s21", day:"VIERNES",   startTime:"09:30", endTime:"10:00", subject:"ÉTICA",       grade:"8°", course:"8-2", color:"bg-yellow-100 text-yellow-900 border-yellow-200" },
-  { id:"s22", day:"VIERNES",   startTime:"10:30", endTime:"11:30", subject:"FÍSICA",      grade:"6°", course:"6-6", color:"bg-orange-100 text-orange-900 border-orange-200" },
-  { id:"s23", day:"VIERNES",   startTime:"11:30", endTime:"12:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s24", day:"VIERNES",   startTime:"12:30", endTime:"13:30", subject:"FÍSICA",      grade:"7°", course:"7-2", color:"bg-orange-100 text-orange-900 border-orange-200" },
+  { id:"s1",  day:"LUNES",     startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s2",  day:"LUNES",     startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s3",  day:"LUNES",     startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s4",  day:"LUNES",     startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-purple-100 text-purple-900 border-purple-200" },
+  { id:"s5",  day:"LUNES",     startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  
+  { id:"s6",  day:"MARTES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s7",  day:"MARTES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s8",  day:"MARTES",    startTime:"09:30", endTime:"10:30", subject:"TECNOLOGÍA",  grade:"9°", course:"9-2", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s9",  day:"MARTES",    startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"9°", course:"9-4", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s10", day:"MARTES",    startTime:"11:50", endTime:"12:40", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+
+  { id:"s11", day:"MIÉRCOLES", startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s12", day:"MIÉRCOLES", startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s13", day:"MIÉRCOLES", startTime:"09:30", endTime:"10:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-purple-100 text-purple-900 border-purple-200" },
+  { id:"s14", day:"MIÉRCOLES", startTime:"12:40", endTime:"13:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+
+  { id:"s15", day:"JUEVES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-amber-100 text-amber-900 border-amber-200" },
+  { id:"s16", day:"JUEVES",    startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s17", day:"JUEVES",    startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s18", day:"JUEVES",    startTime:"12:40", endTime:"13:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
+
+  { id:"s19", day:"VIERNES",   startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s20", day:"VIERNES",   startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s21", day:"VIERNES",   startTime:"09:30", endTime:"10:30", subject:"ÉTICA",       grade:"8°", course:"8-2", color:"bg-orange-100 text-orange-900 border-orange-200" },
+  { id:"s22", day:"VIERNES",   startTime:"11:00", endTime:"11:50", subject:"FÍSICA",      grade:"6°", course:"6-6", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s23", day:"VIERNES",   startTime:"11:50", endTime:"12:40", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s24", day:"VIERNES",   startTime:"12:40", endTime:"13:30", subject:"FÍSICA",      grade:"7°", course:"7-2", color:"bg-rose-100 text-rose-900 border-rose-200" },
 ];
 
 // ── PROVIDER ─────────────────────────────────────────────────────────────────
@@ -260,6 +267,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           if (userDoc.exists()) {
             savedData = userDoc.data() as Partial<TeacherProfile>;
+            // Audit Log: Registrar última conexión
+            await updateDoc(userDocRef, { lastLogin: new Date().toISOString() });
           } else {
             // Primer inicio de sesión — crear documento institucional para SuperAdmin
             const newDoc = {
@@ -269,7 +278,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               isSuperAdmin,
               status: isSuperAdmin ? "ACTIVE" : "PENDING",
               acceptedTerms: false,
-              // Los SuperAdmins no requieren completar el onboarding de docente
               isProfileComplete: isSuperAdmin ? true : false,
               firstName: "",
               lastName: "",
@@ -279,9 +287,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               teachingSubjectsList: [],
               weeklySchedule: [],
               createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(), // Audit Log Inicial
             };
             await setDoc(userDocRef, newDoc);
             savedData = newDoc as Partial<TeacherProfile>;
+          }
+
+          // ── AUTO-PATCH: docenciainformatica2025@gmail.com ──────────────────
+          if (firebaseUser.email === "docenciainformatica2025@gmail.com" && (!savedData.weeklySchedule || savedData.weeklySchedule.length === 0)) {
+            console.log("Applying official schedule for docenciainformatica2025...");
+            savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
+            savedData.isProfileComplete = true;
+            savedData.firstName = "JESUS ANTONIO";
+            savedData.lastName = "RODRIGUEZ";
+            await updateDoc(userDocRef, { 
+              weeklySchedule: DEFAULT_SCHEDULE_BLOCKS,
+              isProfileComplete: true,
+              firstName: "JESUS ANTONIO",
+              lastName: "RODRIGUEZ"
+            });
           }
 
           const builtProfile: TeacherProfile = {

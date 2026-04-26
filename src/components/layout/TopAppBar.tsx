@@ -189,6 +189,15 @@ export default function TopAppBar() {
 
               {/* Menu Links */}
               <div className="p-1 space-y-1">
+                <Link
+                  href="/configuracion"
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl text-[11px] font-black text-on-surface hover:bg-on-surface/5 transition-all text-left uppercase tracking-widest"
+                >
+                  <Command size={16} />
+                  <span>Mi Configuración</span>
+                </Link>
+
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-4 rounded-xl text-[11px] font-black text-error hover:bg-error/10 transition-all text-left uppercase tracking-widest"

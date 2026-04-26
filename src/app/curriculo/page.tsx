@@ -10,6 +10,7 @@ import { Plus, Sparkles, FileText, Presentation } from "lucide-react";
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import RoleGuard from "@/components/shared/RoleGuard";
 
 export default function CurriculumPage() {
   const { masterData } = useApp();
@@ -17,7 +18,8 @@ export default function CurriculumPage() {
   const [selectedSubject, setSelectedSubject] = useState("MATEMÁTICAS");
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <RoleGuard allowedRoles={["COORDINADOR", "DOCENTE", "RECTOR"]}>
+      <div className="flex flex-col min-h-screen">
       <TopAppBar />
       
       <main className="pt-20 px-6 max-w-[1440px] mx-auto w-full space-y-8 pb-24 md:pb-8">
@@ -96,5 +98,6 @@ export default function CurriculumPage() {
 
       <BottomNavBar />
     </div>
+    </RoleGuard>
   );
 }

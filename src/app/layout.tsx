@@ -9,13 +9,17 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Teacher Classroom Suite",
-  description: "Sistema de gestión escolar offline-first para docentes",
+  title: "EduManager | IETABA",
+  description: "Sistema de gestión escolar institucional - UNIPA",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/logo.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Teacher Suite",
+    title: "EduManager",
   },
 };
 
