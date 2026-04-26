@@ -6,7 +6,7 @@ import Papa from "papaparse";
 import { 
   Users, Book, GraduationCap, ShieldCheck, 
   Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, Info, RotateCcw,
-  BarChart3, LayoutGrid, Key, ShieldAlert, Mail, UserPlus, Fingerprint, Plus, Loader2, Search
+  BarChart3, LayoutGrid, Key, ShieldAlert, Mail, UserPlus, Fingerprint, Plus, Loader2, Search, Pencil
 } from "lucide-react";
 import Link from "next/link";
 import StatisticsDashboard from "@/components/admin/StatisticsDashboard";
