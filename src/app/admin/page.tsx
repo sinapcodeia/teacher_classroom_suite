@@ -43,6 +43,18 @@ export default function AdminPage() {
     }
   }, [activeTab, isSuperAdmin]);
 
+  // Activate a pending user: set status ACTIVE in Firestore
+  const activateUser = async (uid: string, role: string) => {
+    try {
+      const { db } = await import("@/lib/firebase");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      await updateDoc(doc(db, "users", uid), { status: "ACTIVE", role });
+      await refreshUsers();
+    } catch (err) {
+      console.error("Error al activar usuario:", err);
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -149,31 +161,39 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-             <div className="flex items-center bg-white/10 rounded-2xl p-1.5 px-4 border border-white/20 shadow-inner">
-                <Fingerprint size={16} className="text-primary-container mr-3 opacity-60" />
-                <select 
-                  value={profile.role}
-                  onChange={async (e) => {
-                    const newRole = e.target.value as any;
-                    setProfile({...profile, role: newRole});
-                    const { auth, db } = await import("@/lib/firebase");
-                    const { doc, updateDoc } = await import("firebase/firestore");
-                    if (auth.currentUser) {
-                      try {
-                        await updateDoc(doc(db, "users", auth.currentUser.uid), { role: newRole });
-                      } catch (err) {
-                        console.error("Error al actualizar rol:", err);
-                      }
-                    }
-                  }}
-                  className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
-                >
-                  <option value="RECTOR" className="text-black">Rectoría</option>
-                  <option value="COORDINADOR" className="text-black">Coordinación</option>
-                  <option value="BIENESTAR" className="text-black">Convivencia</option>
-                  <option value="DOCENTE" className="text-black">Profesorado</option>
-                </select>
-             </div>
+             {/* SuperAdmin: show fixed MASTER badge, no dropdown */}
+             {isSuperAdmin ? (
+               <div className="flex items-center gap-2 bg-rose-500/20 border border-rose-400/40 rounded-2xl px-4 py-2">
+                 <ShieldAlert size={16} className="text-rose-300" />
+                 <span className="text-[11px] font-black uppercase tracking-widest text-rose-200">MASTER · Super Admin</span>
+               </div>
+             ) : (
+               <div className="flex items-center bg-white/10 rounded-2xl p-1.5 px-4 border border-white/20 shadow-inner">
+                 <Fingerprint size={16} className="text-primary-container mr-3 opacity-60" />
+                 <select 
+                   value={profile.role}
+                   onChange={async (e) => {
+                     const newRole = e.target.value as any;
+                     setProfile({...profile, role: newRole});
+                     const { auth, db } = await import("@/lib/firebase");
+                     const { doc, updateDoc } = await import("firebase/firestore");
+                     if (auth.currentUser) {
+                       try {
+                         await updateDoc(doc(db, "users", auth.currentUser.uid), { role: newRole });
+                       } catch (err) {
+                         console.error("Error al actualizar rol:", err);
+                       }
+                     }
+                   }}
+                   className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
+                 >
+                   <option value="RECTOR" className="text-black">Rectoría</option>
+                   <option value="COORDINADOR" className="text-black">Coordinación</option>
+                   <option value="BIENESTAR" className="text-black">Convivencia</option>
+                   <option value="DOCENTE" className="text-black">Profesorado</option>
+                 </select>
+               </div>
+             )}
              
              {profile.role !== "DOCENTE" && activeTab !== "stats" && activeTab !== "users" && (
                <button onClick={clearDatabase} className="px-5 py-3 bg-error text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-error/20 hover:bg-error/90 active:scale-95 transition-all flex items-center gap-2">
@@ -213,12 +233,12 @@ export default function AdminPage() {
           <aside className="lg:col-span-3 space-y-8">
             <div className="bg-white rounded-[2.5rem] p-4 shadow-2xl border border-outline-variant/30 flex flex-col gap-2">
               {[
-                { id: "stats", label: "Estadísticas", icon: BarChart3 },
-                { id: "users", label: "Acceso ID", icon: Key, hidden: !isSuperAdmin },
-                { id: "students", label: "Estudiantes", icon: Baby },
-                { id: "teachers", label: "Docentes", icon: Users },
-                { id: "subjects", label: "Materias", icon: Book },
-                { id: "grades", label: "Grados", icon: GraduationCap },
+                { id: "stats",    label: "Estadísticas", icon: BarChart3 },
+                { id: "users",    label: "Usuarios",     icon: Key,          hidden: !isSuperAdmin },
+                { id: "students", label: "Estudiantes",  icon: Baby },
+                { id: "grades",   label: "Grados",       icon: GraduationCap },
+                { id: "subjects", label: "Materias",     icon: Book },
+                { id: "teachers", label: "Docentes",     icon: Users },
               ].filter(t => !t.hidden).map(tab => (
                 <button 
                   key={tab.id}
@@ -381,14 +401,19 @@ export default function AdminPage() {
                              <option value="DOCENTE">Docente</option>
                            </select>
                         </div>
-                        {user.status === 'PENDING' && (
+                        {user.status === 'PENDING' && !user.isSuperAdmin && (
                           <button 
-                            onClick={() => updateUserRole(user.uid, user.role)}
-                            className="w-12 h-12 bg-on-surface text-white rounded-xl hover:bg-primary transition-all shadow-xl flex items-center justify-center group/btn"
-                            title="Autorizar acceso"
+                            onClick={() => activateUser(user.uid, user.role)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-xl font-black text-[10px] uppercase tracking-widest"
+                            title="Activar acceso"
                           >
-                            <UserPlus size={20} className="group-hover/btn:scale-125 transition-transform" />
+                            <UserPlus size={16} /> Activar
                           </button>
+                        )}
+                        {user.status === 'ACTIVE' && !user.isSuperAdmin && (
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-[9px] font-black uppercase">
+                            <CheckCircle size={12}/> Activo
+                          </span>
                         )}
                       </div>
                     </div>
