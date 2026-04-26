@@ -122,6 +122,7 @@ interface AppContextType {
   removeStudent: (id: string) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
+  removeMasterItem: (key: keyof MasterData, item: string) => void;
   addSubject: (subject: Omit<Subject, "id">) => void;
   updateSubject: (id: string, subject: Partial<Subject>) => void;
   deleteSubject: (id: string) => void;
@@ -453,39 +454,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── HELPERS ───────────────────────────────────────────────────────────────
   const logout = async () => { await signOut(auth); };
 
-  const updateMasterData = (key: keyof MasterData, list: string[]) => {
-    setMasterData(prev => ({ ...prev, [key]: list }));
+  /** Actualiza datos maestros (grados/materias/docentes).
+   *  Estrategia: SOLO AGREGA elementos nuevos, nunca elimina los existentes.
+   *  Si se pasa una lista vacía, se ignora para proteger la información.
+   */
+  const updateMasterData = (key: keyof MasterData, listaNueva: string[]) => {
+    setMasterData(prev => {
+      // Si la lista nueva está vacía, no hacemos nada (protección contra borrado accidental)
+      if (listaNueva.length === 0) return prev;
+      // Fusionar: conservar todos los existentes + agregar los nuevos sin duplicados
+      const fusionada = Array.from(new Set([...prev[key], ...listaNueva]));
+      return { ...prev, [key]: fusionada };
+    });
+  };
+
+  /** Elimina un elemento de datos maestros SOLO si se confirma explícitamente.
+   *  Uso interno para borrados individuales desde la UI.
+   */
+  const removeMasterItem = (key: keyof MasterData, item: string) => {
+    setMasterData(prev => ({ ...prev, [key]: prev[key].filter(i => i !== item) }));
   };
 
   const addStudent = (student: Omit<Student, "id">) => {
     setStudents(prev => [...prev, { ...student, id: `st-${Date.now()}` }]);
   };
 
-  /** Batch-import students to Firestore (replaces/merges by nroDocumento as ID) */
+  /** Importa estudiantes a Firestore con estrategia de fusión (merge):
+   *  - Si el estudiante YA existe: actualiza solo los campos del CSV, conserva el resto
+   *  - Si es NUEVO: lo crea
+   *  - NUNCA elimina registros existentes
+   */
   const importStudents = async (incoming: Omit<Student, "id">[]) => {
-    const CHUNK = 400; // Firestore batch limit is 500
-    const withIds = incoming.map(s => ({
+    const LIMITE_LOTE = 400; // Límite de Firestore es 500 por lote
+
+    const conIds = incoming.map(s => ({
       ...s,
       id: `st-${s.nroDocumento}-${s.curso}`.replace(/\s+/g, "-"),
       isActive: true,
     }));
 
-    // Write in chunks
-    for (let i = 0; i < withIds.length; i += CHUNK) {
-      const batch = writeBatch(db);
-      const chunk = withIds.slice(i, i + CHUNK);
-      for (const student of chunk) {
-        batch.set(doc(db, "students", student.id), student);
-      }
-      await batch.commit();
-    }
-
-    // Merge into state (avoid duplicates by id)
+    // Fusionar en estado local primero (preserva campos extra existentes)
     setStudents(prev => {
-      const map = new Map(prev.map(s => [s.id, s]));
-      for (const s of withIds) map.set(s.id, s);
-      return Array.from(map.values());
+      const mapa = new Map(prev.map(s => [s.id, s]));
+      for (const nuevo of conIds) {
+        const existente = mapa.get(nuevo.id);
+        // Si ya existe, conservar sus campos extra y solo actualizar los del CSV
+        mapa.set(nuevo.id, existente ? { ...existente, ...nuevo } : nuevo);
+      }
+      return Array.from(mapa.values());
     });
+
+    // Escribir en Firestore en lotes con merge:true
+    // merge:true garantiza que los campos NO incluidos en el CSV se conserven en Firestore
+    for (let i = 0; i < conIds.length; i += LIMITE_LOTE) {
+      const lote = writeBatch(db);
+      const porcion = conIds.slice(i, i + LIMITE_LOTE);
+      for (const estudiante of porcion) {
+        lote.set(
+          doc(db, "students", estudiante.id),
+          estudiante,
+          { merge: true } // ← CLAVE: nunca sobreescribe campos existentes no incluidos
+        );
+      }
+      await lote.commit();
+    }
   };
 
   /** Mark a student as inactive in Firestore */
@@ -516,7 +548,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile, setProfile, updateProfile,
       subjects, setSubjects,
       students, setStudents, addStudent, importStudents, removeStudent,
-      masterData, updateMasterData,
+      masterData, updateMasterData, removeMasterItem,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
       sessionNotes, setSessionNotes,

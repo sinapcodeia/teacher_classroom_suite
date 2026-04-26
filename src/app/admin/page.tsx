@@ -21,8 +21,9 @@ export default function AdminPage() {
   const { 
     masterData, updateMasterData, students, setStudents, 
     profile, setProfile, allUsers, refreshUsers, updateUserRole, createEmailUser,
-    importStudents, removeStudent
+    importStudents, removeStudent, removeMasterItem
   } = useApp();
+
   
   const [activeTab, setActiveTab] = useState<"teachers" | "subjects" | "grades" | "students" | "stats" | "users">("stats");
   const [isImporting, setIsImporting] = useState(false);
@@ -71,22 +72,26 @@ export default function AdminPage() {
     }
   };
 
+  // Eliminar ítem individual
   const removeItem = (id: string) => {
     if (activeTab === "students") {
-      removeStudent(id); // Firestore + state
-    } else if (activeTab !== "stats" && activeTab !== "users") {
-      const newList = masterData[activeTab].filter(i => i !== id);
-      updateMasterData(activeTab, newList);
+      if (!confirm("¿Archivar este estudiante? El registro se conserva en la BD con estado inactivo.")) return;
+      removeStudent(id);
+    } else if (activeTab === "teachers" || activeTab === "subjects" || activeTab === "grades") {
+      if (!confirm(`¿Confirmar eliminación del elemento "${id}" del listado?\n\nNo afecta registros de estudiantes.`)) return;
+      removeMasterItem(activeTab, id);
     }
   };
 
+  // Archivar masivo: SOLO disponible para estudiantes (isActive:false)
+  // Para datos maestros está BLOQUEADO por seguridad
   const clearDatabase = () => {
-    if (confirm(`¿Está seguro de que desea ARCHIVAR todos los registros de ${activeTab}?`)) {
-      if (activeTab === "students") {
-        setStudents(students.map(s => ({ ...s, isActive: false })));
-      } else if (activeTab !== "stats" && activeTab !== "users") {
-        updateMasterData(activeTab, []);
-      }
+    if (activeTab === "students") {
+      if (!confirm("¿Archivar TODOS los estudiantes activos?\n\nTodos quedarán con estado INACTIVO pero SUS DATOS SE CONSERVAN en la base de datos.")) return;
+      const archivados = students.map(s => ({ ...s, isActive: false }));
+      archivados.forEach(s => removeStudent(s.id));
+    } else {
+      alert("⚠️ Por seguridad institucional, los datos maestros no se pueden borrar en masa.\n\nPuedes eliminar ítems individuales desde la lista.");
     }
   };
 
