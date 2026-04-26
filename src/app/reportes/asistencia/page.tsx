@@ -1,14 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { Printer, ArrowLeft, Download, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export default function AttendanceReportPage() {
-  const { students, profile } = useApp();
-  const currentMonth = "ABRIL";
-  const currentYear = "2025";
+  const { students, masterData, profile } = useApp();
+  
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('es-ES', { month: 'long' }).toUpperCase());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedGrade, setSelectedGrade] = useState("TODOS");
+  const [selectedTeacher, setSelectedTeacher] = useState(profile.name);
+  const [selectedSubject, setSelectedSubject] = useState("TODAS");
+
+  const months = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+  const years = ["2024", "2025", "2026"];
+
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
+
+  const filteredStudents = students.filter(st => {
+    if (selectedGrade !== "TODOS" && st.grado !== selectedGrade) return false;
+    // Add more filters if needed
+    return true;
+  });
 
   const handlePrint = () => {
     window.print();
@@ -27,12 +42,39 @@ export default function AttendanceReportPage() {
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">Lista de Asistencia Mensual Oficial</p>
           </div>
         </div>
-        <div className="flex gap-4">
-           <button onClick={handlePrint} className="px-8 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-             <Printer size={20} /> Imprimir Reporte
+        <div className="flex gap-4 items-center">
+           {/* Filtros Dinámicos */}
+           <div className="flex gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+              <select 
+                value={selectedMonth} 
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+              >
+                {months.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select 
+                value={selectedYear} 
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+              >
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <div className="w-px h-6 bg-slate-200" />
+              <select 
+                value={selectedGrade} 
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+              >
+                <option value="TODOS">TODOS LOS GRADOS</option>
+                {(masterData.grades || []).map(g => <option key={g} value={g}>GRADO {g}</option>)}
+              </select>
+           </div>
+
+           <button onClick={handlePrint} className="px-6 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all flex items-center gap-3">
+             <Printer size={18} /> Imprimir
            </button>
-           <button className="px-8 py-4 bg-secondary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-             <Download size={20} /> Exportar PDF
+           <button className="px-6 py-4 bg-secondary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-3">
+             <Download size={18} /> PDF
            </button>
         </div>
       </div>
@@ -76,7 +118,7 @@ export default function AttendanceReportPage() {
            <div className="col-span-3"></div>
            <div className="col-span-2 flex items-end gap-2">
              <span className="uppercase shrink-0 font-black">MES:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{currentMonth}</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedMonth}</span>
            </div>
 
            <div className="col-span-4 flex items-end gap-2">
@@ -110,7 +152,7 @@ export default function AttendanceReportPage() {
               </tr>
             </thead>
             <tbody>
-              {students.map((st, idx) => (
+              {filteredStudents.map((st, idx) => (
                 <tr key={st.id} className="h-7">
                   <td className="border border-on-surface text-center font-bold">{idx + 1}</td>
                   <td className="border border-on-surface text-center uppercase">{st.grado}</td>
@@ -128,7 +170,7 @@ export default function AttendanceReportPage() {
                 </tr>
               ))}
               {/* Fill empty rows to reach a full page feel if few students */}
-              {Array.from({ length: Math.max(0, 25 - students.length) }).map((_, i) => (
+              {Array.from({ length: Math.max(0, 25 - filteredStudents.length) }).map((_, i) => (
                 <tr key={`empty-${i}`} className="h-7">
                   <td className="border border-on-surface"></td>
                   <td className="border border-on-surface"></td>

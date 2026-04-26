@@ -121,8 +121,10 @@ interface AppContextType {
   addStudent: (student: Omit<Student, "id">) => void;
   importStudents: (incoming: Omit<Student, "id">[]) => Promise<void>;
   removeStudent: (id: string) => Promise<void>;
+  updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
+  updateMasterItem: (key: keyof MasterData, oldItem: string, newItem: string) => void;
   removeMasterItem: (key: keyof MasterData, item: string) => void;
   addSubject: (subject: Omit<Subject, "id">) => void;
   updateSubject: (id: string, subject: Partial<Subject>) => void;
@@ -275,7 +277,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               teachingGrades: [],
               teachingCourses: [],
               teachingSubjectsList: [],
-              // El SuperAdmin no tiene horario de clases (malla)
               weeklySchedule: [],
               createdAt: new Date().toISOString(),
             };
@@ -302,30 +303,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             teachingGrades: savedData.teachingGrades || [],
             teachingCourses: savedData.teachingCourses || [],
             teachingSubjectsList: savedData.teachingSubjectsList || [],
-            // El SuperAdmin siempre tiene perfil completo y sin horario docente
             isProfileComplete: isSuperAdmin ? true : (savedData.isProfileComplete || false),
             weeklySchedule: isSuperAdmin ? [] : (savedData.weeklySchedule || []),
           };
 
           setProfile(builtProfile);
 
-          // Sync schedule from Firestore weekly blocks
-          if (builtProfile.weeklySchedule.length > 0) {
+          if (builtProfile.weeklySchedule && builtProfile.weeklySchedule.length > 0) {
             setSchedule(blocksToEntries(builtProfile.weeklySchedule));
           }
 
-          // ── Load students from Firestore (institutional data) ────────────
           try {
             const studentsSnap = await getDocs(collection(db, "students"));
             const firestoreStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
             if (firestoreStudents.length > 0) setStudents(firestoreStudents);
           } catch (err) {
-            console.warn("No se pudieron cargar estudiantes de Firestore:", err);
+            console.warn("No se pudieron cargar estudiantes:", err);
           }
 
           setUser(firebaseUser);
         } catch (err) {
-          console.error("Error al obtener perfil de usuario:", err);
+          console.error("Error al obtener perfil:", err);
         }
       } else {
         setUser(null);
@@ -343,27 +341,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (updates: Partial<TeacherProfile>) => {
     if (!user) return;
     try {
-      // Build merged profile
       const merged: TeacherProfile = { ...profile, ...updates };
 
-      // Recompute display name
       if (updates.firstName !== undefined || updates.lastName !== undefined) {
         merged.name = `${merged.firstName} ${merged.lastName}`.trim().toUpperCase() || merged.name;
       }
 
-      // Auto-set isProfileComplete when all mandatory fields are filled
-      if (merged.firstName && merged.lastName && merged.teachingGrades.length > 0) {
+      if (merged.firstName && merged.lastName && (merged.teachingGrades || []).length > 0) {
         merged.isProfileComplete = true;
       }
 
-      // Sync schedule state if weeklySchedule changed
       if (updates.weeklySchedule) {
         setSchedule(blocksToEntries(updates.weeklySchedule));
       }
 
       setProfile(merged);
 
-      // Persist to Firestore
       await updateDoc(doc(db, "users", user.uid), {
         firstName: merged.firstName,
         lastName: merged.lastName,
@@ -445,7 +438,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const savedNotes      = localStorage.getItem("edu_sessionNotes");
     localStorage.removeItem("edu_schedule");
     localStorage.removeItem("edu_students"); // clear old cache
-    if (savedMasterData) try { setMasterData(JSON.parse(savedMasterData)); } catch { /* ignore */ }
+    if (savedMasterData) {
+      try { 
+        const parsed = JSON.parse(savedMasterData);
+        setMasterData({
+          subjects: parsed.subjects || [],
+          grades: parsed.grades || [],
+          teachers: parsed.teachers || [],
+          courses: parsed.courses || []
+        }); 
+      } catch { /* ignore */ }
+    }
     if (savedSubjects)   try { setSubjects(JSON.parse(savedSubjects));   } catch { /* ignore */ }
     if (savedNotes) setSessionNotes(savedNotes);
   }, []);

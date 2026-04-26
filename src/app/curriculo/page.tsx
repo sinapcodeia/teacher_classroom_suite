@@ -8,21 +8,43 @@ import TopicTree from "@/components/curriculum/TopicTree";
 import CSVImporter from "@/components/curriculum/CSVImporter";
 import { Plus, Sparkles, FileText, Presentation } from "lucide-react";
 
+import { useState } from "react";
+import { useApp } from "@/context/AppContext";
+
 export default function CurriculumPage() {
+  const { masterData } = useApp();
+  const [selectedGrade, setSelectedGrade] = useState("11°");
+  const [selectedSubject, setSelectedSubject] = useState("MATEMÁTICAS");
+
   return (
     <div className="flex flex-col min-h-screen">
       <TopAppBar />
       
       <main className="pt-20 px-6 max-w-[1440px] mx-auto w-full space-y-8 pb-24 md:pb-8">
-        {/* Header & Actions */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        {/* Global Filters & Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-xl border border-outline-variant/30">
           <div>
-            <h1 className="text-3xl font-bold text-on-surface mb-1">Malla Curricular</h1>
-            <p className="text-base text-on-surface-variant">Gestiona unidades, temas y subtemas para el año académico actual.</p>
+            <h1 className="text-4xl font-black text-on-surface mb-2 tracking-tighter uppercase italic">Malla Curricular</h1>
+            <div className="flex gap-4 items-center">
+              <select 
+                value={selectedGrade} 
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="bg-slate-100 border-none rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest focus:ring-2 ring-primary"
+              >
+                {(masterData.grades || []).map(g => <option key={g} value={g}>Grado {g}</option>)}
+              </select>
+              <select 
+                value={selectedSubject} 
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="bg-slate-100 border-none rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest focus:ring-2 ring-primary"
+              >
+                {(masterData.subjects || []).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <CSVImporter />
-            <button className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-md shadow-primary/20">
+            <button className="flex items-center gap-2 px-8 py-3 bg-on-surface text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all">
               <Plus size={18} />
               Nuevo Tema
             </button>
@@ -44,8 +66,8 @@ export default function CurriculumPage() {
             
             {/* Resources Bento Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-                <h4 className="text-xs font-bold text-on-surface-variant mb-4 uppercase tracking-widest">Recursos Unidad 3</h4>
+              <div className="bg-white border border-outline-variant/30 rounded-[2rem] p-8 shadow-xl">
+                <h4 className="text-[10px] font-black text-slate-400 mb-6 uppercase tracking-[0.2em]">Recursos: {selectedSubject} - {selectedGrade}</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-2 hover:bg-surface-container rounded-lg cursor-pointer transition-colors">
                     <FileText size={18} className="text-error" />

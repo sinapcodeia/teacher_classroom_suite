@@ -29,6 +29,8 @@ export default function AdminPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<any>(null);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null); // Estudiante u objeto maestro
+  const [editValue, setEditValue] = useState("");
   const [newUser, setNewUser] = useState({ email: "", name: "", pass: "", role: "DOCENTE" as any });
   const [loading, setLoading] = useState(false);
   const [userSearch, setUserSearch] = useState("");
@@ -80,6 +82,27 @@ export default function AdminPage() {
     } else if (activeTab === "teachers" || activeTab === "subjects" || activeTab === "grades" || activeTab === "courses") {
       if (!confirm(`¿Confirmar eliminación del elemento "${id}" del listado?\n\nNo afecta registros de estudiantes.`)) return;
       removeMasterItem(activeTab, id);
+    }
+  };
+
+  const handleEdit = (item: any) => {
+    setEditingItem(item);
+    if (typeof item === 'string') {
+      setEditValue(item);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editingItem) return;
+    try {
+      if (activeTab === "students") {
+        await updateStudent(editingItem.id, editingItem);
+      } else if (activeTab === "teachers" || activeTab === "subjects" || activeTab === "grades" || activeTab === "courses") {
+        updateMasterItem(activeTab, typeof editingItem === 'string' ? editingItem : editingItem, editValue);
+      }
+      setEditingItem(null);
+    } catch (err) {
+      alert("Error al guardar cambios");
     }
   };
 
@@ -163,11 +186,11 @@ export default function AdminPage() {
   };
 
   const getCurrentList = () => {
-    if (activeTab === 'students') return students;
-    if (activeTab === 'teachers') return masterData.teachers;
-    if (activeTab === 'subjects') return masterData.subjects;
-    if (activeTab === 'grades') return masterData.grades;
-    if (activeTab === 'courses') return masterData.courses;
+    if (activeTab === 'students') return students || [];
+    if (activeTab === 'teachers') return masterData.teachers || [];
+    if (activeTab === 'subjects') return masterData.subjects || [];
+    if (activeTab === 'grades') return masterData.grades || [];
+    if (activeTab === 'courses') return masterData.courses || [];
     return [];
   };
 
@@ -492,9 +515,22 @@ export default function AdminPage() {
                             </div>
                           </div>
                         </div>
-                        <button onClick={() => removeItem(isStudent ? item.id : item)} className="p-4 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-all hover:bg-error/10 rounded-2xl">
-                          <Trash2 size={22} />
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleEdit(item)}
+                            className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                            title="Editar"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button 
+                            onClick={() => removeItem(isStudent ? item.id : item)}
+                            className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                            title="Archivar/Eliminar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -509,6 +545,91 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+          {/* MODAL DE EDICIÓN UNIVERSAL */}
+          {editingItem && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-xl bg-on-surface/40 animate-fade-in">
+              <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-10 relative border border-white/20">
+                <button onClick={() => setEditingItem(null)} className="absolute top-8 right-8 p-2 hover:bg-slate-100 rounded-full transition-all">
+                  <X size={24} />
+                </button>
+
+                <h3 className="text-3xl font-black uppercase italic tracking-tighter text-on-surface mb-8">
+                  Modificar {activeTab === 'students' ? 'Estudiante' : 'Elemento'}
+                </h3>
+
+                <div className="space-y-6">
+                  {activeTab === 'students' ? (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400">Nombres y Apellidos</label>
+                        <div className="grid grid-cols-2 gap-4">
+                           <input 
+                             type="text" 
+                             value={editingItem.primerNombre} 
+                             onChange={(e) => setEditingItem({...editingItem, primerNombre: e.target.value.toUpperCase()})}
+                             className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold focus:ring-2 ring-primary"
+                             placeholder="Primer Nombre"
+                           />
+                           <input 
+                             type="text" 
+                             value={editingItem.primerApellido} 
+                             onChange={(e) => setEditingItem({...editingItem, primerApellido: e.target.value.toUpperCase()})}
+                             className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold focus:ring-2 ring-primary"
+                             placeholder="Primer Apellido"
+                           />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-slate-400">Grado</label>
+                          <input 
+                             type="text" 
+                             value={editingItem.grado} 
+                             onChange={(e) => setEditingItem({...editingItem, grado: e.target.value.toUpperCase()})}
+                             className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold focus:ring-2 ring-primary"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-slate-400">Curso</label>
+                          <input 
+                             type="text" 
+                             value={editingItem.curso} 
+                             onChange={(e) => setEditingItem({...editingItem, curso: e.target.value.toUpperCase()})}
+                             className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold focus:ring-2 ring-primary"
+                           />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400">Nombre / Valor</label>
+                      <input 
+                        type="text" 
+                        value={editValue} 
+                        onChange={(e) => setEditValue(e.target.value.toUpperCase())}
+                        className="w-full bg-slate-50 border-none rounded-2xl p-5 text-lg font-black focus:ring-2 ring-primary"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-10 flex gap-4">
+                  <button 
+                    onClick={() => setEditingItem(null)}
+                    className="flex-1 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={saveEdit}
+                    className="flex-1 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest bg-on-surface text-white hover:shadow-2xl transition-all"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
