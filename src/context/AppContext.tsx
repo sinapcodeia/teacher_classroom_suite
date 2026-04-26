@@ -459,6 +459,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("edu_sessionNotes",  sessionNotes);
   }, [masterData, subjects, sessionNotes]);
 
+  const updateStudent = async (id: string, updates: Partial<Student>) => {
+    try {
+      await updateDoc(doc(db, "students", id), updates);
+      setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    } catch (err) {
+      console.error("Error al actualizar estudiante:", err);
+    }
+  };
+
+  const updateMasterItem = (category: keyof MasterData, oldValue: string, newValue: string) => {
+    setMasterData(prev => {
+      const updated = prev[category].map(item => item === oldValue ? newValue : item);
+      return { ...prev, [category]: updated };
+    });
+  };
+
   // ── HELPERS ───────────────────────────────────────────────────────────────
   const logout = async () => { await signOut(auth); };
 
