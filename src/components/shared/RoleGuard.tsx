@@ -7,6 +7,8 @@ import {
   Loader2, ShieldX, ShieldCheck, LogOut,
   FileText, CheckCircle2, Clock
 } from "lucide-react";
+import OnboardingWizard from "@/components/shared/OnboardingWizard";
+
 
 type Role = "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE";
 
@@ -192,8 +194,14 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     );
   }
 
+  // ── 2.5 ONBOARDING WIZARD (perfil incompleto) ───────────────
+  if (profile.acceptedTerms && !profile.isProfileComplete) {
+    return <OnboardingWizard />;
+  }
+
   // ── 3. PENDIENTE DE AUTORIZACIÓN ────────────────────────────
   if (profile.status === "PENDING" && !profile.isSuperAdmin) {
+
     return (
       <div style={{ minHeight: "100vh", background: D.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
         {/* Orb decorativo */}

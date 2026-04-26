@@ -5,6 +5,19 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
 
+// ── TYPES ────────────────────────────────────────────────────────────────────
+
+export interface ScheduleBlock {
+  id: string;
+  day: "LUNES" | "MARTES" | "MIÉRCOLES" | "JUEVES" | "VIERNES";
+  startTime: string;  // "07:30"
+  endTime: string;    // "08:30"
+  subject: string;
+  grade: string;      // "5°", "6°"
+  course: string;     // "5-1", "6A"
+  color?: string;
+}
+
 interface Subject {
   id: string;
   name: string;
@@ -32,6 +45,7 @@ interface Student {
   isActive?: boolean;
 }
 
+// Legacy format kept for backward-compat on some views
 interface ScheduleEntry {
   day: string;
   time: string;
@@ -46,16 +60,39 @@ interface MasterData {
   teachers: string[];
 }
 
-interface Profile {
-  name: string;
+export interface TeacherProfile {
+  // Identity
+  name: string;          // Full display name (UPPERCASE)
+  firstName: string;
+  lastName: string;
+  phone: string;
   email: string;
+  photoURL?: string;
+
+  // Institution
   institution: string;
   location: string;
+
+  // Role & Status
   role: "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE";
   status: "ACTIVE" | "PENDING";
-  acceptedTerms?: boolean;
   isSuperAdmin?: boolean;
+  acceptedTerms?: boolean;
+
+  // Teaching config
+  teachingGrades: string[];    // ["1°","2°","5°","6°"]
+  teachingCourses: string[];   // ["5-1","5-2","6-3"]
+  teachingSubjectsList: string[]; // ["TECNOLOGÍA","MATEMÁTICAS"]
+
+  // Onboarding
+  isProfileComplete: boolean;
+
+  // Weekly schedule (structured)
+  weeklySchedule: ScheduleBlock[];
 }
+
+// Backward compat alias
+export type Profile = TeacherProfile;
 
 interface AppUser {
   uid: string;
@@ -71,9 +108,11 @@ interface AppContextType {
   user: User | null;
   authLoading: boolean;
   logout: () => Promise<void>;
+  // PROFILE
+  profile: TeacherProfile;
+  setProfile: (profile: TeacherProfile) => void;
+  updateProfile: (updates: Partial<TeacherProfile>) => Promise<void>;
   // DATA
-  profile: Profile;
-  setProfile: (profile: Profile) => void;
   subjects: Subject[];
   setSubjects: (s: Subject[]) => void;
   students: Student[];
@@ -100,22 +139,85 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-  const DEFAULT_PROFILE: Profile = {
-    name: "USUARIO",
-    email: "",
-    institution: "IETABA",
-    location: "EL DIVISO / NARIÑO",
-    role: "DOCENTE",
-    status: "PENDING",
-  };
+const DEFAULT_PROFILE: TeacherProfile = {
+  name: "USUARIO",
+  firstName: "",
+  lastName: "",
+  phone: "",
+  email: "",
+  institution: "IETABA",
+  location: "EL DIVISO / NARIÑO",
+  role: "DOCENTE",
+  status: "PENDING",
+  acceptedTerms: false,
+  isSuperAdmin: false,
+  teachingGrades: [],
+  teachingCourses: [],
+  teachingSubjectsList: [],
+  isProfileComplete: false,
+  weeklySchedule: [],
+};
 
 const SUPER_ADMINS = ["sinapcodeia@gmail.com", "antonio_rburgos@msn.com"];
+
+// ── SCHEDULE COLORS ───────────────────────────────────────────────────────────
+const BLOCK_COLORS = [
+  "bg-amber-100 text-amber-900 border-amber-200",
+  "bg-sky-100 text-sky-900 border-sky-200",
+  "bg-emerald-100 text-emerald-900 border-emerald-200",
+  "bg-lime-100 text-lime-900 border-lime-200",
+  "bg-purple-100 text-purple-900 border-purple-200",
+  "bg-pink-100 text-pink-900 border-pink-200",
+  "bg-orange-100 text-orange-900 border-orange-200",
+  "bg-cyan-100 text-cyan-900 border-cyan-200",
+];
+
+/** Convert ScheduleBlock[] → legacy ScheduleEntry[] for backward compat */
+function blocksToEntries(blocks: ScheduleBlock[]): ScheduleEntry[] {
+  return blocks.map((b, i) => ({
+    day: b.day,
+    time: `${b.startTime} - ${b.endTime}`,
+    subject: b.subject,
+    group: b.course,
+    color: b.color || BLOCK_COLORS[i % BLOCK_COLORS.length],
+  }));
+}
+
+// ── DEFAULT SCHEDULE (sinapcodeia's real schedule as reference) ──────────────
+const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
+  { id:"s1",  day:"LUNES",     startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-amber-100 text-amber-900 border-amber-200" },
+  { id:"s2",  day:"LUNES",     startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-amber-100 text-amber-900 border-amber-200" },
+  { id:"s3",  day:"LUNES",     startTime:"09:30", endTime:"10:00", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s4",  day:"LUNES",     startTime:"10:30", endTime:"11:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s5",  day:"LUNES",     startTime:"11:30", endTime:"12:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s6",  day:"MARTES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-sky-100 text-sky-900 border-sky-200" },
+  { id:"s7",  day:"MARTES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-sky-100 text-sky-900 border-sky-200" },
+  { id:"s8",  day:"MARTES",    startTime:"09:30", endTime:"10:00", subject:"TECNOLOGÍA",  grade:"9°", course:"9-2", color:"bg-pink-100 text-pink-900 border-pink-200" },
+  { id:"s9",  day:"MARTES",    startTime:"10:30", endTime:"11:30", subject:"TECNOLOGÍA",  grade:"9°", course:"9-4", color:"bg-purple-100 text-purple-900 border-purple-200" },
+  { id:"s10", day:"MARTES",    startTime:"11:30", endTime:"12:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s11", day:"MIÉRCOLES", startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s12", day:"MIÉRCOLES", startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s13", day:"MIÉRCOLES", startTime:"09:30", endTime:"10:00", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s14", day:"MIÉRCOLES", startTime:"12:30", endTime:"13:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s15", day:"JUEVES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s16", day:"JUEVES",    startTime:"09:30", endTime:"10:00", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s17", day:"JUEVES",    startTime:"11:30", endTime:"12:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-green-100 text-green-900 border-green-200" },
+  { id:"s18", day:"JUEVES",    startTime:"12:30", endTime:"13:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-green-100 text-green-900 border-green-200" },
+  { id:"s19", day:"VIERNES",   startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s20", day:"VIERNES",   startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s21", day:"VIERNES",   startTime:"09:30", endTime:"10:00", subject:"ÉTICA",       grade:"8°", course:"8-2", color:"bg-yellow-100 text-yellow-900 border-yellow-200" },
+  { id:"s22", day:"VIERNES",   startTime:"10:30", endTime:"11:30", subject:"FÍSICA",      grade:"6°", course:"6-6", color:"bg-orange-100 text-orange-900 border-orange-200" },
+  { id:"s23", day:"VIERNES",   startTime:"11:30", endTime:"12:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s24", day:"VIERNES",   startTime:"12:30", endTime:"13:30", subject:"FÍSICA",      grade:"7°", course:"7-2", color:"bg-orange-100 text-orange-900 border-orange-200" },
+];
+
+// ── PROVIDER ─────────────────────────────────────────────────────────────────
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [sessionNotes, setSessionNotes] = useState("");
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
   const [masterData, setMasterData] = useState<MasterData>({
@@ -125,40 +227,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [subjects, setSubjects] = useState<Subject[]>([
-    { id: "sub-1", name: "TECNOLOGÍA", courses: "8-3, 6-3, 6-6, 9-2, 9-4, 7-4, 5-1, 5-2, 7-3", color: "bg-blue-500" },
+    { id: "sub-1", name: "TECNOLOGÍA",  courses: "8-3, 6-3, 6-6, 9-2, 9-4, 7-4, 5-1, 5-2, 7-3", color: "bg-blue-500" },
     { id: "sub-2", name: "MATEMÁTICAS", courses: "6-6", color: "bg-green-500" },
-    { id: "sub-3", name: "FÍSICA", courses: "6-6, 7-2", color: "bg-orange-500" },
-    { id: "sub-4", name: "ÉTICA", courses: "8-2", color: "bg-yellow-500" },
+    { id: "sub-3", name: "FÍSICA",      courses: "6-6, 7-2", color: "bg-orange-500" },
+    { id: "sub-4", name: "ÉTICA",       courses: "8-2", color: "bg-yellow-500" },
   ]);
 
   const [students, setStudents] = useState<Student[]>([]);
 
-  const [schedule, setSchedule] = useState<ScheduleEntry[]>([
-    { day: "LUNES", time: "07:30 - 08:30", subject: "TECNOLOGÍA", group: "8-3", color: "bg-amber-100 text-amber-900 border-amber-200" },
-    { day: "LUNES", time: "08:30 - 09:30", subject: "TECNOLOGÍA", group: "8-3", color: "bg-amber-100 text-amber-900 border-amber-200" },
-    { day: "LUNES", time: "09:30 - 10:30", subject: "MATEMÁTICAS", group: "6-6", color: "bg-lime-100 text-lime-900 border-lime-200" },
-    { day: "LUNES", time: "11:00 - 11:50", subject: "TECNOLOGÍA", group: "6-3", color: "bg-emerald-100 text-emerald-900 border-emerald-200" },
-    { day: "LUNES", time: "11:50 - 12:40", subject: "TECNOLOGÍA", group: "6-3", color: "bg-emerald-100 text-emerald-900 border-emerald-200" },
-    { day: "MARTES", time: "07:30 - 08:30", subject: "TECNOLOGÍA", group: "6-6", color: "bg-sky-100 text-sky-900 border-sky-200" },
-    { day: "MARTES", time: "08:30 - 09:30", subject: "TECNOLOGÍA", group: "6-6", color: "bg-sky-100 text-sky-900 border-sky-200" },
-    { day: "MARTES", time: "09:30 - 10:30", subject: "TECNOLOGÍA", group: "9-2", color: "bg-pink-100 text-pink-900 border-pink-200" },
-    { day: "MARTES", time: "11:00 - 11:50", subject: "TECNOLOGÍA", group: "9-4", color: "bg-purple-100 text-purple-900 border-purple-200" },
-    { day: "MARTES", time: "11:50 - 12:40", subject: "MATEMÁTICAS", group: "6-6", color: "bg-lime-100 text-lime-900 border-lime-200" },
-    { day: "MIERCOLES", time: "07:30 - 08:30", subject: "TECNOLOGÍA", group: "7-4", color: "bg-blue-100 text-blue-900 border-blue-200" },
-    { day: "MIERCOLES", time: "08:30 - 09:30", subject: "TECNOLOGÍA", group: "7-4", color: "bg-blue-100 text-blue-900 border-blue-200" },
-    { day: "MIERCOLES", time: "09:30 - 10:30", subject: "TECNOLOGÍA", group: "6-3", color: "bg-emerald-100 text-emerald-900 border-emerald-200" },
-    { day: "MIERCOLES", time: "12:40 - 13:30", subject: "MATEMÁTICAS", group: "6-6", color: "bg-lime-100 text-lime-900 border-lime-200" },
-    { day: "JUEVES", time: "07:30 - 08:30", subject: "TECNOLOGÍA", group: "5-1", color: "bg-cyan-100 text-cyan-900 border-cyan-200" },
-    { day: "JUEVES", time: "09:30 - 10:30", subject: "MATEMÁTICAS", group: "6-6", color: "bg-lime-100 text-lime-900 border-lime-200" },
-    { day: "JUEVES", time: "11:50 - 12:40", subject: "TECNOLOGÍA", group: "5-2", color: "bg-green-100 text-green-900 border-green-200" },
-    { day: "JUEVES", time: "12:40 - 13:30", subject: "TECNOLOGÍA", group: "5-2", color: "bg-green-100 text-green-900 border-green-200" },
-    { day: "VIERNES", time: "07:30 - 08:30", subject: "TECNOLOGÍA", group: "7-3", color: "bg-blue-100 text-blue-900 border-blue-200" },
-    { day: "VIERNES", time: "08:30 - 09:30", subject: "TECNOLOGÍA", group: "7-3", color: "bg-blue-100 text-blue-900 border-blue-200" },
-    { day: "VIERNES", time: "09:30 - 10:30", subject: "ÉTICA", group: "8-2", color: "bg-yellow-100 text-yellow-900 border-yellow-200" },
-    { day: "VIERNES", time: "11:00 - 11:50", subject: "FISICA", group: "6-6", color: "bg-orange-100 text-orange-900 border-orange-200" },
-    { day: "VIERNES", time: "11:50 - 12:40", subject: "MATEMÁTICAS", group: "6-6", color: "bg-lime-100 text-lime-900 border-lime-200" },
-    { day: "VIERNES", time: "12:40 - 13:30", subject: "FISICA", group: "7-2", color: "bg-orange-100 text-orange-900 border-orange-200" },
-  ]);
+  // Schedule: derived from weeklySchedule in profile, with legacy fallback
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>(
+    blocksToEntries(DEFAULT_SCHEDULE_BLOCKS)
+  );
 
   // ── AUTH LISTENER ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -167,44 +247,65 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
+          const isSuperAdmin = SUPER_ADMINS.includes(firebaseUser.email || "");
 
-          let role: Profile["role"] = "DOCENTE";
-          let status: Profile["status"] = "PENDING";
-          let acceptedTerms = false;
+          let savedData: Partial<TeacherProfile> = {};
 
           if (userDoc.exists()) {
-            const userData = userDoc.data();
-            role = (userData.role as Profile["role"]) || "DOCENTE";
-            status = (userData.status as Profile["status"]) || "ACTIVE";
-            acceptedTerms = userData.acceptedTerms || false;
+            savedData = userDoc.data() as Partial<TeacherProfile>;
           } else {
-            // Primer login
-            const isSuperAdmin = SUPER_ADMINS.includes(firebaseUser.email || "");
-            role = isSuperAdmin ? "RECTOR" : "DOCENTE";
-            status = isSuperAdmin ? "ACTIVE" : "PENDING";
-            acceptedTerms = false;
-
-            await setDoc(userDocRef, {
-              role,
+            // First login — create document
+            const newDoc = {
+              role: isSuperAdmin ? "RECTOR" : "DOCENTE",
               email: firebaseUser.email,
               displayName: firebaseUser.displayName,
               isSuperAdmin,
-              status,
-              acceptedTerms,
+              status: isSuperAdmin ? "ACTIVE" : "PENDING",
+              acceptedTerms: false,
+              isProfileComplete: false,
+              firstName: "",
+              lastName: "",
+              phone: "",
+              teachingGrades: [],
+              teachingCourses: [],
+              teachingSubjectsList: [],
+              weeklySchedule: isSuperAdmin ? DEFAULT_SCHEDULE_BLOCKS : [],
               createdAt: new Date().toISOString(),
-            });
+            };
+            await setDoc(userDocRef, newDoc);
+            savedData = newDoc as Partial<TeacherProfile>;
           }
 
-          setProfile({
-            name: (firebaseUser.displayName || DEFAULT_PROFILE.name).toUpperCase(),
+          const builtProfile: TeacherProfile = {
+            ...DEFAULT_PROFILE,
+            name: (
+              savedData.firstName && savedData.lastName
+                ? `${savedData.firstName} ${savedData.lastName}`
+                : firebaseUser.displayName || "USUARIO"
+            ).toUpperCase(),
+            firstName: savedData.firstName || "",
+            lastName: savedData.lastName || "",
+            phone: savedData.phone || "",
             email: firebaseUser.email || "",
-            institution: DEFAULT_PROFILE.institution,
-            location: DEFAULT_PROFILE.location,
-            role,
-            status,
-            acceptedTerms,
-            isSuperAdmin: SUPER_ADMINS.includes(firebaseUser.email || ""),
-          });
+            photoURL: firebaseUser.photoURL || "",
+            role: (savedData.role as Profile["role"]) || "DOCENTE",
+            status: (savedData.status as Profile["status"]) || "ACTIVE",
+            acceptedTerms: savedData.acceptedTerms || false,
+            isSuperAdmin,
+            teachingGrades: savedData.teachingGrades || [],
+            teachingCourses: savedData.teachingCourses || [],
+            teachingSubjectsList: savedData.teachingSubjectsList || [],
+            isProfileComplete: savedData.isProfileComplete || false,
+            weeklySchedule: savedData.weeklySchedule || (isSuperAdmin ? DEFAULT_SCHEDULE_BLOCKS : []),
+          };
+
+          setProfile(builtProfile);
+
+          // Sync schedule from Firestore weekly blocks
+          if (builtProfile.weeklySchedule.length > 0) {
+            setSchedule(blocksToEntries(builtProfile.weeklySchedule));
+          }
+
           setUser(firebaseUser);
         } catch (err) {
           console.error("Error al obtener perfil de usuario:", err);
@@ -212,6 +313,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null);
         setProfile(DEFAULT_PROFILE);
+        setSchedule(blocksToEntries(DEFAULT_SCHEDULE_BLOCKS));
       }
 
       setAuthLoading(false);
@@ -219,6 +321,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  // ── UPDATE PROFILE ─────────────────────────────────────────────────────────
+  const updateProfile = async (updates: Partial<TeacherProfile>) => {
+    if (!user) return;
+    try {
+      // Build merged profile
+      const merged: TeacherProfile = { ...profile, ...updates };
+
+      // Recompute display name
+      if (updates.firstName !== undefined || updates.lastName !== undefined) {
+        merged.name = `${merged.firstName} ${merged.lastName}`.trim().toUpperCase() || merged.name;
+      }
+
+      // Auto-set isProfileComplete when all mandatory fields are filled
+      if (merged.firstName && merged.lastName && merged.teachingGrades.length > 0) {
+        merged.isProfileComplete = true;
+      }
+
+      // Sync schedule state if weeklySchedule changed
+      if (updates.weeklySchedule) {
+        setSchedule(blocksToEntries(updates.weeklySchedule));
+      }
+
+      setProfile(merged);
+
+      // Persist to Firestore
+      await updateDoc(doc(db, "users", user.uid), {
+        firstName: merged.firstName,
+        lastName: merged.lastName,
+        phone: merged.phone,
+        teachingGrades: merged.teachingGrades,
+        teachingCourses: merged.teachingCourses,
+        teachingSubjectsList: merged.teachingSubjectsList,
+        weeklySchedule: merged.weeklySchedule,
+        isProfileComplete: merged.isProfileComplete,
+        displayName: merged.name,
+      });
+    } catch (err) {
+      console.error("Error al actualizar perfil:", err);
+      throw err;
+    }
+  };
 
   // ── USER MANAGEMENT ───────────────────────────────────────────────────────
   const refreshUsers = async () => {
@@ -245,11 +389,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { createUserWithEmailAndPassword } = await import("firebase/auth");
       const res = await createUserWithEmailAndPassword(auth, email, pass);
       await setDoc(doc(db, "users", res.user.uid), {
-        email,
-        displayName: name,
-        role,
-        status: "ACTIVE", // Creado por admin -> Activo
-        createdAt: new Date().toISOString()
+        email, displayName: name, role, status: "ACTIVE",
+        isProfileComplete: false, firstName: "", lastName: "",
+        teachingGrades: [], teachingCourses: [], teachingSubjectsList: [],
+        weeklySchedule: [], createdAt: new Date().toISOString(),
       });
       await refreshUsers();
     } catch (err) {
@@ -278,69 +421,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // ── PERSISTENCIA — cargar al montar ───────────────────────────────────────
+  // ── PERSISTENCIA LOCAL ─────────────────────────────────────────────────────
   useEffect(() => {
     const savedMasterData = localStorage.getItem("edu_masterData");
-    const savedSubjects = localStorage.getItem("edu_subjects");
-    const savedStudents = localStorage.getItem("edu_students");
-    const savedNotes = localStorage.getItem("edu_sessionNotes");
-
-    localStorage.removeItem("edu_schedule"); 
-
+    const savedSubjects   = localStorage.getItem("edu_subjects");
+    const savedStudents   = localStorage.getItem("edu_students");
+    const savedNotes      = localStorage.getItem("edu_sessionNotes");
+    localStorage.removeItem("edu_schedule");
     if (savedMasterData) try { setMasterData(JSON.parse(savedMasterData)); } catch { /* ignore */ }
-    if (savedSubjects) try { setSubjects(JSON.parse(savedSubjects)); } catch { /* ignore */ }
-    if (savedStudents) try { setStudents(JSON.parse(savedStudents)); } catch { /* ignore */ }
+    if (savedSubjects)   try { setSubjects(JSON.parse(savedSubjects));   } catch { /* ignore */ }
+    if (savedStudents)   try { setStudents(JSON.parse(savedStudents));   } catch { /* ignore */ }
     if (savedNotes) setSessionNotes(savedNotes);
   }, []);
 
-  // ── PERSISTENCIA — guardar al cambiar ─────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem("edu_masterData", JSON.stringify(masterData));
-    localStorage.setItem("edu_subjects", JSON.stringify(subjects));
-    localStorage.setItem("edu_students", JSON.stringify(students));
-    localStorage.setItem("edu_sessionNotes", sessionNotes);
+    localStorage.setItem("edu_masterData",    JSON.stringify(masterData));
+    localStorage.setItem("edu_subjects",      JSON.stringify(subjects));
+    localStorage.setItem("edu_students",      JSON.stringify(students));
+    localStorage.setItem("edu_sessionNotes",  sessionNotes);
   }, [masterData, subjects, students, sessionNotes]);
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
-  const logout = async () => {
-    await signOut(auth);
-  };
+  const logout = async () => { await signOut(auth); };
 
   const updateMasterData = (key: keyof MasterData, list: string[]) => {
-    setMasterData((prev) => ({ ...prev, [key]: list }));
+    setMasterData(prev => ({ ...prev, [key]: list }));
   };
 
   const addStudent = (student: Omit<Student, "id">) => {
-    setStudents((prev) => [...prev, { ...student, id: `st-${Date.now()}` }]);
+    setStudents(prev => [...prev, { ...student, id: `st-${Date.now()}` }]);
   };
 
   const addSubject = (subject: Omit<Subject, "id">) => {
-    setSubjects((prev) => [...prev, { ...subject, id: `sub-${Date.now()}` }]);
+    setSubjects(prev => [...prev, { ...subject, id: `sub-${Date.now()}` }]);
   };
 
   const updateSubject = (id: string, subject: Partial<Subject>) => {
-    setSubjects((prev) => prev.map((s) => (s.id === id ? { ...s, ...subject } : s)));
+    setSubjects(prev => prev.map(s => (s.id === id ? { ...s, ...subject } : s)));
   };
 
   const deleteSubject = (id: string) => {
-    setSubjects((prev) => prev.filter((s) => s.id !== id));
+    setSubjects(prev => prev.filter(s => s.id !== id));
   };
 
   return (
-    <AppContext.Provider
-      value={{
-        user, authLoading, logout,
-        profile, setProfile,
-        subjects, setSubjects,
-        students, setStudents, addStudent,
-        masterData, updateMasterData,
-        addSubject, updateSubject, deleteSubject,
-        schedule, setSchedule,
-        sessionNotes, setSessionNotes,
-        allUsers, refreshUsers, updateUserRole,
-        createEmailUser, loginWithEmail, resetPassword, acceptTerms
-      }}
-    >
+    <AppContext.Provider value={{
+      user, authLoading, logout,
+      profile, setProfile, updateProfile,
+      subjects, setSubjects,
+      students, setStudents, addStudent,
+      masterData, updateMasterData,
+      addSubject, updateSubject, deleteSubject,
+      schedule, setSchedule,
+      sessionNotes, setSessionNotes,
+      allUsers, refreshUsers, updateUserRole,
+      createEmailUser, loginWithEmail, resetPassword, acceptTerms,
+    }}>
       {children}
     </AppContext.Provider>
   );
