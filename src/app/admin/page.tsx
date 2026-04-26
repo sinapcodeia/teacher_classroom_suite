@@ -165,65 +165,56 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-surface-container-lowest font-inter">
-      <header className="bg-on-surface text-white p-6 md:px-12 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><ShieldCheck size={180} /></div>
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all shadow-lg"><ArrowLeft size={20} /></Link>
+      <header className="bg-on-surface text-white p-8 md:px-16 shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative overflow-hidden">
+        {/* Background Decorative elements */}
+        <div className="absolute top-0 right-0 p-12 opacity-5 rotate-12 scale-150 pointer-events-none"><ShieldCheck size={280} /></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+          <div className="flex items-center gap-6">
+            <Link href="/" className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[1.5rem] transition-all shadow-2xl backdrop-blur-md group">
+              <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+            </Link>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase italic">Control Central</h1>
-              <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.4em] mt-0.5">Infraestructura Institucional</p>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-black opacity-40 uppercase tracking-[0.5em]">Sistema Operativo IETABA</span>
+              </div>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic leading-none">
+                Consola <span className="text-primary-container">MASTER</span>
+              </h1>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-             {/* SuperAdmin: show fixed MASTER badge, no dropdown */}
-             {isSuperAdmin ? (
-               <div className="flex items-center gap-2 bg-rose-500/20 border border-rose-400/40 rounded-2xl px-4 py-2">
-                 <ShieldAlert size={16} className="text-rose-300" />
-                 <span className="text-[11px] font-black uppercase tracking-widest text-rose-200">MASTER · Super Admin</span>
-               </div>
-             ) : (
-               <div className="flex items-center bg-white/10 rounded-2xl p-1.5 px-4 border border-white/20 shadow-inner">
-                 <Fingerprint size={16} className="text-primary-container mr-3 opacity-60" />
-                 <select 
-                   value={profile.role}
-                   onChange={async (e) => {
-                     const newRole = e.target.value as any;
-                     setProfile({...profile, role: newRole});
-                     const { auth, db } = await import("@/lib/firebase");
-                     const { doc, updateDoc } = await import("firebase/firestore");
-                     if (auth.currentUser) {
-                       try {
-                         await updateDoc(doc(db, "users", auth.currentUser.uid), { role: newRole });
-                       } catch (err) {
-                         console.error("Error al actualizar rol:", err);
-                       }
-                     }
-                   }}
-                   className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
-                 >
-                   <option value="RECTOR" className="text-black">Rectoría</option>
-                   <option value="COORDINADOR" className="text-black">Coordinación</option>
-                   <option value="BIENESTAR" className="text-black">Convivencia</option>
-                   <option value="DOCENTE" className="text-black">Profesorado</option>
-                 </select>
-               </div>
+          <div className="flex flex-wrap items-center gap-4">
+             {/* SuperAdmin Badge Premium */}
+             {isSuperAdmin && (
+                <div className="flex items-center gap-3 bg-white/5 border border-white/10 backdrop-blur-xl rounded-[1.5rem] px-6 py-3 shadow-2xl">
+                  <div className="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center shadow-[0_0_15px_rgba(244,63,94,0.5)]">
+                    <ShieldAlert size={16} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white leading-none">Acceso Total</p>
+                    <p className="text-[8px] font-bold text-rose-300 uppercase tracking-tighter mt-1">Nivel Máximo de Seguridad</p>
+                  </div>
+                </div>
              )}
              
-             {profile.role !== "DOCENTE" && activeTab !== "stats" && activeTab !== "users" && (
-               <button onClick={clearDatabase} className="px-5 py-3 bg-error text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-error/20 hover:bg-error/90 active:scale-95 transition-all flex items-center gap-2">
-                 <RotateCcw size={16} /> <span className="hidden md:inline">Archivar</span>
-               </button>
-             )}
-             
-             {activeTab !== "users" && activeTab !== "stats" && (
-               <>
-                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-                 <button onClick={() => fileInputRef.current?.click()} className="px-5 py-3 bg-white text-on-surface rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-white/10 hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2">
-                   <Upload size={16} /> Importar <span className="hidden md:inline">Dataset</span>
+             <div className="flex gap-3">
+               {profile.role !== "DOCENTE" && activeTab !== "stats" && activeTab !== "users" && (
+                 <button onClick={clearDatabase} className="px-6 py-4 bg-rose-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl shadow-rose-900/40 hover:bg-rose-500 active:scale-95 transition-all flex items-center gap-2 border border-rose-400/20">
+                   <RotateCcw size={16} /> <span className="hidden md:inline">Archivar Dataset</span>
                  </button>
-               </>
-             )}
+               )}
+               
+               {activeTab !== "users" && activeTab !== "stats" && (
+                 <>
+                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+                   <button onClick={() => fileInputRef.current?.click()} className="px-6 py-4 bg-white text-on-surface rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2 group">
+                     <Upload size={16} className="group-hover:-translate-y-1 transition-transform" /> Importar CSV <span className="hidden md:inline">Maestro</span>
+                   </button>
+                 </>
+               )}
+             </div>
           </div>
         </div>
       </header>
@@ -245,24 +236,31 @@ export default function AdminPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          <aside className="lg:col-span-3 space-y-8">
-            <div className="bg-white rounded-[2.5rem] p-4 shadow-2xl border border-outline-variant/30 flex flex-col gap-2">
+          <aside className="lg:col-span-3">
+            <div className="bg-white rounded-[3rem] p-6 shadow-[0_30px_60px_rgba(0,0,0,0.08)] border border-outline-variant/20 flex flex-col gap-3 sticky top-10">
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2 px-4">Panel de Control</p>
               {[
-                { id: "stats",    label: "Estadísticas", icon: BarChart3 },
-                { id: "users",    label: "Usuarios",     icon: Key,          hidden: !isSuperAdmin },
-                { id: "students", label: "Estudiantes",  icon: Baby },
-                { id: "grades",   label: "Grados",       icon: GraduationCap },
-                { id: "subjects", label: "Materias",     icon: Book },
-                { id: "teachers", label: "Docentes",     icon: Users },
-              ].filter(t => !t.hidden).map(tab => (
-                <button 
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-4 px-6 py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all duration-300 ${activeTab === tab.id ? 'bg-on-surface text-white shadow-2xl scale-[1.05]' : 'text-on-surface-variant hover:bg-surface-container-low hover:pl-8'}`}
-                >
-                  <tab.icon size={20} /> {tab.label}
-                </button>
-              ))}
+                { id: "stats",    label: "Inteligencia", icon: BarChart3, color: "bg-blue-500" },
+                { id: "users",    label: "Identidades",  icon: Key,        color: "bg-indigo-500", hidden: !isSuperAdmin },
+                { id: "students", label: "Estudiantes", icon: Baby,       color: "bg-emerald-500" },
+                { id: "grades",   label: "Grados",      icon: GraduationCap, color: "bg-amber-500" },
+                { id: "subjects", label: "Materias",    icon: Book,       color: "bg-purple-500" },
+                { id: "teachers", label: "Docentes",    icon: Users,      color: "bg-rose-500" },
+              ].filter(t => !t.hidden).map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-5 px-6 py-5 rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest transition-all duration-500 group relative overflow-hidden ${isActive ? 'bg-on-surface text-white shadow-2xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-50 hover:pl-8'}`}
+                  >
+                    {isActive && <div className={`absolute left-0 top-0 w-1.5 h-full ${tab.color}`} />}
+                    <tab.icon size={20} className={isActive ? 'text-white' : 'group-hover:scale-110 transition-transform'} />
+                    <span>{tab.label}</span>
+                    {isActive && <ArrowLeft size={16} className="ml-auto rotate-180 opacity-40" />}
+                  </button>
+                );
+              })}
             </div>
           </aside>
 

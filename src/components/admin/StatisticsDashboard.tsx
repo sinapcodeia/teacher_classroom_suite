@@ -126,32 +126,32 @@ export default function StatisticsDashboard() {
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Top Quick Stats - Rediseño Minimalista/Premium */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8">
         <div 
-          onClick={() => setDrilldownData({title: "Todos los Estudiantes", students: stats.activeStudents})}
-          className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-outline-variant shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => setDrilldownData({title: "Población Estudiantil", students: stats.activeStudents})}
+          className="bg-white p-8 rounded-[2rem] border border-outline-variant/30 shadow-[0_10px_30px_rgba(0,0,0,0.04)] relative overflow-hidden group hover:shadow-2xl transition-all cursor-pointer border-b-4 border-b-blue-500"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-110 transition-transform"><Users size={60} /></div>
-          <p className="text-[9px] md:text-[10px] font-black text-on-surface-variant uppercase tracking-wider md:tracking-widest truncate">Población Total</p>
-          <p className="text-2xl md:text-3xl font-black text-primary mt-1 md:mt-2">{stats.total}</p>
-          <div className="mt-3 md:mt-4 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
-            <span className="text-[8px] font-black text-secondary uppercase tracking-widest truncate">Sincronizado</span>
+          <div className="absolute top-0 right-0 p-6 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Users size={80} /></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Población Total</p>
+          <p className="text-4xl font-black text-on-surface leading-none">{stats.total}</p>
+          <div className="mt-6 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Activos en Firestore</span>
           </div>
         </div>
 
         <div 
-          onClick={() => setDrilldownData({title: "Hombres y Mujeres", students: [...stats.womenList, ...stats.menList]})}
-          className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-outline-variant shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => setDrilldownData({title: "Distribución por Género", students: [...stats.womenList, ...stats.menList]})}
+          className="bg-white p-8 rounded-[2rem] border border-outline-variant/30 shadow-[0_10px_30px_rgba(0,0,0,0.04)] relative overflow-hidden group hover:shadow-2xl transition-all cursor-pointer border-b-4 border-b-indigo-500"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-110 transition-transform"><UserCheck size={60} /></div>
-          <p className="text-[9px] md:text-[10px] font-black text-on-surface-variant uppercase tracking-wider md:tracking-widest truncate">Género (H / M)</p>
-          <div className="flex items-baseline gap-2 mt-1 md:mt-2">
-            <p className="text-2xl md:text-3xl font-black text-on-surface">{stats.menList.length}</p>
-            <span className="text-[10px] font-bold text-outline-variant">H</span>
-            <span className="text-on-surface-variant/30 px-1">/</span>
-            <p className="text-2xl md:text-3xl font-black text-on-surface">{stats.womenList.length}</p>
-            <span className="text-[10px] font-bold text-pink-400">M</span>
+          <div className="absolute top-0 right-0 p-6 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><UserCheck size={80} /></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Equidad de Género</p>
+          <div className="flex items-baseline gap-3">
+            <p className="text-4xl font-black text-on-surface">{stats.menList.length}</p>
+            <span className="text-[10px] font-black text-slate-300">H</span>
+            <span className="text-slate-200 px-1 font-light text-2xl">|</span>
+            <p className="text-4xl font-black text-on-surface">{stats.womenList.length}</p>
+            <span className="text-[10px] font-black text-pink-400">M</span>
           </div>
         </div>
 
@@ -179,47 +179,50 @@ export default function StatisticsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
         
         {/* Performance Tiers */}
-        <div className="bg-white p-6 md:p-8 rounded-3xl border border-outline-variant shadow-md flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-             <h3 className="text-[10px] md:text-[11px] font-black text-on-surface uppercase tracking-widest flex items-center gap-2">
-               <BarChart3 size={16} className="text-primary" /> Rendimiento Global
-             </h3>
+        <div className="bg-white p-10 rounded-[2.5rem] border border-outline-variant/30 shadow-[0_20px_50px_rgba(0,0,0,0.05)] flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+             <div>
+               <h3 className="text-[11px] font-black text-on-surface uppercase tracking-[0.2em] flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500"><BarChart3 size={18} /></div>
+                 Rendimiento Académico
+               </h3>
+             </div>
           </div>
-          <div className="flex-1 flex flex-col justify-center space-y-5">
+          <div className="flex-1 flex flex-col justify-center space-y-6">
              <div 
                onClick={() => setDrilldownData({title: "Alumnos con Excelencia", students: stats.performance.excelencia})}
-               className="space-y-1.5 cursor-pointer hover:scale-[1.02] transition-transform p-2 -m-2 rounded-xl hover:bg-surface-container-low"
+               className="space-y-2 cursor-pointer hover:bg-slate-50 p-4 -m-4 rounded-[1.5rem] transition-all"
              >
-                <div className="flex justify-between text-[9px] md:text-[10px] font-black uppercase text-yellow-600">
-                   <span>Excelencia (4.5+)</span>
+                <div className="flex justify-between text-[10px] font-black uppercase text-amber-600">
+                   <span>Excelencia Académica</span>
                    <span>{stats.performance.excelencia.length} Alumnos</span>
                 </div>
-                <div className="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                   <div className="bg-yellow-400 h-full rounded-full" style={{ width: `${(stats.performance.excelencia.length/stats.total)*100}%` }}></div>
+                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                   <div className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(245,158,11,0.3)]" style={{ width: `${(stats.performance.excelencia.length/stats.total)*100}%` }}></div>
                 </div>
              </div>
              <div 
                onClick={() => setDrilldownData({title: "Alumnos en Promedio", students: stats.performance.promedio})}
-               className="space-y-1.5 cursor-pointer hover:scale-[1.02] transition-transform p-2 -m-2 rounded-xl hover:bg-surface-container-low"
+               className="space-y-2 cursor-pointer hover:bg-slate-50 p-4 -m-4 rounded-[1.5rem] transition-all"
              >
-                <div className="flex justify-between text-[9px] md:text-[10px] font-black uppercase text-primary">
-                   <span>Promedio (3.0 - 4.4)</span>
+                <div className="flex justify-between text-[10px] font-black uppercase text-blue-600">
+                   <span>Desempeño Promedio</span>
                    <span>{stats.performance.promedio.length} Alumnos</span>
                 </div>
-                <div className="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                   <div className="bg-primary h-full rounded-full" style={{ width: `${(stats.performance.promedio.length/stats.total)*100}%` }}></div>
+                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                   <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-full rounded-full transition-all duration-1000" style={{ width: `${(stats.performance.promedio.length/stats.total)*100}%` }}></div>
                 </div>
              </div>
              <div 
                onClick={() => setDrilldownData({title: "Alumnos en Riesgo", students: stats.performance.riesgo})}
-               className="space-y-1.5 cursor-pointer hover:scale-[1.02] transition-transform p-2 -m-2 rounded-xl hover:bg-surface-container-low"
+               className="space-y-2 cursor-pointer hover:bg-slate-50 p-4 -m-4 rounded-[1.5rem] transition-all"
              >
-                <div className="flex justify-between text-[9px] md:text-[10px] font-black uppercase text-error">
-                   <span>En Riesgo ({`<`} 3.0)</span>
+                <div className="flex justify-between text-[10px] font-black uppercase text-rose-600">
+                   <span>Riesgo Académico</span>
                    <span>{stats.performance.riesgo.length} Alumnos</span>
                 </div>
-                <div className="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                   <div className="bg-error h-full rounded-full" style={{ width: `${(stats.performance.riesgo.length/stats.total)*100}%` }}></div>
+                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                   <div className="bg-gradient-to-r from-rose-400 to-rose-600 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(225,29,72,0.3)]" style={{ width: `${(stats.performance.riesgo.length/stats.total)*100}%` }}></div>
                 </div>
              </div>
           </div>
