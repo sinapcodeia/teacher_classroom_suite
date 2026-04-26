@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
+  getFirestore,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -15,11 +16,10 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize once – safe for SSG/SSR builds (getApp() reuses existing instance)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Firestore with offline persistence (browser-only; silently falls back on server)
-let db: ReturnType<typeof initializeFirestore>;
+// Offline persistence — only runs in browser; falls back gracefully if already initialized
+let db: ReturnType<typeof getFirestore>;
 try {
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({
@@ -27,8 +27,6 @@ try {
     }),
   });
 } catch {
-  // initializeFirestore throws if called twice; fall back to default instance
-  const { getFirestore } = require("firebase/firestore");
   db = getFirestore(app);
 }
 
