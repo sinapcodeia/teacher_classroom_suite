@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { LayoutDashboard, Users, Radio, Settings, ShieldCheck, Calendar, BookOpen } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useApp } from "@/context/AppContext";
 
 export default function BottomNavBar() {
   const pathname = usePathname();
 
+  const { profile } = useApp();
+
   const navItems = [
     { label: "Inicio", icon: LayoutDashboard, path: "/" },
     { label: "Estudiantes", icon: Users, path: "/estudiantes" },
-    { label: "Clase en Vivo", icon: Radio, path: "/clase-en-vivo" },
-    { label: "Horario", icon: Calendar, path: "/horario" },
-    { label: "Currículo", icon: BookOpen, path: "/curriculo" },
-  ];
+    { label: "Clase", icon: Radio, path: "/clase-en-vivo", hideForSuper: true },
+    { label: "Horario", icon: Calendar, path: "/horario", hideForSuper: true },
+    { label: "Currículo", icon: BookOpen, path: "/curriculo", hideForSuper: true },
+  ].filter(item => !(profile.isSuperAdmin && item.hideForSuper));
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-outline-variant flex justify-around items-center h-20 px-4 z-50">

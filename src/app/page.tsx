@@ -71,14 +71,18 @@ export default function Home() {
     },
   ];
 
-  const quickActions = [
-    { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
-    { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
-    { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
-    ...(profile.isSuperAdmin
-      ? [{ label: "Panel Admin", icon: ShieldCheck, href: "/admin", color: "#f43f5e" }]
-      : []),
-  ];
+  const quickActions = profile.isSuperAdmin
+    ? [
+        { label: "Administración", icon: ShieldCheck, href: "/admin", color: "#f43f5e" },
+        { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#3b82f6" },
+        { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
+        { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
+      ]
+    : [
+        { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
+        { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
+        { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
+      ];
 
   return (
     <RoleGuard>
@@ -139,21 +143,30 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Live indicator */}
+                {/* Live indicator / Admin Button */}
                 <div className="shrink-0 flex flex-col items-end gap-3">
                   <div className="flex items-center gap-2 px-4 py-2 rounded-full"
                     style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}>
                     <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#34d399" }} />
                     <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "#34d399" }}>
-                      Sistema Activo
+                      {profile.isSuperAdmin ? "Consola Institucional" : "Sistema Activo"}
                     </span>
                   </div>
-                  <Link href="/clase-en-vivo"
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105"
-                    style={{ background: "#3b82f6", color: "#fff", boxShadow: "0 8px 24px rgba(59,130,246,0.4)" }}>
-                    <Zap size={16} />
-                    Clase en Vivo
-                  </Link>
+                  {profile.isSuperAdmin ? (
+                    <Link href="/admin"
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105"
+                      style={{ background: "#f43f5e", color: "#fff", boxShadow: "0 8px 24px rgba(244,63,94,0.4)" }}>
+                      <ShieldCheck size={16} />
+                      Panel de Control
+                    </Link>
+                  ) : (
+                    <Link href="/clase-en-vivo"
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105"
+                      style={{ background: "#3b82f6", color: "#fff", boxShadow: "0 8px 24px rgba(59,130,246,0.4)" }}>
+                      <Zap size={16} />
+                      Clase en Vivo
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -211,14 +224,14 @@ export default function Home() {
                   style={{ borderBottom: "1px solid rgba(226,232,240,0.8)" }}>
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                      style={{ background: "rgba(59,130,246,0.1)" }}>
-                      <Clock size={18} style={{ color: "#3b82f6" }} />
+                      style={{ background: profile.isSuperAdmin ? "rgba(139,92,246,0.1)" : "rgba(59,130,246,0.1)" }}>
+                      {profile.isSuperAdmin ? <BookOpen size={18} style={{ color: "#8b5cf6" }} /> : <Clock size={18} style={{ color: "#3b82f6" }} />}
                     </div>
                     <div>
                       <h2 className="text-[12px] font-black uppercase tracking-widest" style={{ color: "#0f172a" }}>
-                        Actividad del Día
+                        {profile.isSuperAdmin ? "Estructura Académica" : "Actividad del Día"}
                       </h2>
-                      <p className="text-[9px] font-semibold" style={{ color: "#94a3b8" }}>Horario activo</p>
+                      <p className="text-[9px] font-semibold" style={{ color: "#94a3b8" }}>{profile.isSuperAdmin ? "Grados y Materias" : "Horario activo"}</p>
                     </div>
                   </div>
                   <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full"
@@ -227,9 +240,26 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* Sessions */}
+                {/* Content: Schedule for Teachers, Summary for Admin */}
                 <div className="p-6 space-y-2">
-                  {todaySchedule.length > 0 ? todaySchedule.map((session, i) => (
+                  {profile.isSuperAdmin ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                           <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Total Grados</p>
+                           <p className="text-xl font-black text-slate-800">11 Niveles</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                           <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Materias Base</p>
+                           <p className="text-xl font-black text-slate-800">{subjects.length} Activas</p>
+                        </div>
+                      </div>
+                      <Link href="/admin" className="flex items-center justify-between p-4 rounded-2xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">
+                        <span className="text-[10px] font-black uppercase">Gestionar Datos Maestros</span>
+                        <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  ) : todaySchedule.length > 0 ? todaySchedule.map((session, i) => (
                     <Link key={i} href="/clase-en-vivo"
                       className="flex items-center gap-5 p-4 rounded-2xl group transition-all hover:bg-slate-50">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black shrink-0 ${session.color}`}>
@@ -254,13 +284,15 @@ export default function Home() {
                   )}
                 </div>
 
-                <div className="px-6 pb-6">
-                  <Link href="/horario"
-                    className="block text-center py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.01]"
-                    style={{ background: "rgba(59,130,246,0.07)", color: "#3b82f6" }}>
-                    Ver Horario Completo →
-                  </Link>
-                </div>
+                {!profile.isSuperAdmin && (
+                  <div className="px-6 pb-6">
+                    <Link href="/horario"
+                      className="block text-center py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.01]"
+                      style={{ background: "rgba(59,130,246,0.07)", color: "#3b82f6" }}>
+                      Ver Horario Completo →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
 

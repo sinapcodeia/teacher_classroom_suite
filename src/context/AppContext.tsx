@@ -257,7 +257,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (userDoc.exists()) {
             savedData = userDoc.data() as Partial<TeacherProfile>;
           } else {
-            // First login — create document
+            // Primer inicio de sesión — crear documento institucional para SuperAdmin
             const newDoc = {
               role: isSuperAdmin ? "RECTOR" : "DOCENTE",
               email: firebaseUser.email,
@@ -265,14 +265,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               isSuperAdmin,
               status: isSuperAdmin ? "ACTIVE" : "PENDING",
               acceptedTerms: false,
-              isProfileComplete: false,
+              // Los SuperAdmins no requieren completar el onboarding de docente
+              isProfileComplete: isSuperAdmin ? true : false,
               firstName: "",
               lastName: "",
               phone: "",
               teachingGrades: [],
               teachingCourses: [],
               teachingSubjectsList: [],
-              weeklySchedule: isSuperAdmin ? DEFAULT_SCHEDULE_BLOCKS : [],
+              // El SuperAdmin no tiene horario de clases (malla)
+              weeklySchedule: [],
               createdAt: new Date().toISOString(),
             };
             await setDoc(userDocRef, newDoc);
@@ -298,8 +300,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             teachingGrades: savedData.teachingGrades || [],
             teachingCourses: savedData.teachingCourses || [],
             teachingSubjectsList: savedData.teachingSubjectsList || [],
-            isProfileComplete: savedData.isProfileComplete || false,
-            weeklySchedule: savedData.weeklySchedule || (isSuperAdmin ? DEFAULT_SCHEDULE_BLOCKS : []),
+            // El SuperAdmin siempre tiene perfil completo y sin horario docente
+            isProfileComplete: isSuperAdmin ? true : (savedData.isProfileComplete || false),
+            weeklySchedule: isSuperAdmin ? [] : (savedData.weeklySchedule || []),
           };
 
           setProfile(builtProfile);

@@ -28,7 +28,7 @@ function TabBtn({ id, active, label, icon: Icon, onClick }: { id: Tab; active: T
 }
 
 export default function ConfiguracionPage() {
-  const { profile, updateProfile, students } = useApp();
+  const { profile, updateProfile, students, masterData } = useApp();
   const [tab, setTab] = useState<Tab>("perfil");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -50,10 +50,14 @@ export default function ConfiguracionPage() {
   const [editSlot, setEditSlot] = useState<{day: typeof DAYS[number]; start: string; end: string} | null>(null);
   const [slotForm, setSlotForm] = useState({ subject: "", grade: "6°", course: "" });
 
-  // Impresión
-  const [printCourse,  setPrintCourse]  = useState(courses[0] || "");
-  const [printGrade,   setPrintGrade]   = useState(grades[0]  || "");
-  const [printSubject, setPrintSubject] = useState(subjects[0] || "");
+  // Impresión - Si es SuperAdmin, usar datos maestros globales por defecto
+  const printCoursesList = profile.isSuperAdmin ? masterData.grades : courses;
+  const printGradesList  = profile.isSuperAdmin ? ALL_GRADES : grades;
+  const printSubjectsList = profile.isSuperAdmin ? masterData.subjects : subjects;
+
+  const [printCourse,  setPrintCourse]  = useState(printCoursesList[0] || "");
+  const [printGrade,   setPrintGrade]   = useState(printGradesList[0]  || "");
+  const [printSubject, setPrintSubject] = useState(printSubjectsList[0] || "");
 
   const teacherName = `${firstName} ${lastName}`.trim() || profile.name;
 
@@ -89,8 +93,8 @@ export default function ConfiguracionPage() {
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-6 p-1.5 bg-white rounded-2xl border border-gray-100 shadow-sm w-fit">
             <TabBtn id="perfil"    active={tab} label="Perfil"       icon={User}     onClick={setTab} />
-            <TabBtn id="carga"     active={tab} label="Carga Docente" icon={BookOpen} onClick={setTab} />
-            <TabBtn id="horario"   active={tab} label="Horario"      icon={Calendar} onClick={setTab} />
+            {!profile.isSuperAdmin && <TabBtn id="carga"     active={tab} label="Carga Docente" icon={BookOpen} onClick={setTab} />}
+            {!profile.isSuperAdmin && <TabBtn id="horario"   active={tab} label="Horario"      icon={Calendar} onClick={setTab} />}
             <TabBtn id="impresion" active={tab} label="Impresión"    icon={Printer}  onClick={setTab} />
           </div>
 
@@ -208,7 +212,7 @@ export default function ConfiguracionPage() {
                   <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Listado por Curso</p>
                     <select value={printCourse} onChange={e=>setPrintCourse(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none">
-                      {courses.map(c=><option key={c}>{c}</option>)}
+                      {printCoursesList.map(c=><option key={c}>{c}</option>)}
                     </select>
                     <button onClick={() => printStudentsByCourse(students as Parameters<typeof printStudentsByCourse>[0], printCourse, teacherName)}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase">
@@ -219,7 +223,7 @@ export default function ConfiguracionPage() {
                   <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Listado por Grado</p>
                     <select value={printGrade} onChange={e=>setPrintGrade(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none">
-                      {(grades.length ? grades : ALL_GRADES).map(g=><option key={g}>{g}</option>)}
+                      {printGradesList.map(g=><option key={g}>{g}</option>)}
                     </select>
                     <button onClick={() => printStudentsByGrade(students as Parameters<typeof printStudentsByGrade>[0], printGrade, teacherName)}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600 text-white rounded-xl text-[11px] font-black uppercase">
@@ -230,25 +234,27 @@ export default function ConfiguracionPage() {
                   <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Planilla de Asistencia</p>
                     <select value={printCourse} onChange={e=>setPrintCourse(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2 font-semibold focus:outline-none">
-                      {courses.map(c=><option key={c}>{c}</option>)}
+                      {printCoursesList.map(c=><option key={c}>{c}</option>)}
                     </select>
                     <select value={printSubject} onChange={e=>setPrintSubject(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none">
-                      {subjects.map(s=><option key={s}>{s}</option>)}
+                      {printSubjectsList.map(s=><option key={s}>{s}</option>)}
                     </select>
                     <button onClick={() => printAttendanceSheet(students as Parameters<typeof printAttendanceSheet>[0], printCourse, teacherName, printSubject)}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase">
                       <Printer size={14}/> Imprimir
                     </button>
                   </div>
-                  {/* Horario Semanal */}
-                  <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Mi Horario Semanal</p>
-                    <p className="text-xs text-gray-400 mb-4">{blocks.length} clases configuradas en el horario actual.</p>
-                    <button onClick={() => printWeeklySchedule(blocks, teacherName)}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-amber-600 text-white rounded-xl text-[11px] font-black uppercase">
-                      <Printer size={14}/> Imprimir Horario
-                    </button>
-                  </div>
+                  {/* Horario Semanal — Solo visible para docentes */}
+                  {!profile.isSuperAdmin && (
+                    <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Mi Horario Semanal</p>
+                      <p className="text-xs text-gray-400 mb-4">{blocks.length} clases configuradas en el horario actual.</p>
+                      <button onClick={() => printWeeklySchedule(blocks, teacherName)}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-amber-600 text-white rounded-xl text-[11px] font-black uppercase">
+                        <Printer size={14}/> Imprimir Horario
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

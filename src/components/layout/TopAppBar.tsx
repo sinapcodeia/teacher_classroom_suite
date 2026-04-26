@@ -44,13 +44,17 @@ export default function TopAppBar() {
   const allLinks = [
     { label: "Dashboard", path: "/", roles: ["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"] },
     { label: "Estudiantes", path: "/estudiantes", roles: ["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"] },
-    { label: "Currículo", path: "/curriculo", roles: ["RECTOR", "COORDINADOR", "DOCENTE"] },
-    { label: "Clase", path: "/clase-en-vivo", roles: ["DOCENTE", "RECTOR"] },
-    { label: "Horario", path: "/horario", roles: ["RECTOR", "COORDINADOR", "DOCENTE"] },
+    { label: "Currículo", path: "/curriculo", roles: ["COORDINADOR", "DOCENTE"], hideForSuper: true },
+    { label: "Clase", path: "/clase-en-vivo", roles: ["DOCENTE"], hideForSuper: true },
+    { label: "Horario", path: "/horario", roles: ["COORDINADOR", "DOCENTE"], hideForSuper: true },
     { label: "Reportes", path: "/reportes", roles: ["RECTOR", "COORDINADOR", "BIENESTAR"] },
   ];
 
-  const navLinks = allLinks.filter(link => link.roles.includes(profile.role));
+  const navLinks = allLinks.filter(link => {
+    const hasRole = link.roles.includes(profile.role);
+    if (profile.isSuperAdmin && link.hideForSuper) return false;
+    return hasRole;
+  });
   const canSeeAdmin = profile.role === "RECTOR" || profile.role === "COORDINADOR";
 
   const initials = (profile.name || "U")
