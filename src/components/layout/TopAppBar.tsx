@@ -2,16 +2,12 @@
 
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, LogOut, ChevronDown, UserCheck, Search, Bell, Command } from "lucide-react";
+import { ShieldCheck, LogOut, ChevronDown, Search, Bell, Command } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
-const ROLE_LABELS: Record<string, string> = {
-  RECTOR: "Rector",
-  COORDINADOR: "Coordinador",
-  BIENESTAR: "Bienestar",
-  DOCENTE: "Docente",
-};
+
 
 export default function TopAppBar() {
   const { profile, user, logout } = useApp();
@@ -150,9 +146,11 @@ export default function TopAppBar() {
             className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-2xl bg-surface-container border border-outline-variant/10 hover:border-primary/30 transition-all"
           >
             {user?.photoURL ? (
-              <img
+              <Image
                 src={user.photoURL}
                 alt="Avatar"
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-xl object-cover shadow-sm"
                 referrerPolicy="no-referrer"
               />
