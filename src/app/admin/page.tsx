@@ -21,7 +21,7 @@ export default function AdminPage() {
   const { 
     masterData, updateMasterData, students, setStudents, 
     profile, setProfile, allUsers, refreshUsers, updateUserRole, createEmailUser,
-    importStudents, removeStudent, removeMasterItem
+    importStudents, removeStudent, removeMasterItem, updateStudent, updateMasterItem
   } = useApp();
 
   
