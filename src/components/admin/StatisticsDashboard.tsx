@@ -54,29 +54,44 @@ export default function StatisticsDashboard() {
 
     const avgAge = agesList.length ? agesList.reduce((a, b) => a + b, 0) / agesList.length : 0;
 
-    // Distribución por Grado y Curso con información de género
-    const grades: Record<string, { count: number, students: any[] }> = {};
-    const courses: Record<string, { total: number, m: number, f: number, students: any[] }> = {};
-    
-    activeStudents.forEach(s => {
-      if (!grades[s.grado]) grades[s.grado] = { count: 0, students: [] };
-      grades[s.grado].count++;
-      grades[s.grado].students.push(s);
-      
-      const courseKey = `${s.grado}-${s.curso}`;
-      if (!courses[courseKey]) courses[courseKey] = { total: 0, m: 0, f: 0, students: [] };
-      courses[courseKey].total++;
-      courses[courseKey].students.push(s);
-      if (s.genero === "M") courses[courseKey].m++;
-      if (s.genero === "F") courses[courseKey].f++;
+    // --- NUEVA LÓGICA DE NIVELES (Primaria 0-5 vs Bachillerato 6-11) ---
+    const primaria = activeStudents.filter(s => {
+      const g = parseInt(s.grado);
+      return !isNaN(g) && g >= 0 && g <= 5;
+    });
+    const bachillerato = activeStudents.filter(s => {
+      const g = parseInt(s.grado);
+      return !isNaN(g) && g > 5;
     });
 
-    let topFemaleCourse = { course: "-", ratio: 0, count: 0, students: [] as any[] };
-    Object.entries(courses).forEach(([c, data]) => {
-      const ratio = data.f / data.total;
-      if (ratio > topFemaleCourse.ratio && data.total > 5) {
-        topFemaleCourse = { course: c, ratio, count: data.f, students: data.students.filter(s => s.genero === "F") };
-      }
+    const primariaStats = {
+      total: primaria.length,
+      m: primaria.filter(s => s.genero === "M").length,
+      f: primaria.filter(s => s.genero === "F").length
+    };
+    const bachilleratoStats = {
+      total: bachillerato.length,
+      m: bachillerato.filter(s => s.genero === "M").length,
+      f: bachillerato.filter(s => s.genero === "F").length
+    };
+
+    // Detalle por Grado Individual
+    const gradeDetails: Record<string, { total: number, m: number, f: number, students: any[] }> = {};
+    activeStudents.forEach(s => {
+      const g = s.grado || "N/A";
+      if (!gradeDetails[g]) gradeDetails[g] = { total: 0, m: 0, f: 0, students: [] };
+      gradeDetails[g].total++;
+      gradeDetails[g].students.push(s);
+      if (s.genero === "M") gradeDetails[g].m++;
+      if (s.genero === "F") gradeDetails[g].f++;
+    });
+
+    const sortedGrades = Object.entries(gradeDetails).sort((a, b) => {
+      const ga = parseInt(a[0]);
+      const gb = parseInt(b[0]);
+      if (isNaN(ga)) return 1;
+      if (isNaN(gb)) return -1;
+      return ga - gb;
     });
 
     const performance = {
@@ -108,7 +123,9 @@ export default function StatisticsDashboard() {
       menList, womenList, 
       avgAge: avgAge.toFixed(1), 
       majorities: ageDemographics.adultos,
-      grades, courses, topFemaleCourse, ageDemographics, 
+      primariaStats, bachilleratoStats, 
+      sortedGrades,
+      topFemaleCourse, ageDemographics, 
       performance, attendanceRisk, birthdaysToday,
       lowPerformance: performance.riesgo.length
     };
@@ -175,8 +192,91 @@ export default function StatisticsDashboard() {
           <p className="text-[8px] font-bold text-error/60 mt-3 md:mt-4 uppercase tracking-wider truncate">Bajo promedio mín.</p>
         </div>
       </div>
-            {/* Middle Advanced Analytics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
+            {/* NIVEL ACADÉMICO GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Primaria Stats Card */}
+        <div className="bg-white p-10 rounded-[3rem] border border-outline-variant/30 shadow-xl relative overflow-hidden group">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-16 h-16 rounded-[1.5rem] bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <GraduationCap size={32} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-on-surface">Sección Primaria</h3>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Grados 0° a 5°</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6 mb-8">
+              <div className="text-center p-4 bg-emerald-50 rounded-2xl">
+                 <p className="text-[9px] font-black text-emerald-700 uppercase mb-1">Total</p>
+                 <p className="text-3xl font-black text-on-surface">{stats.primariaStats.total}</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-2xl">
+                 <p className="text-[9px] font-black text-blue-700 uppercase mb-1">Hombres</p>
+                 <p className="text-3xl font-black text-on-surface">{stats.primariaStats.m}</p>
+              </div>
+              <div className="text-center p-4 bg-pink-50 rounded-2xl">
+                 <p className="text-[9px] font-black text-pink-700 uppercase mb-1">Mujeres</p>
+                 <p className="text-3xl font-black text-on-surface">{stats.primariaStats.f}</p>
+              </div>
+            </div>
+
+            <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex border border-slate-200">
+               <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${(stats.primariaStats.m/stats.primariaStats.total)*100}%` }} />
+               <div className="bg-pink-500 h-full transition-all duration-1000" style={{ width: `${(stats.primariaStats.f/stats.primariaStats.total)*100}%` }} />
+            </div>
+            <div className="flex justify-between mt-3 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+               <span>Masculino {((stats.primariaStats.m/stats.primariaStats.total)*100 || 0).toFixed(0)}%</span>
+               <span>Femenino {((stats.primariaStats.f/stats.primariaStats.total)*100 || 0).toFixed(0)}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bachillerato Stats Card */}
+        <div className="bg-white p-10 rounded-[3rem] border border-outline-variant/30 shadow-xl relative overflow-hidden group">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
+                <Award size={32} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-on-surface">Secundaria / Bach.</h3>
+                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Grados 6° a 11°</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6 mb-8">
+              <div className="text-center p-4 bg-indigo-50 rounded-2xl">
+                 <p className="text-[9px] font-black text-indigo-700 uppercase mb-1">Total</p>
+                 <p className="text-3xl font-black text-on-surface">{stats.bachilleratoStats.total}</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-2xl">
+                 <p className="text-[9px] font-black text-blue-700 uppercase mb-1">Hombres</p>
+                 <p className="text-3xl font-black text-on-surface">{stats.bachilleratoStats.m}</p>
+              </div>
+              <div className="text-center p-4 bg-pink-50 rounded-2xl">
+                 <p className="text-[9px] font-black text-pink-700 uppercase mb-1">Mujeres</p>
+                 <p className="text-3xl font-black text-on-surface">{stats.bachilleratoStats.f}</p>
+              </div>
+            </div>
+
+            <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex border border-slate-200">
+               <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${(stats.bachilleratoStats.m/stats.bachilleratoStats.total)*100}%` }} />
+               <div className="bg-pink-500 h-full transition-all duration-1000" style={{ width: `${(stats.bachilleratoStats.f/stats.bachilleratoStats.total)*100}%` }} />
+            </div>
+            <div className="flex justify-between mt-3 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+               <span>Masculino {((stats.bachilleratoStats.m/stats.bachilleratoStats.total)*100 || 0).toFixed(0)}%</span>
+               <span>Femenino {((stats.bachilleratoStats.f/stats.bachilleratoStats.total)*100 || 0).toFixed(0)}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Middle Advanced Analytics Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         
         {/* Performance Tiers */}
         <div className="bg-white p-10 rounded-[2.5rem] border border-outline-variant/30 shadow-[0_20px_50px_rgba(0,0,0,0.05)] flex flex-col">
@@ -228,72 +328,52 @@ export default function StatisticsDashboard() {
           </div>
         </div>
 
-        {/* Age Demographics */}
-        <div className="bg-white p-6 md:p-8 rounded-3xl border border-outline-variant shadow-md flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-             <h3 className="text-[10px] md:text-[11px] font-black text-on-surface uppercase tracking-widest flex items-center gap-2">
-               <PieChart size={16} className="text-secondary" /> Demografía de Edad
-             </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4 flex-1">
-             <div 
-               onClick={() => setDrilldownData({title: "Población Infantil", students: stats.ageDemographics.niños})}
-               className="bg-surface-container-low hover:bg-surface-container p-4 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
-             >
-                <span className="text-[9px] font-bold text-on-surface-variant uppercase mb-1">Niños (0-11)</span>
-                <span className="text-2xl font-black text-on-surface">{stats.ageDemographics.niños.length}</span>
-             </div>
-             <div 
-               onClick={() => setDrilldownData({title: "Población Adolescente", students: stats.ageDemographics.adolescentes})}
-               className="bg-surface-container-low hover:bg-surface-container p-4 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
-             >
-                <span className="text-[9px] font-bold text-on-surface-variant uppercase mb-1">Adoles. (12-14)</span>
-                <span className="text-2xl font-black text-on-surface">{stats.ageDemographics.adolescentes.length}</span>
-             </div>
-             <div 
-               onClick={() => setDrilldownData({title: "Población Joven", students: stats.ageDemographics.jovenes})}
-               className="bg-surface-container-low hover:bg-surface-container p-4 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
-             >
-                <span className="text-[9px] font-bold text-on-surface-variant uppercase mb-1">Jóvenes (15-17)</span>
-                <span className="text-2xl font-black text-on-surface">{stats.ageDemographics.jovenes.length}</span>
-             </div>
-             <div 
-               onClick={() => setDrilldownData({title: "Población Adulta", students: stats.ageDemographics.adultos})}
-               className="bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
-             >
-                <span className="text-[9px] font-bold text-secondary uppercase mb-1">Adultos (18+)</span>
-                <span className="text-2xl font-black text-secondary">{stats.ageDemographics.adultos.length}</span>
-             </div>
-          </div>
-        </div>
-
-        {/* Absence Risk & AI Insights */}
-        <div className="bg-surface-container-low p-6 md:p-8 rounded-3xl border border-outline-variant/50 shadow-inner flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03]"><AlertCircle size={100} /></div>
-          
-          <div className="mb-6">
-             <h3 className="text-[10px] md:text-[11px] font-black text-on-surface uppercase tracking-widest flex items-center gap-2">
-               <UserX size={16} className="text-error" /> Top Ausentismo
-             </h3>
-             <p className="text-[8px] uppercase tracking-widest font-bold opacity-50 mt-1">Vigilancia Prioritaria</p>
-          </div>
-          
-          <div className="flex-1 space-y-3 relative z-10">
-             {stats.attendanceRisk.length > 0 ? stats.attendanceRisk.map((s, i) => (
-                <div key={i} className="flex items-center justify-between bg-white/60 p-3 rounded-xl border border-white/50 backdrop-blur-sm">
-                   <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-error/10 text-error flex items-center justify-center font-black text-[10px]">{s.attNum}%</div>
-                      <div>
-                         <p className="text-[10px] font-black uppercase leading-tight truncate max-w-[120px]">{s.primerNombre} {s.primerApellido}</p>
-                         <p className="text-[8px] font-bold opacity-60 uppercase">Grado {s.grado} - {s.curso}</p>
-                      </div>
-                   </div>
-                   <button onClick={() => setSelectedStudent(s)} className="p-2 bg-white rounded-lg shadow-sm hover:bg-surface-container transition-colors"><ChevronRight size={14}/></button>
-                </div>
-             )) : (
-                <div className="h-full flex items-center justify-center opacity-40 text-[10px] font-black uppercase">Sin Riesgos Detectados</div>
-             )}
-          </div>
+        {/* Detailed Population per Grade */}
+        <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] border border-outline-variant/30 shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
+           <div className="flex items-center justify-between mb-8">
+              <h3 className="text-[11px] font-black text-on-surface uppercase tracking-[0.2em] flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500"><Users size={18} /></div>
+                 Población por Grado Individual
+              </h3>
+           </div>
+           
+           <div className="overflow-x-auto">
+             <table className="w-full">
+               <thead>
+                 <tr className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+                   <th className="pb-4 text-left">Grado</th>
+                   <th className="pb-4 text-center">Total</th>
+                   <th className="pb-4 text-center">Masculino</th>
+                   <th className="pb-4 text-center">Femenino</th>
+                   <th className="pb-4 text-right">Detalle</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {stats.sortedGrades.map(([grado, data]) => (
+                   <tr key={grado} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+                     <td className="py-4 font-black text-on-surface text-sm uppercase italic">Grado {grado}°</td>
+                     <td className="py-4 text-center">
+                        <span className="px-3 py-1 bg-slate-100 rounded-lg text-[11px] font-black text-slate-600">{data.total}</span>
+                     </td>
+                     <td className="py-4 text-center">
+                        <span className="text-[11px] font-bold text-blue-600">{data.m}</span>
+                     </td>
+                     <td className="py-4 text-center">
+                        <span className="text-[11px] font-bold text-pink-600">{data.f}</span>
+                     </td>
+                     <td className="py-4 text-right">
+                        <button 
+                          onClick={() => setDrilldownData({title: `Estudiantes Grado ${grado}°`, students: data.students})}
+                          className="p-2 hover:bg-on-surface hover:text-white rounded-xl transition-all"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
         </div>
       </div>
 
