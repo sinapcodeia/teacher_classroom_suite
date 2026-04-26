@@ -323,8 +323,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* NEXT CLASS CARD */}
-              {schedule[0] && (
+              {/* NEXT CLASS CARD — Solo para docentes */}
+              {schedule[0] && !profile.isSuperAdmin && (
                 <div className="rounded-[2rem] p-7 relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg, #0f172a, #1e3a8a)",
@@ -348,30 +348,77 @@ export default function Home() {
                 </div>
               )}
 
-              {/* SUPER ADMIN PANEL */}
+              {/* GLOBAL MONITOR — Solo para SuperAdmin */}
               {profile.isSuperAdmin && (
-                <div className="rounded-[2rem] p-6"
+                <div className="rounded-[2rem] p-7 relative overflow-hidden"
                   style={{
-                    background: "linear-gradient(135deg, #fff1f2, #ffe4e6)",
-                    border: "1px solid rgba(244,63,94,0.2)",
-                    boxShadow: "0 4px 24px rgba(244,63,94,0.08)",
+                    background: "linear-gradient(135deg, #0f172a, #1e293b)",
+                    boxShadow: "0 16px 48px rgba(15,23,42,0.25)",
+                    border: "1px solid rgba(255,255,255,0.05)"
                   }}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ background: "rgba(244,63,94,0.15)" }}>
-                      <ShieldCheck size={20} style={{ color: "#f43f5e" }} />
-                    </div>
+                  <div className="flex items-center justify-between mb-6">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "#f43f5e" }}>
-                        Panel Master
-                      </p>
-                      <p className="text-[9px] font-bold" style={{ color: "#fda4af" }}>Acceso Total</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.3em] mb-1 text-blue-400">Monitor Global</p>
+                      <h4 className="text-xl font-black uppercase tracking-tight italic text-white">Estado del Sistema</h4>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase">
+                      Online
                     </div>
                   </div>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Sincronización Cloud</span>
+                      <span className="text-[10px] font-black text-white">ACTIVA</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                       <div className="bg-blue-500 h-full w-[94%] animate-pulse" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Uso de Almacenamiento</span>
+                      <span className="text-[10px] font-black text-white">12%</span>
+                    </div>
+                  </div>
+
                   <Link href="/admin"
-                    className="block text-center py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.01]"
-                    style={{ background: "rgba(244,63,94,0.12)", color: "#f43f5e" }}>
-                    Gestionar Usuarios →
+                    className="flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-white/10 border border-white/10 text-white">
+                    Ver Logs del Sistema <ArrowRight size={14} />
+                  </Link>
+                </div>
+              )}
+
+              {/* SUPER ADMIN PANEL */}
+              {profile.isSuperAdmin && (
+                <div className="rounded-[2rem] p-8 relative overflow-hidden group"
+                  style={{
+                    background: "linear-gradient(135deg, #fff, #fef2f2)",
+                    border: "2px solid #fee2e2",
+                    boxShadow: "0 20px 40px rgba(244,63,94,0.12)",
+                  }}>
+                  {/* Decorative element */}
+                  <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/5 rounded-full group-hover:scale-150 transition-transform duration-700" />
+                  
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
+                      style={{ background: "linear-gradient(135deg, #f43f5e, #e11d48)", color: "#fff" }}>
+                      <ShieldCheck size={28} />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-black uppercase tracking-widest text-rose-600">
+                        Acceso de Control MASTER
+                      </p>
+                      <p className="text-[9px] font-bold text-rose-400 uppercase tracking-tighter">Nivel Institucional Máximo</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-[11px] font-medium text-slate-500 leading-relaxed mb-6">
+                    Usted tiene privilegios totales sobre la base de datos, gestión de usuarios y configuraciones maestras del colegio.
+                  </p>
+
+                  <Link href="/admin"
+                    className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all hover:shadow-xl hover:shadow-rose-500/20 active:scale-95"
+                    style={{ background: "#f43f5e", color: "#fff" }}>
+                    Gestionar Usuarios e Infraestructura →
                   </Link>
                 </div>
               )}
