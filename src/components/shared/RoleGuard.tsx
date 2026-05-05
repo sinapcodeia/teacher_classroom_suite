@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Image from "next/image";
 import { useApp } from "@/context/AppContext";
 import {
   Loader2, ShieldX, ShieldCheck, LogOut,
   FileText, CheckCircle2, Clock
 } from "lucide-react";
-import OnboardingWizard from "@/components/shared/OnboardingWizard";
-
 
 type Role = "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE";
 
@@ -19,17 +18,17 @@ interface RoleGuardProps {
 
 // ── Paleta de la pantalla oscura (síncrona con globals.css) ──
 const D = {
-  bg:           "#040c1a",
-  surface:      "#0f172a",
-  surface2:     "#1e293b",
-  border:       "rgba(255,255,255,0.1)",
-  borderSoft:   "rgba(255,255,255,0.06)",
-  text:         "#ffffff",
-  textMuted:    "rgba(255,255,255,0.55)",
-  textFaint:    "rgba(255,255,255,0.28)",
-  primary:      "#1a56db",
-  primaryLight: "#93c5fd",
-  success:      "#4ade80",
+  bg:           "var(--dark-bg)",
+  surface:      "var(--dark-surface)",
+  surface2:     "var(--dark-surface-2)",
+  border:       "var(--dark-border)",
+  borderSoft:   "var(--dark-border-soft)",
+  text:         "var(--dark-text)",
+  textMuted:    "var(--dark-text-muted)",
+  textFaint:    "var(--dark-text-faint)",
+  primary:      "var(--color-primary)",
+  primaryLight: "var(--color-primary-container)",
+  success:      "var(--color-success-text)",
   successBg:    "rgba(22,101,52,0.25)",
   successBorder:"rgba(74,222,128,0.3)",
   warning:      "#fbbf24",
@@ -40,13 +39,25 @@ const D = {
 export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const { user, authLoading, profile, logout, acceptTerms } = useApp();
   const router = useRouter();
+  const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [accepting, setAccepting] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) router.replace("/login");
-  }, [user, authLoading, router]);
+    if (!authLoading && !user) {
+      router.replace("/login");
+      return;
+    }
+    
+    // ONBOARDING CONDICIONAL (GUARD)
+    if (user && profile && profile.acceptedTerms && !profile.isSuperAdmin && profile.status === "ACTIVE") {
+      const isComplete = profile.isProfileComplete && profile.weeklySchedule && profile.weeklySchedule.length > 0;
+      if (!isComplete && pathname !== "/configuracion") {
+        router.replace("/configuracion");
+      }
+    }
+  }, [user, authLoading, profile, pathname, router]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
@@ -65,7 +76,9 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     return (
       <div style={{ minHeight: "100vh", background: D.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: D.primary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, color: "#fff" }}>TD</div>
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.2)", position: "relative" }}>
+            <Image src="/logo.png" alt="Logo" fill style={{ objectFit: "contain", padding: "10%" }} priority />
+          </div>
           <Loader2 size={22} className="animate-spin" style={{ color: D.primaryLight }} />
           <p style={{ color: D.textFaint, fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase" }}>Verificando sesión...</p>
         </div>
@@ -194,9 +207,20 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     );
   }
 
-  // ── 2.5 ONBOARDING WIZARD (perfil incompleto) ───────────────
-  if (profile.acceptedTerms && !profile.isProfileComplete) {
-    return <OnboardingWizard />;
+  // ── 2.5 REDIRIGIENDO A CONFIGURACIÓN (horario incompleto) ───────────────────
+  // El useEffect ya maneja la redirección. Mostramos spinner mientras ocurre.
+  // IMPORTANTE: si ya estamos en /configuracion, dejamos pasar para que el docente pueda editar.
+  if (profile.acceptedTerms && !profile.isSuperAdmin && profile.status === "ACTIVE" &&
+      (!profile.isProfileComplete || !profile.weeklySchedule || profile.weeklySchedule.length === 0) &&
+      pathname !== "/configuracion") {
+    return (
+      <div style={{ minHeight: "100vh", background: D.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <Loader2 size={22} className="animate-spin" style={{ color: D.primaryLight }} />
+          <p style={{ color: D.textFaint, fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase" }}>Redirigiendo a configuración...</p>
+        </div>
+      </div>
+    );
   }
 
   // ── 3. PENDIENTE DE AUTORIZACIÓN ────────────────────────────
@@ -244,15 +268,15 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   // ── 4. ACCESO DENEGADO POR ROL ──────────────────────────────
   if (allowedRoles && !allowedRoles.includes(profile.role as Role)) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f8f9ff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 32 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 20, background: "rgba(186,26,26,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <ShieldX size={36} style={{ color: "#ba1a1a" }} />
+      <div style={{ minHeight: "100vh", background: "var(--color-background)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 32 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: "var(--color-error-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <ShieldX size={36} style={{ color: "var(--color-error)" }} />
         </div>
         <div style={{ textAlign: "center" }}>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: "#121c28", textTransform: "uppercase", margin: "0 0 8px" }}>Acceso Denegado</h1>
-          <p style={{ fontSize: 14, color: "#757684", margin: 0 }}>Tu rol <strong style={{ color: "#1a56db" }}>{profile.role}</strong> no tiene permisos para esta sección.</p>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: "var(--color-on-background)", textTransform: "uppercase", margin: "0 0 8px" }}>Acceso Denegado</h1>
+          <p style={{ fontSize: 14, color: "var(--color-outline)", margin: 0 }}>Tu rol <strong style={{ color: "var(--color-primary)" }}>{profile.role}</strong> no tiene permisos para esta sección.</p>
         </div>
-        <button onClick={() => router.back()} style={{ padding: "12px 28px", background: "#1a56db", border: "none", borderRadius: 12, color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}>
+        <button onClick={() => router.back()} style={{ padding: "12px 28px", background: "var(--color-primary)", border: "none", borderRadius: 12, color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}>
           Volver
         </button>
       </div>

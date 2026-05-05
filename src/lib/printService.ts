@@ -4,6 +4,8 @@
  * No external PDF library needed — browser Print to PDF works perfectly.
  */
 
+import { normalizeGrade } from "@/context/AppContext";
+
 interface Student {
   primerNombre: string;
   segundoNombre?: string;
@@ -112,7 +114,7 @@ export function printStudentsByGrade(
   grade: string,
   teacherName: string
 ) {
-  const list = students.filter(s => s.grado === grade && s.isActive !== false)
+  const list = students.filter(s => normalizeGrade(s.grado) === grade && s.isActive !== false)
     .sort((a, b) => a.curso.localeCompare(b.curso) || a.primerApellido.localeCompare(b.primerApellido));
 
   const rows = list.map((s, i) => `

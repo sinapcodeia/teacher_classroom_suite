@@ -3,7 +3,44 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc, writeBatch } from "firebase/firestore";
+import { 
+  doc, getDoc, setDoc, collection, getDocs, updateDoc, 
+  writeBatch, onSnapshot, query, where 
+} from "firebase/firestore";
+
+// ── NORMALIZACIÓN DE GRADOS ────────────────────────────────────────────────────
+// Convierte cualquier formato de grado del CSV al formato estándar del catálogo.
+// Ej: "6", "SEXTO", "6to" → "6°" | "PRIMARIA", "0", "PRIM" → "PRIMARIA"
+export function normalizeGrade(raw: string | undefined | null): string {
+  if (!raw) return "0°";
+  const s = raw.toString().trim().toUpperCase();
+
+  // Ya tiene el formato correcto
+  if (s.endsWith("°") || s === "PRIMARIA" || s === "JARDÍN" || s === "PREESCOLAR" || s === "KÍNDER" || s === "TRANSICIÓN") return s;
+
+  // Mapeo numérico
+  const numMatch = s.match(/^(\d+)/);
+  if (numMatch) {
+    const n = parseInt(numMatch[1]);
+    if (n === 0) return "PRIMARIA";
+    return `${n}°`;
+  }
+
+  // Mapeo textual
+  const wordMap: Record<string, string> = {
+    CERO: "PRIMARIA", PRIM: "PRIMARIA", PRIMERO: "1°", SEGUNDO: "2°",
+    TERCERO: "3°", CUARTO: "4°", QUINTO: "5°", SEXTO: "6°",
+    SEPTIMO: "7°", SÉPTIMO: "7°", OCTAVO: "8°", NOVENO: "9°",
+    DECIMO: "10°", DÉCIMO: "10°", ONCE: "11°", UNDECIMO: "11°", UNDÉCIMO: "11°",
+    TRANSICION: "PRIMARIA", JARDIN: "PRIMARIA", KINDER: "PRIMARIA",
+  };
+  for (const [key, val] of Object.entries(wordMap)) {
+    if (s.includes(key)) return val;
+  }
+
+  // Fallback: retorna tal cual en mayúsculas
+  return s;
+}
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +54,17 @@ export interface ScheduleBlock {
   course: string;     // "5-1", "6A"
   color?: string;
 }
+
+export interface AgendaNote {
+  id: string;
+  date: string;
+  course: string;
+  subject: string;
+  type: "TASK" | "NO_CLASS" | "GENERAL";
+  content: string;
+  isCompleted?: boolean;
+}
+
 
 interface Subject {
   id: string;
@@ -39,10 +87,12 @@ interface Student {
   genero: string;
   avgGrade: number;
   attendance: string;
+  attendanceRecord?: Record<string, string>;
   present?: boolean;
   acudienteNombre?: string;
   acudienteTelefono?: string;
   isActive?: boolean;
+  grades?: { id: string, title: string, score: number, type: 'activity' | 'participation', date: string }[];
 }
 
 // Legacy format kept for backward-compat on some views
@@ -124,6 +174,7 @@ interface AppContextType {
   importStudents: (incoming: Omit<Student, "id">[]) => Promise<void>;
   removeStudent: (id: string) => Promise<void>;
   updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
+  addGrade: (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation', date: string }) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
   updateMasterItem: (key: keyof MasterData, oldItem: string, newItem: string) => void;
@@ -135,6 +186,9 @@ interface AppContextType {
   setSchedule: (schedule: ScheduleEntry[]) => void;
   sessionNotes: string;
   setSessionNotes: (notes: string) => void;
+  agendaNotes: AgendaNote[];
+  addAgendaNote: (note: Omit<AgendaNote, "id">) => Promise<void>;
+  updateAgendaNote: (id: string, updates: Partial<AgendaNote>) => Promise<void>;
   // USER MANAGEMENT
   allUsers: AppUser[];
   refreshUsers: () => Promise<void>;
@@ -143,6 +197,7 @@ interface AppContextType {
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   acceptTerms: () => Promise<void>;
+  saveDailyAttendance: (dateStr: string, records: Record<string, string>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -212,9 +267,10 @@ const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
   { id:"s14", day:"MIÉRCOLES", startTime:"12:40", endTime:"13:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
 
   { id:"s15", day:"JUEVES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-amber-100 text-amber-900 border-amber-200" },
+  { id:"s15b",day:"JUEVES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-amber-100 text-amber-900 border-amber-200" },
   { id:"s16", day:"JUEVES",    startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s17", day:"JUEVES",    startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s18", day:"JUEVES",    startTime:"12:40", endTime:"13:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s17", day:"JUEVES",    startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s18", day:"JUEVES",    startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
 
   { id:"s19", day:"VIERNES",   startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
   { id:"s20", day:"VIERNES",   startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
@@ -230,6 +286,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [sessionNotes, setSessionNotes] = useState("");
+  const [agendaNotes, setAgendaNotes] = useState<AgendaNote[]>([]);
   const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
@@ -237,7 +294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     subjects: ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
     grades: ["PRIMARIA", "6°", "7°", "8°", "9°", "10°", "11°"],
     teachers: ["ANTONIO RODRIGUEZ"],
-    courses: ["5-1", "5-2", "6-3", "6-6", "7-2", "7-3", "7-4", "8-2", "8-3", "9-2", "9-4"],
+    courses: ["5-1", "5-2", "6", "6-3", "6-6", "7-2", "7-3", "7-4", "8-2", "8-3", "9-2", "9-4"],
   });
 
   const [subjects, setSubjects] = useState<Subject[]>([
@@ -295,7 +352,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           // ── AUTO-PATCH: docenciainformatica2025@gmail.com ──────────────────
           if (firebaseUser.email === "docenciainformatica2025@gmail.com" && (!savedData.weeklySchedule || savedData.weeklySchedule.length === 0)) {
-            console.log("Applying official schedule for docenciainformatica2025...");
             savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
             savedData.isProfileComplete = true;
             savedData.firstName = "JESUS ANTONIO";
@@ -337,15 +393,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setSchedule(blocksToEntries(builtProfile.weeklySchedule));
           }
 
-          try {
-            const studentsSnap = await getDocs(collection(db, "students"));
-            const firestoreStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
-            if (firestoreStudents.length > 0) setStudents(firestoreStudents);
-          } catch (err) {
-            console.warn("No se pudieron cargar estudiantes:", err);
-          }
+          // ── REAL-TIME STUDENTS SYNC ──────────────────────────────────────────
+          // ── REAL-TIME STUDENTS SYNC (Optimized Query) ────────────────────────
+          const studentsQuery = query(collection(db, "students"), where("isActive", "==", true));
+          
+          const unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
+            const firestoreStudents = snap.docs.map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                ...data,
+                grado: normalizeGrade(data.grado as string),
+                curso: (data.curso || "").toString().trim().toUpperCase(),
+              } as Student;
+            });
+            setStudents(firestoreStudents);
+          }, (err) => {
+            console.warn("Error en tiempo real (estudiantes):", err);
+          });
+
+          // ── REAL-TIME AGENDA SYNC (Recent Only) ────────────────────────────
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const agendaQuery = query(
+            collection(db, "agendaNotes"), 
+            where("date", ">=", thirtyDaysAgo.toISOString())
+          );
+
+          const unsubscribeAgenda = onSnapshot(agendaQuery, (snap) => {
+            const notes = snap.docs.map(d => ({ id: d.id, ...d.data() } as AgendaNote));
+            setAgendaNotes(notes);
+          }, (err) => {
+            console.warn("Error en tiempo real (agenda):", err);
+          });
 
           setUser(firebaseUser);
+          
+          return () => {
+            unsubscribeStudents();
+            unsubscribeAgenda();
+          };
         } catch (err) {
           console.error("Error al obtener perfil:", err);
         }
@@ -371,8 +458,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         merged.name = `${merged.firstName} ${merged.lastName}`.trim().toUpperCase() || merged.name;
       }
 
-      if (merged.firstName && merged.lastName && (merged.teachingGrades || []).length > 0) {
+      // isProfileComplete = tiene nombre Y (tiene grados manuales OR tiene horario configurado)
+      const hasSchedule = (merged.weeklySchedule || []).length > 0;
+      const hasManualGrades = (merged.teachingGrades || []).length > 0;
+      if (merged.firstName && merged.lastName && (hasManualGrades || hasSchedule)) {
         merged.isProfileComplete = true;
+      }
+
+      // Sincronizar teachingCourses y teachingGrades automáticamente desde el horario
+      if (hasSchedule) {
+        const scheduleCourses = [...new Set(merged.weeklySchedule.map(b => b.course))];
+        const scheduleGrades  = [...new Set(merged.weeklySchedule.map(b => b.grade))];
+        const scheduleSubjects = [...new Set(merged.weeklySchedule.map(b => b.subject))];
+        if (!hasManualGrades || (merged.teachingCourses || []).length === 0) {
+          merged.teachingCourses = scheduleCourses;
+          merged.teachingGrades = scheduleGrades;
+          merged.teachingSubjectsList = scheduleSubjects;
+        }
       }
 
       if (updates.weeklySchedule) {
@@ -483,6 +585,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("edu_sessionNotes",  sessionNotes);
   }, [masterData, subjects, sessionNotes]);
 
+  // ── AUTO-SYNC STUDENTS DATA TO MASTER DATA ────────────────────────────────
+  useEffect(() => {
+    if (students.length === 0) return;
+    
+    // Extraer grados y cursos únicos desde la colección de estudiantes (normalizados)
+    const uniqueGrades = Array.from(new Set(students.map(s => normalizeGrade(s.grado)))).filter(Boolean) as string[];
+    const uniqueCourses = Array.from(new Set(students.map(s => s.curso?.toUpperCase()))).filter(Boolean) as string[];
+
+    let changed = false;
+    const newGradesList = [...masterData.grades];
+    const newCoursesList = [...masterData.courses];
+
+    for (const g of uniqueGrades) {
+      if (!newGradesList.includes(g)) {
+        newGradesList.push(g);
+        changed = true;
+      }
+    }
+
+    for (const c of uniqueCourses) {
+      if (!newCoursesList.includes(c)) {
+        newCoursesList.push(c);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setMasterData(prev => ({
+        ...prev,
+        grades: Array.from(new Set([...prev.grades, ...newGradesList])),
+        courses: Array.from(new Set([...prev.courses, ...newCoursesList]))
+      }));
+    }
+  }, [students]);
+
   const updateStudent = async (id: string, updates: Partial<Student>) => {
     try {
       await updateDoc(doc(db, "students", id), updates);
@@ -578,6 +715,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStudents(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
   };
 
+  const addGrade = async (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation', date: string }) => {
+    try {
+      const student = students.find(s => s.id === studentId);
+      if (!student) return;
+      
+      const newGrade = { ...grade, id: `grade-${Date.now()}` };
+      const currentGrades = student.grades || [];
+      const newGrades = [...currentGrades, newGrade];
+      
+      const validScores = newGrades.map(g => g.score);
+      const newAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
+      
+      const updates = { grades: newGrades, avgGrade: Number(newAvg.toFixed(1)) };
+      
+      await updateDoc(doc(db, "students", studentId), updates);
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
+    } catch (err) {
+      console.error("Error al añadir nota:", err);
+    }
+  };
+
+  const saveDailyAttendance = async (dateStr: string, records: Record<string, string>) => {
+    try {
+      const LIMITE_LOTE = 500;
+      const updates: { id: string, record: any, student: Student }[] = [];
+
+      // 1. Preparar las actualizaciones
+      students.forEach(s => {
+        const status = records[s.id];
+        if (!status) return;
+        
+        const updatedRecord = { ...(s.attendanceRecord || {}), [dateStr]: status };
+        updates.push({ 
+          id: s.id, 
+          record: updatedRecord, 
+          student: { ...s, attendanceRecord: updatedRecord } 
+        });
+      });
+
+      // 2. Ejecutar en lotes de Firestore
+      for (let i = 0; i < updates.length; i += LIMITE_LOTE) {
+        const batch = writeBatch(db);
+        const chunk = updates.slice(i, i + LIMITE_LOTE);
+        
+        chunk.forEach(item => {
+          const docRef = doc(db, "students", item.id);
+          batch.update(docRef, { attendanceRecord: item.record });
+        });
+        
+        await batch.commit();
+      }
+
+      // 3. Actualizar estado local una sola vez
+      setStudents(prev => prev.map(s => {
+        const update = updates.find(u => u.id === s.id);
+        return update ? update.student : s;
+      }));
+      
+    } catch (err) {
+      console.error("Error al guardar asistencia masiva:", err);
+      throw err; // Propagar para que la UI pueda manejarlo
+    }
+  };
+
+  const addAgendaNote = async (note: Omit<AgendaNote, "id">) => {
+    try {
+      const newNote = { ...note, id: `note-${Date.now()}` };
+      await setDoc(doc(db, "agendaNotes", newNote.id), newNote);
+      setAgendaNotes(prev => [...prev, newNote as AgendaNote]);
+    } catch (err) {
+      console.error("Error al añadir nota a la agenda:", err);
+    }
+  };
+
+  const updateAgendaNote = async (id: string, updates: Partial<AgendaNote>) => {
+    try {
+      await updateDoc(doc(db, "agendaNotes", id), updates);
+      setAgendaNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
+    } catch (err) {
+      console.error("Error al actualizar nota de agenda:", err);
+    }
+  };
+
   const addSubject = (subject: Omit<Subject, "id">) => {
     setSubjects(prev => [...prev, { ...subject, id: `sub-${Date.now()}` }]);
   };
@@ -595,11 +815,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user, authLoading, logout,
       profile, setProfile, updateProfile,
       subjects, setSubjects,
-      students, setStudents, addStudent, importStudents, removeStudent, updateStudent,
+      students, setStudents, addStudent, importStudents, removeStudent, updateStudent, addGrade, saveDailyAttendance,
       masterData, updateMasterData, removeMasterItem, updateMasterItem,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
       sessionNotes, setSessionNotes,
+      agendaNotes, addAgendaNote, updateAgendaNote,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
     }}>

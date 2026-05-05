@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { normalizeGrade } from "@/context/AppContext";
 import { Printer, ArrowLeft, Download, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
+
+import Image from "next/image";
 
 export default function AttendanceReportPage() {
   const { students, masterData, profile } = useApp();
@@ -12,6 +15,7 @@ export default function AttendanceReportPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('es-ES', { month: 'long' }).toUpperCase());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedGrade, setSelectedGrade] = useState("TODOS");
+  const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [selectedTeacher, setSelectedTeacher] = useState(profile.name);
   const [selectedSubject, setSelectedSubject] = useState("TODAS");
 
@@ -21,17 +25,22 @@ export default function AttendanceReportPage() {
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
   const filteredStudents = students.filter(st => {
-    if (selectedGrade !== "TODOS" && st.grado !== selectedGrade) return false;
-    // Add more filters if needed
+    if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== selectedGrade) return false;
+    if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
+    if (st.isActive === false) return false;
     return true;
   });
 
   const handlePrint = () => {
+    if (selectedGrade === "TODOS" || selectedCurso === "TODOS") {
+      alert("Por favor, selecciona un GRADO y un CURSO específico para generar un reporte productivo y no imprimir toda la institución.");
+      return;
+    }
     window.print();
   };
 
   return (
-    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR"]}>
+    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
       <div className="min-h-screen bg-surface-container-lowest p-0 md:p-8 font-inter antialiased">
       {/* Controls - Hidden on Print */}
       <div className="max-w-[1200px] mx-auto mb-8 flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden">
@@ -41,7 +50,10 @@ export default function AttendanceReportPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-black tracking-tighter uppercase italic text-primary">Generador de Reportes</h1>
-            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">Lista de Asistencia Mensual Oficial</p>
+            <div className="flex gap-4 items-center mt-2">
+              <Link href="/reportes/asistencia" className="text-[10px] font-black bg-primary text-white px-3 py-1 rounded-full uppercase tracking-widest pointer-events-none">Lista de Asistencia</Link>
+              <Link href="/reportes/calificaciones" className="text-[10px] font-black text-on-surface-variant hover:text-primary transition-all uppercase tracking-widest">Sábana de Notas</Link>
+            </div>
           </div>
         </div>
         <div className="flex gap-4 items-center">
@@ -70,12 +82,21 @@ export default function AttendanceReportPage() {
                 <option value="TODOS">TODOS LOS GRADOS</option>
                 {(masterData.grades || []).map(g => <option key={g} value={g}>GRADO {g}</option>)}
               </select>
+              <div className="w-px h-6 bg-slate-200" />
+              <select 
+                value={selectedCurso} 
+                onChange={(e) => setSelectedCurso(e.target.value)}
+                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+              >
+                <option value="TODOS">TODOS LOS CURSOS</option>
+                {Array.from(new Set(students.map(s => s.curso))).sort().map(c => <option key={c} value={c}>CURSO {c}</option>)}
+              </select>
            </div>
 
            <button onClick={handlePrint} className="px-6 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all flex items-center gap-3">
              <Printer size={18} /> Imprimir
            </button>
-           <button className="px-6 py-4 bg-secondary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-3">
+           <button onClick={handlePrint} className="px-6 py-4 bg-secondary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-3">
              <Download size={18} /> PDF
            </button>
         </div>
@@ -101,9 +122,8 @@ export default function AttendanceReportPage() {
             </div>
           </div>
 
-          <div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center border-2 border-on-surface/10 relative">
-             <ShieldCheck size={48} className="text-secondary/20" />
-             <span className="absolute text-[8px] font-black uppercase">Logo IETABA</span>
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center border-2 border-on-surface/10 relative overflow-hidden">
+             <Image src="/logo.png" alt="Logo IETABA" fill className="object-contain p-2" />
           </div>
         </div>
 
@@ -166,9 +186,24 @@ export default function AttendanceReportPage() {
                   <td className="border border-on-surface px-1 uppercase font-bold">{st.segundoNombre}</td>
                   <td className="border border-on-surface px-1 text-center">{st.fechaNacimiento}</td>
                   <td className="border border-on-surface text-center uppercase font-bold">{st.genero}</td>
-                  {days.map(d => (
-                    <td key={d} className={`border border-on-surface ${d === 23 ? 'bg-yellow-50' : ''}`}></td>
-                  ))}
+                  {days.map(d => {
+                    const monthIndex = months.indexOf(selectedMonth) + 1;
+                    const monthStr = monthIndex.toString().padStart(2, '0');
+                    const dayStr = d.toString().padStart(2, '0');
+                    const dateKey = `${selectedYear}-${monthStr}-${dayStr}`;
+                    const status = st.attendanceRecord?.[dateKey];
+                    let symbol = "";
+                    let textColor = "";
+                    if (status === 'present') { symbol = "✓"; textColor = "text-green-700"; }
+                    if (status === 'absent') { symbol = "A"; textColor = "text-red-600 font-black"; }
+                    if (status === 'late') { symbol = "T"; textColor = "text-orange-500 font-black"; }
+
+                    return (
+                      <td key={d} className={`border border-on-surface text-center align-middle font-bold text-[10px] ${d === 23 ? 'bg-yellow-50' : ''} ${textColor}`}>
+                        {symbol}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
               {/* Fill empty rows to reach a full page feel if few students */}

@@ -115,12 +115,14 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-4">
             <div style={{
-              width: 52, height: 52, borderRadius: 16,
-              background: "linear-gradient(135deg, #1a56db, #0038c8)",
+              width: 60, height: 60, borderRadius: 18,
+              background: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 8px 32px rgba(26,86,219,0.4)",
-              fontWeight: 900, fontSize: 16, color: "#fff"
-            }}>TD</div>
+              boxShadow: "0 8px 32px rgba(26,86,219,0.3)",
+              overflow: "hidden"
+            }}>
+              <img src="/logo.png" alt="IETABA" style={{ width: "85%", height: "85%", objectFit: "contain" }} />
+            </div>
             <div>
               <p style={{ color: "#fff", fontWeight: 900, fontSize: 22, letterSpacing: "-0.04em", textTransform: "uppercase", fontStyle: "italic", lineHeight: 1 }}>EduManager</p>
               <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, fontWeight: 700, letterSpacing: "0.4em", textTransform: "uppercase", marginTop: 4 }}>IETABA · Premium Suite</p>

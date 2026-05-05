@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
+import { normalizeGrade } from "@/context/AppContext";
 import Papa from "papaparse";
 import { 
   Users, Book, GraduationCap, ShieldCheck, 
@@ -144,8 +145,8 @@ export default function AdminPage() {
           const newStudents = dataRows.map((row, index) => {
             const docNum = row[4]?.trim() || `TMP-${Date.now()}-${index}`;
             return {
-              curso: row[0]?.trim() || "1",
-              grado: row[2]?.trim() || "0",
+              curso: (row[0]?.trim() || "1").toUpperCase(),
+              grado: normalizeGrade(row[2]?.trim()),
               tipoDocumento: row[3]?.trim().toUpperCase() || "T.I.",
               nroDocumento: docNum,
               primerApellido: row[5]?.trim().toUpperCase() || "",

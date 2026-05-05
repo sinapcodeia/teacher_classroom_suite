@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useMemo, useState, memo } from "react";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import { 
   Users, UserCheck, UserX, Cake, Award, 
   BarChart3, PieChart, TrendingDown, MapPin, 
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
-export default function StatisticsDashboard() {
+const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
   const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -56,12 +56,16 @@ export default function StatisticsDashboard() {
 
     // --- NUEVA LÓGICA DE NIVELES (Primaria 0-5 vs Bachillerato 6-11) ---
     const primaria = activeStudents.filter(s => {
-      const g = parseInt(s.grado);
-      return !isNaN(g) && g >= 0 && g <= 5;
+      const normalized = normalizeGrade(s.grado);
+      if (normalized === "PRIMARIA" || normalized === "0°") return true;
+      const n = parseInt(normalized);
+      return !isNaN(n) && n <= 5;
     });
     const bachillerato = activeStudents.filter(s => {
-      const g = parseInt(s.grado);
-      return !isNaN(g) && g > 5;
+      const normalized = normalizeGrade(s.grado);
+      if (normalized === "PRIMARIA") return false;
+      const n = parseInt(normalized);
+      return !isNaN(n) && n > 5;
     });
 
     const primariaStats = {
@@ -78,7 +82,7 @@ export default function StatisticsDashboard() {
     // Detalle por Grado Individual
     const gradeDetails: Record<string, { total: number, m: number, f: number, students: any[] }> = {};
     activeStudents.forEach(s => {
-      const g = s.grado || "N/A";
+      const g = normalizeGrade(s.grado);
       if (!gradeDetails[g]) gradeDetails[g] = { total: 0, m: 0, f: 0, students: [] };
       gradeDetails[g].total++;
       gradeDetails[g].students.push(s);
@@ -87,6 +91,8 @@ export default function StatisticsDashboard() {
     });
 
     const sortedGrades = Object.entries(gradeDetails).sort((a, b) => {
+      if (a[0] === "PRIMARIA") return -1;
+      if (b[0] === "PRIMARIA") return 1;
       const ga = parseInt(a[0]);
       const gb = parseInt(b[0]);
       if (isNaN(ga)) return 1;
@@ -368,7 +374,7 @@ export default function StatisticsDashboard() {
                <tbody>
                  {stats.sortedGrades.map(([grado, data]) => (
                    <tr key={grado} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
-                     <td className="py-4 font-black text-on-surface text-sm uppercase italic">Grado {grado}°</td>
+                     <td className="py-4 font-black text-on-surface text-sm uppercase italic">Grado {grado}</td>
                      <td className="py-4 text-center">
                         <span className="px-3 py-1 bg-slate-100 rounded-lg text-[11px] font-black text-slate-600">{data.total}</span>
                      </td>
@@ -445,7 +451,7 @@ export default function StatisticsDashboard() {
                          <div className="w-10 h-10 bg-secondary/10 text-secondary rounded-xl flex items-center justify-center font-black animate-bounce"><Cake size={18}/></div>
                          <div>
                             <p className="font-black text-xs md:text-sm uppercase text-on-surface">{s.primerNombre} {s.primerApellido}</p>
-                            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">Grado {s.grado} - {s.curso}</p>
+                            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">Grado {normalizeGrade(s.grado)} - {s.curso}</p>
                          </div>
                       </div>
                       <span className="text-[9px] font-black bg-secondary text-white px-3 py-1.5 rounded-lg uppercase hidden sm:block">Hoy</span>
@@ -515,7 +521,7 @@ export default function StatisticsDashboard() {
                         <div>
                            <p className="font-black text-sm uppercase">{student.primerApellido} {student.segundoApellido} {student.primerNombre}</p>
                            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">
-                              ID: {student.nroDocumento} • Grado {student.grado}-{student.curso}
+                              ID: {student.nroDocumento} • Grado {normalizeGrade(student.grado)}-{student.curso}
                            </p>
                         </div>
                      </div>
@@ -538,7 +544,7 @@ export default function StatisticsDashboard() {
       )}
     </div>
   );
-}
+});
 
 function ShieldCheck({size}: {size: number}) {
   return (
@@ -548,3 +554,4 @@ function ShieldCheck({size}: {size: number}) {
     </svg>
   );
 }
+export default StatisticsDashboard;

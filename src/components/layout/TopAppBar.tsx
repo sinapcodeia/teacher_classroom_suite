@@ -47,7 +47,7 @@ export default function TopAppBar() {
     { label: "Currículo", path: "/curriculo", roles: ["COORDINADOR", "DOCENTE"], hideForSuper: true },
     { label: "Clase", path: "/clase-en-vivo", roles: ["DOCENTE"], hideForSuper: true },
     { label: "Horario", path: "/horario", roles: ["COORDINADOR", "DOCENTE"], hideForSuper: true },
-    { label: "Reportes", path: "/reportes", roles: ["RECTOR", "COORDINADOR", "BIENESTAR"] },
+    { label: "Reportes", path: "/reportes", roles: ["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"] },
   ];
 
   const navLinks = allLinks.filter(link => {
@@ -73,8 +73,14 @@ export default function TopAppBar() {
     >
       {/* Branding - Startup Logo Style */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="w-9 h-9 bg-on-surface text-white rounded-xl flex items-center justify-center font-black text-sm shadow-xl shadow-on-surface/20">
-          TD
+        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg overflow-hidden border border-outline-variant/10 relative">
+          <Image 
+            src="/logo.png" 
+            alt="Logo IETABA" 
+            fill 
+            className="object-contain p-1"
+            priority
+          />
         </div>
         <div className="hidden lg:flex flex-col leading-none">
           <span className="text-[11px] font-black tracking-tighter uppercase italic text-on-surface">
@@ -171,17 +177,17 @@ export default function TopAppBar() {
 
           {/* Premium Dropdown */}
           {menuOpen && (
-            <div className="absolute right-0 top-12 w-72 glass rounded-[2rem] p-4 shadow-2xl animate-fade-in-up">
+            <div className="absolute right-0 top-12 w-72 bg-white/95 backdrop-blur-2xl rounded-[2rem] p-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-outline-variant/30 animate-fade-in-up">
               {/* User Header */}
-              <div className="flex items-center gap-4 p-4 bg-white/50 rounded-2xl border border-white mb-3">
-                <div className="w-12 h-12 rounded-xl bg-on-surface text-white flex items-center justify-center text-xs font-black shadow-lg">
+              <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-2xl border border-outline-variant/20 mb-3">
+                <div className="w-12 h-12 rounded-xl bg-on-surface text-white flex items-center justify-center text-xs font-black shadow-lg shrink-0">
                   {initials}
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-[12px] font-black text-on-surface truncate uppercase leading-none mb-1">
                     {profile.name}
                   </p>
-                  <p className="text-[9px] text-on-surface-variant truncate opacity-60 font-bold uppercase tracking-tighter">
+                  <p className="text-[9px] text-on-surface-variant truncate opacity-80 font-bold uppercase tracking-tighter">
                     {profile.role} • {profile.email}
                   </p>
                 </div>

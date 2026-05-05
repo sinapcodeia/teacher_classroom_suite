@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, ChevronRight, Filter } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import { useState, useMemo } from "react";
 
 interface StudentListProps {
@@ -10,25 +10,35 @@ interface StudentListProps {
 }
 
 export default function StudentList({ selectedId, onSelect }: StudentListProps) {
-  const { students } = useApp();
+  const { students, profile } = useApp();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterGrado, setFilterGrado] = useState("TODOS");
 
+  const myStudents = useMemo(() => {
+    if (profile.isSuperAdmin) return students;
+    // Fallback: si teachingCourses está vacío, extrae cursos del horario semanal
+    const effectiveCourses = (profile.teachingCourses?.length ?? 0) > 0
+      ? profile.teachingCourses
+      : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
+    return students.filter(s => effectiveCourses.includes(s.curso));
+  }, [students, profile]);
+
   const gradoOptions = useMemo(() => {
-    return [...new Set(students.map(s => s.grado))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-  }, [students]);
+    return [...new Set(myStudents.map(s => normalizeGrade(s.grado)))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+  }, [myStudents]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter(s => {
+    return myStudents.filter(s => {
       if (s.isActive === false) return false;
       
       const fullName = `${s.primerApellido} ${s.segundoApellido} ${s.primerNombre} ${s.segundoNombre}`.toLowerCase();
       const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || s.nroDocumento.includes(searchTerm);
-      const matchesGrado = filterGrado === "TODOS" || s.grado === filterGrado;
+      const normalizedGrade = normalizeGrade(s.grado);
+      const matchesGrado = filterGrado === "TODOS" || normalizedGrade === filterGrado;
       
       return matchesSearch && matchesGrado;
     });
-  }, [students, searchTerm, filterGrado]);
+  }, [myStudents, searchTerm, filterGrado]);
 
   return (
     <div className="space-y-4">
@@ -61,7 +71,8 @@ export default function StudentList({ selectedId, onSelect }: StudentListProps) 
       </div>
 
       <div className="bg-white border border-outline-variant rounded-[2rem] overflow-hidden shadow-xl">
-        <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
           <thead>
             <tr className="bg-surface-container text-on-surface-variant text-[10px] font-black uppercase tracking-[0.2em] border-b border-outline-variant/30">
               <th className="px-8 py-5">Nombre Completo</th>
@@ -94,7 +105,7 @@ export default function StudentList({ selectedId, onSelect }: StudentListProps) 
                 </td>
                 <td className="px-6 py-5 text-center">
                    <span className="text-[10px] font-black bg-surface-container-high px-3 py-1 rounded-lg uppercase tracking-tighter">
-                     {student.grado}
+                     {normalizeGrade(student.grado)}
                    </span>
                 </td>
                 <td className="px-6 py-5 text-center">
@@ -113,6 +124,7 @@ export default function StudentList({ selectedId, onSelect }: StudentListProps) 
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

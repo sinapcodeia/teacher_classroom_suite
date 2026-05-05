@@ -7,7 +7,8 @@ import { useApp } from "@/context/AppContext";
 import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
-  CheckCircle2, AlertCircle, Activity
+  CheckCircle2, AlertCircle, Activity, ClipboardList, AlertTriangle,
+  BrainCircuit, Trophy, CalendarDays, UploadCloud, Target, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 
@@ -20,7 +21,7 @@ function getGreeting() {
 }
 
 export default function Home() {
-  const { schedule, profile, students, subjects } = useApp();
+  const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote } = useApp();
 
   const formattedDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long", day: "numeric", month: "long",
@@ -28,10 +29,85 @@ export default function Home() {
 
   const firstName = profile.name.split(" ")[0];
   const todaySchedule = schedule.slice(0, 5);
-  const activeStudents = students.filter((s) => s.isActive !== false).length;
-  const atRisk = students.filter((s) => parseFloat(s.attendance) < 75).length;
-  const highPerf = students.filter((s) => s.avgGrade >= 4.0).length;
 
+  // Determinar cursos del docente: primero teachingCourses, luego fallback a weeklySchedule
+  const effectiveCourses = profile.isSuperAdmin
+    ? null
+    : (profile.teachingCourses?.length ?? 0) > 0
+      ? profile.teachingCourses
+      : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
+
+  const myStudents = profile.isSuperAdmin
+    ? students
+    : students.filter(s => effectiveCourses?.includes(s.curso));
+
+  const activeStudents = myStudents.filter((s) => s.isActive !== false).length;
+  
+  // Calcular ausentismo crítico (>3 faltas)
+  const criticalAbsences = myStudents.filter((s) => {
+    if (!s.attendanceRecord) return false;
+    const absCount = Object.values(s.attendanceRecord).filter(v => v === 'absent').length;
+    return absCount >= 3 && s.isActive !== false;
+  });
+
+  // Tareas pendientes
+  const pendingTasks = agendaNotes.filter(n => n.type === 'TASK' && !n.isCompleted);
+
+  const atRisk = criticalAbsences.length; // Usa las ausencias críticas reales
+  const highPerf = myStudents.filter((s) => s.avgGrade >= 4.0).length;
+
+  // Top 5 Estudiantes (Cuadro de Honor)
+  const topStudents = [...myStudents]
+    .filter(s => s.isActive !== false && s.avgGrade)
+    .sort((a, b) => b.avgGrade - a.avgGrade)
+    .slice(0, 5);
+
+  // Fechas SAPRED
+  const periodEndDate = new Date(new Date().getFullYear(), 5, 15); // Simulación: 15 de Junio
+  const daysLeft = Math.max(0, Math.ceil((periodEndDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+
+  // IA Insight (Asistente)
+  let aiInsight = { 
+    message: "Todo en orden. Excelente control de tus grupos hoy. ¡Sigue así!", 
+    title: "Insight Positivo",
+    icon: Sparkles,
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+    border: "border-blue-100",
+    iconBg: "bg-blue-100"
+  };
+
+  if (criticalAbsences.length >= 3) {
+    aiInsight = { 
+      message: `Atención: Tienes ${criticalAbsences.length} estudiantes en riesgo crítico de ausentismo. Sugerimos contactar coordinación o acudientes pronto.`, 
+      title: "Alerta Prioritaria",
+      icon: AlertTriangle,
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      border: "border-rose-200",
+      iconBg: "bg-rose-100"
+    };
+  } else if (pendingTasks.length > 0) {
+    aiInsight = { 
+      message: `Recordatorio: Tienes ${pendingTasks.length} tareas pendientes de revisión en tu agenda. Organiza un bloque de tiempo hoy para calificarlas.`, 
+      title: "Gestión de Tiempo",
+      icon: Target,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      border: "border-amber-200",
+      iconBg: "bg-amber-100"
+    };
+  } else if (daysLeft <= 10) {
+    aiInsight = { 
+      message: `El periodo termina en ${daysLeft} días. Recuerda consolidar tus notas para subirlas al sistema SAPRED a tiempo.`, 
+      title: "Cierre de Periodo",
+      icon: UploadCloud,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      border: "border-purple-200",
+      iconBg: "bg-purple-100"
+    };
+  }
   const quickStats = [
     {
       label: "Estudiantes",
@@ -67,7 +143,7 @@ export default function Home() {
       color: "#f59e0b",
       bg: "rgba(245,158,11,0.1)",
       link: "/estudiantes",
-      trend: atRisk > 0 ? "Revisar Asistencia" : "Asistencia Óptima",
+      trend: atRisk > 0 ? "Requiere Atención" : "Asistencia Óptima",
     },
   ];
 
@@ -211,6 +287,31 @@ export default function Home() {
             </div>
           </section>
 
+          {/* ── ASISTENTE IA ── */}
+          {!profile.isSuperAdmin && (
+             <section className="mb-10">
+                <div className={`rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border shadow-sm transition-all hover:shadow-md ${aiInsight.bg} ${aiInsight.border}`}>
+                  <div className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center ${aiInsight.iconBg} ${aiInsight.color}`}>
+                     <BrainCircuit size={28} />
+                  </div>
+                  <div className="flex-1">
+                     <div className="flex items-center gap-2 mb-1">
+                        <aiInsight.icon size={16} className={aiInsight.color} />
+                        <h3 className={`text-[11px] font-black uppercase tracking-widest ${aiInsight.color}`}>Asistente IA · {aiInsight.title}</h3>
+                     </div>
+                     <p className="text-sm font-medium text-slate-700 leading-relaxed max-w-3xl">
+                       {aiInsight.message}
+                     </p>
+                  </div>
+                  <div className="shrink-0">
+                     <button className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white border shadow-sm hover:scale-105 transition-all ${aiInsight.color} ${aiInsight.border}`}>
+                        Descartar
+                     </button>
+                  </div>
+                </div>
+             </section>
+          )}
+
           {/* ── MAIN GRID ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -294,6 +395,36 @@ export default function Home() {
                   </div>
                 )}
               </div>
+
+              {/* CALENDARIO INSTITUCIONAL Y SAPRED */}
+              {!profile.isSuperAdmin && (
+                <div className="rounded-[2rem] p-6 border shadow-sm bg-white mt-6" style={{ borderColor: "rgba(226,232,240,0.8)" }}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                      <CalendarDays size={20} className="text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800">Cierre Académico</h3>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Plataforma SAPRED</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center text-center">
+                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Faltan</p>
+                       <p className="text-4xl font-black text-slate-800 mb-1">{daysLeft}</p>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase">Días para el Cierre</p>
+                    </div>
+                    <div className="p-5 rounded-2xl flex flex-col justify-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #f3e8ff, #e9d5ff)", border: "1px solid #d8b4fe" }}>
+                       <UploadCloud size={24} className="text-purple-600 mb-2" />
+                       <p className="text-[11px] font-black uppercase text-purple-900 leading-tight mb-3">Sincronización de Notas SAPRED</p>
+                       <button className="bg-purple-600 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl shadow-md hover:bg-purple-700 transition-colors">
+                          Sincronizar Ahora
+                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* RIGHT COLUMN */}
@@ -345,6 +476,111 @@ export default function Home() {
                     style={{ background: "#3b82f6", color: "#fff", boxShadow: "0 8px 20px rgba(59,130,246,0.4)" }}>
                     Tomar Asistencia <ArrowRight size={16} />
                   </Link>
+                </div>
+              )}
+
+              {/* CUADRO DE HONOR (RANKING) */}
+              {!profile.isSuperAdmin && topStudents.length > 0 && (
+                <div className="rounded-[2rem] p-6 border shadow-sm bg-white" style={{ borderColor: "rgba(226,232,240,0.8)" }}>
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                        <Trophy size={20} className="text-amber-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800">Ranking Excelencia</h3>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Top Estudiantes</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {topStudents.map((student, idx) => {
+                      const isFirst = idx === 0;
+                      return (
+                        <div key={student.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all hover:scale-[1.02] ${isFirst ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black ${isFirst ? 'bg-amber-400 text-amber-900 shadow-sm' : 'bg-slate-200 text-slate-600'}`}>
+                              #{idx + 1}
+                            </div>
+                            <div>
+                              <p className={`text-[11px] font-black uppercase ${isFirst ? 'text-amber-900' : 'text-slate-700'}`}>
+                                {student.primerApellido} {student.primerNombre}
+                              </p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase">Grado {student.curso}</p>
+                            </div>
+                          </div>
+                          <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${isFirst ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                            {student.avgGrade.toFixed(1)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* AGENDA PENDIENTE */}
+              {!profile.isSuperAdmin && pendingTasks.length > 0 && (
+                <div className="rounded-[2rem] p-6 relative overflow-hidden bg-emerald-50 border border-emerald-100 shadow-xl shadow-emerald-500/5">
+                  <div className="flex items-center gap-3 mb-4">
+                     <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
+                       <ClipboardList size={20} />
+                     </div>
+                     <div>
+                       <h3 className="text-sm font-black uppercase tracking-tight text-emerald-900">Agenda / Tareas</h3>
+                       <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600">Pendientes por revisar</p>
+                     </div>
+                  </div>
+                  <div className="space-y-3">
+                     {pendingTasks.map(task => (
+                       <div key={task.id} className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-50/50 flex flex-col gap-2 relative">
+                         <p className="text-xs font-medium text-slate-700 pr-8">{task.content}</p>
+                         <p className="text-[9px] font-black uppercase text-emerald-500">Curso {task.course} · {task.subject}</p>
+                         <button 
+                           onClick={() => updateAgendaNote(task.id, { isCompleted: true })}
+                           className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-full hover:bg-emerald-500 hover:text-white transition-all"
+                           title="Marcar como completada"
+                         >
+                           <CheckCircle2 size={16} />
+                         </button>
+                       </div>
+                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ALERTAS CRÍTICAS DE AUSENTISMO */}
+              {!profile.isSuperAdmin && criticalAbsences.length > 0 && (
+                <div className="rounded-[2rem] p-6 relative overflow-hidden bg-rose-50 border border-rose-100 shadow-xl shadow-rose-500/5">
+                  <div className="flex items-center gap-3 mb-4">
+                     <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center animate-pulse">
+                       <AlertTriangle size={20} />
+                     </div>
+                     <div>
+                       <h3 className="text-sm font-black uppercase tracking-tight text-rose-900">Alerta de Ausentismo</h3>
+                       <p className="text-[9px] font-bold uppercase tracking-widest text-rose-600">Estudiantes en riesgo (&gt;3 faltas)</p>
+                     </div>
+                  </div>
+                  <div className="space-y-2">
+                     {criticalAbsences.slice(0, 3).map(student => {
+                        const fallas = Object.values(student.attendanceRecord || {}).filter(v => v === 'absent').length;
+                        return (
+                         <div key={student.id} className="bg-white p-3 rounded-2xl shadow-sm border border-rose-50/50 flex justify-between items-center">
+                           <div>
+                             <p className="text-[11px] font-black uppercase text-slate-800">{student.primerApellido} {student.primerNombre}</p>
+                             <p className="text-[9px] font-bold text-slate-400">Curso {student.curso}</p>
+                           </div>
+                           <span className="text-xs font-black text-rose-600 bg-rose-100 px-2 py-1 rounded-lg">{fallas} faltas</span>
+                         </div>
+                       );
+                     })}
+                     {criticalAbsences.length > 3 && (
+                        <Link href="/estudiantes" className="block text-center mt-2 text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline">
+                           Ver {criticalAbsences.length - 3} más...
+                        </Link>
+                     )}
+                  </div>
                 </div>
               )}
 
