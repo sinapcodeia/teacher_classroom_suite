@@ -80,7 +80,6 @@ export default function TopAppBar() {
             fill 
             className="object-contain p-1"
             sizes="40px"
-            priority
           />
         </div>
         <div className="hidden lg:flex flex-col leading-none">

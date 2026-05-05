@@ -6,7 +6,7 @@ import { useApp } from "@/context/AppContext";
 import { Calendar, Clock, BookOpen, GraduationCap, ArrowLeft, Printer, Download } from "lucide-react";
 import Link from "next/link";
 
-const DAYS = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"];
+const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 const TIME_SLOTS = [
   "07:30 - 08:30",
   "08:30 - 09:30",

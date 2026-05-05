@@ -431,70 +431,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setSchedule(blocksToEntries(builtProfile.weeklySchedule));
           }
 
-          // ── REAL-TIME STUDENTS SYNC (Optimized Query) ────────────────────────
+          // ── REAL-TIME STUDENTS SYNC ────────────────────────
           let unsubscribeStudents: () => void = () => {};
-          const teacherCourses = builtProfile.isSuperAdmin 
-            ? [] 
-            : (builtProfile.teachingCourses?.length > 0 
-                ? builtProfile.teachingCourses 
-                : [...new Set((builtProfile.weeklySchedule || []).map(b => b.course))]);
-
-          if (builtProfile.isSuperAdmin || teacherCourses.length === 0) {
-            const studentsQuery = query(collection(db, "students"), where("isActive", "==", true));
-            unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
-              const firestoreStudents = snap.docs.map(d => {
-                const data = d.data();
-                return {
-                  id: d.id,
-                  ...data,
-                  grado: normalizeGrade(data.grado as string),
-                  curso: (data.curso || "").toString().trim().toUpperCase(),
-                } as Student;
-              });
-              setStudents(firestoreStudents);
-            }, (err) => {
-              console.warn("Error en tiempo real (estudiantes):", err);
+          const studentsQuery = query(collection(db, "students"), where("isActive", "==", true));
+          unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
+            const firestoreStudents = snap.docs.map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                ...data,
+                grado: normalizeGrade(data.grado as string),
+                curso: (data.curso || "").toString().trim().toUpperCase(),
+              } as Student;
             });
-          } else {
-            const chunks = [];
-            for (let i = 0; i < teacherCourses.length; i += 10) {
-              chunks.push(teacherCourses.slice(i, i + 10));
-            }
-            
-            const studentsMap = new Map<string, Student>();
-            const unsubscribes = chunks.map(chunk => {
-              // Removemos el where("isActive", "==", true) para evitar el requerimiento de un índice compuesto en Firestore
-              const q = query(collection(db, "students"), where("curso", "in", chunk));
-              return onSnapshot(q, (snap) => {
-                let changed = false;
-                snap.docChanges().forEach(change => {
-                  changed = true;
-                  if (change.type === "removed") {
-                    studentsMap.delete(change.doc.id);
-                  } else {
-                    const data = change.doc.data();
-                    if (data.isActive === false) {
-                      studentsMap.delete(change.doc.id);
-                    } else {
-                      studentsMap.set(change.doc.id, {
-                        id: change.doc.id,
-                        ...data,
-                        grado: normalizeGrade(data.grado as string),
-                        curso: (data.curso || "").toString().trim().toUpperCase(),
-                      } as Student);
-                    }
-                  }
-                });
-                if (changed) {
-                  setStudents(Array.from(studentsMap.values()));
-                }
-              }, (err) => {
-                console.warn("Error chunk estudiantes:", err);
-              });
-            });
-            
-            unsubscribeStudents = () => unsubscribes.forEach(unsub => unsub());
-          }
+            setStudents(firestoreStudents);
+          }, (err) => {
+            console.warn("Error en tiempo real (estudiantes):", err);
+          });
           unsubs.push(unsubscribeStudents);
 
           // ── REAL-TIME AGENDA SYNC (Recent Only) ────────────────────────────

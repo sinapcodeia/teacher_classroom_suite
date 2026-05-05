@@ -16,7 +16,7 @@ export default function NextClassAlert() {
   }, []);
 
   useEffect(() => {
-    const daysMap = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];
+    const daysMap = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
     const currentDay = daysMap[currentTime.getDay()];
     
     const currentHour = currentTime.getHours();

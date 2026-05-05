@@ -71,13 +71,12 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     setAccepting(false);
   };
 
-  // ── 1. Cargando ────────────────────────────────────────────
   if (authLoading) {
     return (
       <div style={{ minHeight: "100vh", background: D.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           <div style={{ width: 64, height: 64, borderRadius: 18, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.2)", position: "relative" }}>
-            <Image src="/logo.png" alt="Logo" fill style={{ objectFit: "contain", padding: "10%" }} priority />
+            <Image src="/logo.png" alt="Logo" fill sizes="(max-width: 64px) 100vw, 64px" style={{ objectFit: "contain", padding: "10%" }} priority />
           </div>
           <Loader2 size={22} className="animate-spin" style={{ color: D.primaryLight }} />
           <p style={{ color: D.textFaint, fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase" }}>Verificando sesión...</p>
