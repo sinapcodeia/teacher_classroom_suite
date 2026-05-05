@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
@@ -28,87 +29,106 @@ export default function Home() {
   });
 
   const firstName = profile.name.split(" ")[0];
-  const todaySchedule = schedule.slice(0, 5);
-
-  // Determinar cursos del docente: primero teachingCourses, luego fallback a weeklySchedule
-  const effectiveCourses = profile.isSuperAdmin
-    ? null
-    : (profile.teachingCourses?.length ?? 0) > 0
-      ? profile.teachingCourses
-      : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
-
-  const myStudents = profile.isSuperAdmin
-    ? students
-    : students.filter(s => effectiveCourses?.includes(s.curso));
-
-  const activeStudents = myStudents.filter((s) => s.isActive !== false).length;
   
-  // Calcular ausentismo crítico (>3 faltas)
-  const criticalAbsences = myStudents.filter((s) => {
-    if (!s.attendanceRecord) return false;
-    const absCount = Object.values(s.attendanceRecord).filter(v => v === 'absent').length;
-    return absCount >= 3 && s.isActive !== false;
-  });
+  // Memoize courses and students
+  const { effectiveCourses, myStudents, activeStudents } = useMemo(() => {
+    const courses = profile.isSuperAdmin
+      ? null
+      : (profile.teachingCourses?.length ?? 0) > 0
+        ? profile.teachingCourses
+        : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
+
+    const filtered = profile.isSuperAdmin
+      ? students
+      : students.filter(s => courses?.includes(s.curso));
+    
+    return {
+      effectiveCourses: courses,
+      myStudents: filtered,
+      activeStudents: filtered.filter((s) => s.isActive !== false).length
+    };
+  }, [profile, students]);
+
+  const todaySchedule = useMemo(() => schedule.slice(0, 5), [schedule]);
+
+  // Memoize critical absences and high performance
+  const { criticalAbsences, highPerf, atRisk } = useMemo(() => {
+    const critical = myStudents.filter((s) => {
+      if (!s.attendanceRecord) return false;
+      const absCount = Object.values(s.attendanceRecord).filter(v => v === 'absent').length;
+      return absCount >= 3 && s.isActive !== false;
+    });
+
+    const high = myStudents.filter((s) => s.avgGrade >= 4.0).length;
+
+    return {
+      criticalAbsences: critical,
+      highPerf: high,
+      atRisk: critical.length
+    };
+  }, [myStudents]);
 
   // Tareas pendientes
-  const pendingTasks = agendaNotes.filter(n => n.type === 'TASK' && !n.isCompleted);
-
-  const atRisk = criticalAbsences.length; // Usa las ausencias críticas reales
-  const highPerf = myStudents.filter((s) => s.avgGrade >= 4.0).length;
+  const pendingTasks = useMemo(() => agendaNotes.filter(n => n.type === 'TASK' && !n.isCompleted), [agendaNotes]);
 
   // Top 5 Estudiantes (Cuadro de Honor)
-  const topStudents = [...myStudents]
+  const topStudents = useMemo(() => [...myStudents]
     .filter(s => s.isActive !== false && s.avgGrade)
     .sort((a, b) => b.avgGrade - a.avgGrade)
-    .slice(0, 5);
+    .slice(0, 5), [myStudents]);
 
   // Fechas SAPRED
-  const periodEndDate = new Date(new Date().getFullYear(), 5, 15); // Simulación: 15 de Junio
-  const daysLeft = Math.max(0, Math.ceil((periodEndDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+  const { periodEndDate, daysLeft } = useMemo(() => {
+    const end = new Date(new Date().getFullYear(), 5, 15); // Simulación: 15 de Junio
+    const left = Math.max(0, Math.ceil((end.getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+    return { periodEndDate: end, daysLeft: left };
+  }, []);
 
   // IA Insight (Asistente)
-  let aiInsight = { 
-    message: "Todo en orden. Excelente control de tus grupos hoy. ¡Sigue así!", 
-    title: "Insight Positivo",
-    icon: Sparkles,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-    iconBg: "bg-blue-100"
-  };
+  const aiInsight = useMemo(() => {
+    if (criticalAbsences.length >= 3) {
+      return { 
+        message: `Atención: Tienes ${criticalAbsences.length} estudiantes en riesgo crítico de ausentismo. Sugerimos contactar coordinación o acudientes pronto.`, 
+        title: "Alerta Prioritaria",
+        icon: AlertTriangle,
+        color: "text-rose-600",
+        bg: "bg-rose-50",
+        border: "border-rose-200",
+        iconBg: "bg-rose-100"
+      };
+    } else if (pendingTasks.length > 0) {
+      return { 
+        message: `Recordatorio: Tienes ${pendingTasks.length} tareas pendientes de revisión en tu agenda. Organiza un bloque de tiempo hoy para calificarlas.`, 
+        title: "Gestión de Tiempo",
+        icon: Target,
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        iconBg: "bg-amber-100"
+      };
+    } else if (daysLeft <= 10) {
+      return { 
+        message: `El periodo termina en ${daysLeft} días. Recuerda consolidar tus notas para subirlas al sistema SAPRED a tiempo.`, 
+        title: "Cierre de Periodo",
+        icon: UploadCloud,
+        color: "text-purple-600",
+        bg: "bg-purple-50",
+        border: "border-purple-200",
+        iconBg: "bg-purple-100"
+      };
+    }
+    return { 
+      message: "Todo en orden. Excelente control de tus grupos hoy. ¡Sigue así!", 
+      title: "Insight Positivo",
+      icon: Sparkles,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      border: "border-blue-100",
+      iconBg: "bg-blue-100"
+    };
+  }, [criticalAbsences.length, pendingTasks.length, daysLeft]);
 
-  if (criticalAbsences.length >= 3) {
-    aiInsight = { 
-      message: `Atención: Tienes ${criticalAbsences.length} estudiantes en riesgo crítico de ausentismo. Sugerimos contactar coordinación o acudientes pronto.`, 
-      title: "Alerta Prioritaria",
-      icon: AlertTriangle,
-      color: "text-rose-600",
-      bg: "bg-rose-50",
-      border: "border-rose-200",
-      iconBg: "bg-rose-100"
-    };
-  } else if (pendingTasks.length > 0) {
-    aiInsight = { 
-      message: `Recordatorio: Tienes ${pendingTasks.length} tareas pendientes de revisión en tu agenda. Organiza un bloque de tiempo hoy para calificarlas.`, 
-      title: "Gestión de Tiempo",
-      icon: Target,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
-      border: "border-amber-200",
-      iconBg: "bg-amber-100"
-    };
-  } else if (daysLeft <= 10) {
-    aiInsight = { 
-      message: `El periodo termina en ${daysLeft} días. Recuerda consolidar tus notas para subirlas al sistema SAPRED a tiempo.`, 
-      title: "Cierre de Periodo",
-      icon: UploadCloud,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-      border: "border-purple-200",
-      iconBg: "bg-purple-100"
-    };
-  }
-  const quickStats = [
+  const quickStats = useMemo(() => [
     {
       label: "Estudiantes",
       value: activeStudents || students.length,
@@ -145,9 +165,9 @@ export default function Home() {
       link: "/estudiantes",
       trend: atRisk > 0 ? "Requiere Atención" : "Asistencia Óptima",
     },
-  ];
+  ], [activeStudents, students.length, subjects.length, highPerf, atRisk]);
 
-  const quickActions = profile.isSuperAdmin
+  const quickActions = useMemo(() => profile.isSuperAdmin
     ? [
         { label: "Administración", icon: ShieldCheck, href: "/admin", color: "#f43f5e" },
         { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#3b82f6" },
@@ -158,7 +178,7 @@ export default function Home() {
         { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
         { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
         { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
-      ];
+      ], [profile.isSuperAdmin]);
 
   return (
     <RoleGuard>

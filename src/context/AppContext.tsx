@@ -345,7 +345,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── AUTH LISTENER ──────────────────────────────────────────────────────────
   useEffect(() => {
+    let unsubs: Array<() => void> = [];
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Limpiar suscripciones previas al cambiar de estado de autenticación
+      unsubs.forEach(unsub => unsub());
+      unsubs = [];
+
       if (firebaseUser) {
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -425,24 +431,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setSchedule(blocksToEntries(builtProfile.weeklySchedule));
           }
 
-          // ── REAL-TIME STUDENTS SYNC ──────────────────────────────────────────
           // ── REAL-TIME STUDENTS SYNC (Optimized Query) ────────────────────────
-          const studentsQuery = query(collection(db, "students"), where("isActive", "==", true));
-          
-          const unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
-            const firestoreStudents = snap.docs.map(d => {
-              const data = d.data();
-              return {
-                id: d.id,
-                ...data,
-                grado: normalizeGrade(data.grado as string),
-                curso: (data.curso || "").toString().trim().toUpperCase(),
-              } as Student;
+          let unsubscribeStudents: () => void = () => {};
+          const teacherCourses = builtProfile.isSuperAdmin 
+            ? [] 
+            : (builtProfile.teachingCourses?.length > 0 
+                ? builtProfile.teachingCourses 
+                : [...new Set((builtProfile.weeklySchedule || []).map(b => b.course))]);
+
+          if (builtProfile.isSuperAdmin || teacherCourses.length === 0) {
+            const studentsQuery = query(collection(db, "students"), where("isActive", "==", true));
+            unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
+              const firestoreStudents = snap.docs.map(d => {
+                const data = d.data();
+                return {
+                  id: d.id,
+                  ...data,
+                  grado: normalizeGrade(data.grado as string),
+                  curso: (data.curso || "").toString().trim().toUpperCase(),
+                } as Student;
+              });
+              setStudents(firestoreStudents);
+            }, (err) => {
+              console.warn("Error en tiempo real (estudiantes):", err);
             });
-            setStudents(firestoreStudents);
-          }, (err) => {
-            console.warn("Error en tiempo real (estudiantes):", err);
-          });
+          } else {
+            const chunks = [];
+            for (let i = 0; i < teacherCourses.length; i += 10) {
+              chunks.push(teacherCourses.slice(i, i + 10));
+            }
+            
+            const studentsMap = new Map<string, Student>();
+            const unsubscribes = chunks.map(chunk => {
+              // Removemos el where("isActive", "==", true) para evitar el requerimiento de un índice compuesto en Firestore
+              const q = query(collection(db, "students"), where("curso", "in", chunk));
+              return onSnapshot(q, (snap) => {
+                let changed = false;
+                snap.docChanges().forEach(change => {
+                  changed = true;
+                  if (change.type === "removed") {
+                    studentsMap.delete(change.doc.id);
+                  } else {
+                    const data = change.doc.data();
+                    if (data.isActive === false) {
+                      studentsMap.delete(change.doc.id);
+                    } else {
+                      studentsMap.set(change.doc.id, {
+                        id: change.doc.id,
+                        ...data,
+                        grado: normalizeGrade(data.grado as string),
+                        curso: (data.curso || "").toString().trim().toUpperCase(),
+                      } as Student);
+                    }
+                  }
+                });
+                if (changed) {
+                  setStudents(Array.from(studentsMap.values()));
+                }
+              }, (err) => {
+                console.warn("Error chunk estudiantes:", err);
+              });
+            });
+            
+            unsubscribeStudents = () => unsubscribes.forEach(unsub => unsub());
+          }
+          unsubs.push(unsubscribeStudents);
 
           // ── REAL-TIME AGENDA SYNC (Recent Only) ────────────────────────────
           const thirtyDaysAgo = new Date();
@@ -458,6 +511,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }, (err) => {
             console.warn("Error en tiempo real (agenda):", err);
           });
+          unsubs.push(unsubscribeAgenda);
 
           // ── REAL-TIME CURRICULUM SYNC ─────────────────────────────────────
           const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
@@ -466,14 +520,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }, (err) => {
             console.warn("Error en tiempo real (currículo):", err);
           });
+          unsubs.push(unsubscribeCurriculum);
 
           setUser(firebaseUser);
           
-          return () => {
-            unsubscribeStudents();
-            unsubscribeAgenda();
-            unsubscribeCurriculum();
-          };
         } catch (err) {
           console.error("Error al obtener perfil:", err);
         }
@@ -486,7 +536,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAuthLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubs.forEach(unsub => unsub());
+    };
   }, []);
 
   // ── UPDATE PROFILE ─────────────────────────────────────────────────────────
@@ -634,31 +687,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const uniqueGrades = Array.from(new Set(students.map(s => normalizeGrade(s.grado)))).filter(Boolean) as string[];
     const uniqueCourses = Array.from(new Set(students.map(s => s.curso?.toUpperCase()))).filter(Boolean) as string[];
 
-    let changed = false;
-    const newGradesList = [...masterData.grades];
-    const newCoursesList = [...masterData.courses];
+    setMasterData(prev => {
+      let changed = false;
+      const newGradesList = [...prev.grades];
+      const newCoursesList = [...prev.courses];
 
-    for (const g of uniqueGrades) {
-      if (!newGradesList.includes(g)) {
-        newGradesList.push(g);
-        changed = true;
+      for (const g of uniqueGrades) {
+        if (!newGradesList.includes(g)) {
+          newGradesList.push(g);
+          changed = true;
+        }
       }
-    }
 
-    for (const c of uniqueCourses) {
-      if (!newCoursesList.includes(c)) {
-        newCoursesList.push(c);
-        changed = true;
+      for (const c of uniqueCourses) {
+        if (!newCoursesList.includes(c)) {
+          newCoursesList.push(c);
+          changed = true;
+        }
       }
-    }
 
-    if (changed) {
-      setMasterData(prev => ({
-        ...prev,
-        grades: Array.from(new Set([...prev.grades, ...newGradesList])),
-        courses: Array.from(new Set([...prev.courses, ...newCoursesList]))
-      }));
-    }
+      if (changed) {
+        return {
+          ...prev,
+          grades: Array.from(new Set([...prev.grades, ...newGradesList])),
+          courses: Array.from(new Set([...prev.courses, ...newCoursesList]))
+        };
+      }
+      return prev;
+    });
   }, [students]);
 
   const updateStudent = async (id: string, updates: Partial<Student>) => {

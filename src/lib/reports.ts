@@ -1,7 +1,5 @@
-import { jsPDF } from "jspdf";
-import Papa from "papaparse";
-
-export const exportToCSV = (data: any[], filename: string) => {
+export const exportToCSV = async (data: any[], filename: string) => {
+  const Papa = (await import("papaparse")).default;
   const csv = Papa.unparse(data);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
@@ -14,7 +12,8 @@ export const exportToCSV = (data: any[], filename: string) => {
   document.body.removeChild(link);
 };
 
-export const exportToPDF = (title: string, data: any[]) => {
+export const exportToPDF = async (title: string, data: any[]) => {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   doc.setFont("helvetica", "bold");
   doc.text(title, 20, 20);
