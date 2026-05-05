@@ -66,6 +66,34 @@ export interface AgendaNote {
 }
 
 
+export interface Subtopic {
+  title: string;
+  status: "pending" | "next" | "completed";
+}
+
+export interface Topic {
+  id: string;
+  title: string;
+  date?: string;
+  status: "covered" | "active" | "not_started";
+  objectives?: string[];
+  subtopics?: Subtopic[];
+}
+
+export interface Unit {
+  id: string;
+  title: string;
+  order: number;
+  topics: Topic[];
+}
+
+export interface Curriculum {
+  id: string;
+  subjectId: string; // e.g., "calculo-11"
+  grade: string;
+  units: Unit[];
+}
+
 interface Subject {
   id: string;
   name: string;
@@ -198,6 +226,9 @@ interface AppContextType {
   resetPassword: (email: string) => Promise<void>;
   acceptTerms: () => Promise<void>;
   saveDailyAttendance: (dateStr: string, records: Record<string, string>) => Promise<void>;
+  // CURRICULUM
+  curriculum: Curriculum[];
+  updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -287,6 +318,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [sessionNotes, setSessionNotes] = useState("");
   const [agendaNotes, setAgendaNotes] = useState<AgendaNote[]>([]);
+  const [curriculum, setCurriculum] = useState<Curriculum[]>([]);
   const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
@@ -427,11 +459,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             console.warn("Error en tiempo real (agenda):", err);
           });
 
+          // ── REAL-TIME CURRICULUM SYNC ─────────────────────────────────────
+          const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
+            const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Curriculum));
+            setCurriculum(items);
+          }, (err) => {
+            console.warn("Error en tiempo real (currículo):", err);
+          });
+
           setUser(firebaseUser);
           
           return () => {
             unsubscribeStudents();
             unsubscribeAgenda();
+            unsubscribeCurriculum();
           };
         } catch (err) {
           console.error("Error al obtener perfil:", err);
@@ -809,6 +850,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteSubject = (id: string) => {
     setSubjects(prev => prev.filter(s => s.id !== id));
   };
+  const updateTopicStatus = async (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => {
+    try {
+      const cur = curriculum.find(c => c.id === curriculumId);
+      if (!cur) return;
+
+      const newUnits = cur.units.map(u => {
+        if (u.id === unitId) {
+          return {
+            ...u,
+            topics: u.topics.map(t => t.id === topicId ? { ...t, status } : t)
+          };
+        }
+        return u;
+      });
+
+      await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
+    } catch (err) {
+      console.error("Error al actualizar estado del tema:", err);
+    }
+  };
 
   return (
     <AppContext.Provider value={{
@@ -823,6 +884,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       agendaNotes, addAgendaNote, updateAgendaNote,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
+      curriculum, updateTopicStatus,
     }}>
       {children}
     </AppContext.Provider>

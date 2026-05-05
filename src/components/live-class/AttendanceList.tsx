@@ -3,13 +3,15 @@
 import { useState, useMemo, useEffect } from "react";
 import { 
   CheckCircle, XCircle, Clock, Save, Filter, User, 
-  BookOpen, BarChart3, GraduationCap, Layers, Cake, MessageSquare, Star, AlertTriangle, BellRing
+  BookOpen, BarChart3, GraduationCap, Layers, Cake, MessageSquare, Star, AlertTriangle, BellRing, AlertCircle
 } from "lucide-react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
 export default function AttendanceList() {
-  const { students, subjects, profile, addGrade, saveDailyAttendance, addAgendaNote } = useApp();
+  const { students, subjects, profile, addGrade, saveDailyAttendance, addAgendaNote, agendaNotes, updateAgendaNote } = useApp();
+  const [isAlreadySaved, setIsAlreadySaved] = useState(false);
+  const [existingNoteId, setExistingNoteId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [selectedGrado, setSelectedGrado] = useState<string>("TODOS");
   const [selectedCurso, setSelectedCurso] = useState<string>("TODOS");
@@ -135,6 +137,47 @@ export default function AttendanceList() {
     });
   }, [students, selectedGrado, selectedCurso]);
 
+  // Efecto para cargar asistencia existente y verificar si ya se guardó
+  useEffect(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    
+    // 1. Verificar si hay una nota de agenda para esta clase hoy
+    const subjectName = subjects.find(s => s.id === selectedSubject)?.name || "";
+    const existingNote = agendaNotes.find(n => 
+      n.date === todayStr && 
+      n.course === selectedCurso && 
+      n.subject === subjectName
+    );
+
+    if (existingNote) {
+      setIsAlreadySaved(true);
+      setExistingNoteId(existingNote.id);
+      setEndClassNote(existingNote.content || "");
+      setEndClassType(existingNote.type as any || "GENERAL");
+    } else {
+      setIsAlreadySaved(false);
+      setExistingNoteId(null);
+    }
+
+    // 2. Cargar asistencia desde los registros de los estudiantes
+    const loadedAttendance: Record<string, 'present' | 'absent' | 'late'> = {};
+    let hasData = false;
+
+    filteredStudents.forEach(s => {
+      const status = s.attendanceRecord?.[todayStr];
+      if (status) {
+        loadedAttendance[s.id] = status as any;
+        hasData = true;
+      }
+    });
+
+    if (hasData) {
+      setAttendance(loadedAttendance);
+    } else {
+      setAttendance({});
+    }
+  }, [selectedSubject, selectedCurso, filteredStudents, agendaNotes, subjects]);
+
   const stats = useMemo(() => ({
     total: filteredStudents.length,
     present: filteredStudents.filter(s => attendance[s.id] === 'present').length,
@@ -199,9 +242,24 @@ export default function AttendanceList() {
            <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-on-surface-variant">Panel de Control de Aula</h3>
            <div className="flex items-center gap-3">
              <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); setHasUnsavedChanges(true); }} className="px-6 py-3 bg-secondary/10 text-secondary rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={16} /> Todos Presentes</button>
-             <button onClick={() => setShowEndClassModal(true)} className="px-8 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={16} /> Finalizar Clase</button>
+             <button onClick={() => setShowEndClassModal(true)} className="px-8 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={16} /> {isAlreadySaved ? "Actualizar Clase" : "Finalizar Clase"}</button>
            </div>
         </div>
+
+        {isAlreadySaved && (
+          <div className="bg-amber-50 border-b border-amber-100 px-8 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <AlertCircle size={16} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-amber-900 uppercase">Clase ya registrada</p>
+                <p className="text-[9px] font-bold text-amber-700 uppercase">Puedes modificar los datos y guardar los cambios nuevamente.</p>
+              </div>
+            </div>
+            <span className="text-[8px] font-black bg-amber-200/50 text-amber-800 px-2 py-1 rounded-md uppercase">Modo Edición</span>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
@@ -348,15 +406,19 @@ export default function AttendanceList() {
                    const todayStr = new Date().toISOString().slice(0, 10);
                    await saveDailyAttendance(todayStr, attendance);
                    
-                   if (endClassNote.trim() !== "" || endClassType !== "GENERAL") {
-                     await addAgendaNote({
-                       date: todayStr,
-                       course: selectedCurso,
-                       subject: subjects.find(s => s.id === selectedSubject)?.name || "Clase",
-                       type: endClassType,
-                       content: endClassNote || (endClassType === 'NO_CLASS' ? 'Clase cancelada/no dictada' : 'Gestión de clase completada'),
-                       isCompleted: false
-                     });
+                   const noteData = {
+                     date: todayStr,
+                     course: selectedCurso,
+                     subject: subjects.find(s => s.id === selectedSubject)?.name || "Clase",
+                     type: endClassType,
+                     content: endClassNote || (endClassType === 'NO_CLASS' ? 'Clase cancelada/no dictada' : 'Gestión de clase completada'),
+                     isCompleted: false
+                   };
+
+                   if (existingNoteId) {
+                     await updateAgendaNote(existingNoteId, noteData);
+                   } else if (endClassNote.trim() !== "" || endClassType !== "GENERAL") {
+                     await addAgendaNote(noteData);
                    }
 
                    setHasUnsavedChanges(false);
@@ -369,7 +431,7 @@ export default function AttendanceList() {
                    setIsSaving(false);
                  }
                }} className="flex-[2] py-4 rounded-2xl bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all shadow-xl shadow-blue-600/30 flex justify-center items-center gap-2">
-                 {isSaving ? <span className="animate-pulse">Guardando Datos...</span> : <><CheckCircle size={16} /> Guardar y Finalizar</>}
+                 {isSaving ? <span className="animate-pulse">Guardando Datos...</span> : <><CheckCircle size={16} /> {isAlreadySaved ? "Actualizar Cambios" : "Guardar y Finalizar"}</>}
                </button>
              </div>
           </div>

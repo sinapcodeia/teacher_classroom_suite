@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import StatisticsDashboard from "@/components/admin/StatisticsDashboard";
+import { seedCurriculum } from "@/lib/seedCurriculum";
 
 const excelDateToJS = (serial: any) => {
   if (!serial || isNaN(serial)) return serial || "";
@@ -511,6 +512,19 @@ export default function AdminPage() {
                     <LayoutGrid size={18} /> {activeTab}
                   </span>
                   <span className="text-[10px] font-black text-white bg-on-surface px-6 py-2.5 rounded-full uppercase tracking-widest">{currentList.length} Entradas</span>
+                  {activeTab === "subjects" && isSuperAdmin && (
+                    <button 
+                      onClick={async () => {
+                        if(confirm("¿Sembrar datos de ejemplo de currículo?")) {
+                          await seedCurriculum();
+                          alert("Currículo sembrado.");
+                        }
+                      }}
+                      className="ml-4 text-[10px] font-black text-white bg-primary px-6 py-2.5 rounded-full uppercase tracking-widest hover:bg-primary-container hover:text-on-primary-container transition-all"
+                    >
+                      Sembrar Currículo
+                    </button>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 gap-px bg-outline-variant/10">

@@ -107,9 +107,8 @@ export default function AttendanceReportPage() {
         
         {/* Institutional Header */}
         <div className="flex justify-between items-center mb-6 text-center border-b-2 border-on-surface pb-6">
-          <div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center border-2 border-on-surface/10 relative">
-             <ShieldCheck size={48} className="text-primary/20" />
-             <span className="absolute text-[8px] font-black uppercase">Logo UNIPA</span>
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center border-2 border-on-surface/10 relative overflow-hidden">
+             <Image src="/logo.png" alt="Logo UNIPA" fill className="object-contain p-2" />
           </div>
           
           <div className="flex-1 space-y-0.5">

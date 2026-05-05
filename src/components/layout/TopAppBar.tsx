@@ -79,6 +79,7 @@ export default function TopAppBar() {
             alt="Logo IETABA" 
             fill 
             className="object-contain p-1"
+            sizes="40px"
             priority
           />
         </div>
@@ -88,7 +89,7 @@ export default function TopAppBar() {
           </span>
           <div className="flex items-center gap-1.5 mt-0.5">
              <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-             <span className="text-[7px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Sincronizado</span>
+             <span className="text-[7px] font-black text-on-surface-variant uppercase tracking-[0.4em]">IETABA · Premium Suite</span>
           </div>
         </div>
       </div>
