@@ -396,7 +396,7 @@ export default function AttendanceList() {
             <BellRing size={24} className="animate-bounce" />
             <div>
               <p className="text-[13px] font-black uppercase tracking-tighter leading-tight">Clase Activa Sin Guardar</p>
-              <p className="text-[10px] font-medium opacity-90">Recuerda presionar "Finalizar Clase" para guardar la asistencia.</p>
+              <p className="text-[10px] font-medium opacity-90">Recuerda presionar &quot;Finalizar Clase&quot; para guardar la asistencia.</p>
             </div>
             <button onClick={() => setShowIdleWarning(false)} className="ml-4 w-8 h-8 flex items-center justify-center bg-white/20 rounded-full hover:bg-white/30 transition-all">
                <XCircle size={16} />
