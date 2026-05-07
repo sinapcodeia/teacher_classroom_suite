@@ -69,7 +69,17 @@ export default function Home() {
   }, [myStudents]);
 
   // Tareas pendientes
-  const pendingTasks = useMemo(() => agendaNotes.filter(n => n.type === 'TASK' && !n.isCompleted), [agendaNotes]);
+  // Tareas pendientes (filtradas por los cursos que dicta el docente)
+  const pendingTasks = useMemo(() => {
+    return agendaNotes.filter(n => {
+      const isPendingTask = n.type === 'TASK' && !n.isCompleted;
+      if (!isPendingTask) return false;
+      
+      // Si es SuperAdmin ve todas, si es docente solo las de sus cursos
+      if (profile.isSuperAdmin) return true;
+      return effectiveCourses?.includes(n.course);
+    });
+  }, [agendaNotes, profile.isSuperAdmin, effectiveCourses]);
 
   // Top 5 Estudiantes (Cuadro de Honor)
   const topStudents = useMemo(() => [...myStudents]

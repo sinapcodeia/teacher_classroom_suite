@@ -160,6 +160,10 @@ export default function AttendanceList() {
     }
 
     // 2. Cargar asistencia desde los registros de los estudiantes
+    // CRÍTICO: Si el usuario ya empezó a tomar asistencia localmente (hasUnsavedChanges),
+    // NO sobreescribimos con los datos de Firestore para evitar que se borre lo que lleva.
+    if (hasUnsavedChanges) return;
+
     const loadedAttendance: Record<string, 'present' | 'absent' | 'late'> = {};
     let hasData = false;
 
@@ -176,7 +180,7 @@ export default function AttendanceList() {
     } else {
       setAttendance({});
     }
-  }, [selectedSubject, selectedCurso, filteredStudents, agendaNotes, subjects]);
+  }, [selectedSubject, selectedCurso, filteredStudents, agendaNotes, subjects, hasUnsavedChanges]);
 
   const stats = useMemo(() => ({
     total: filteredStudents.length,
@@ -276,21 +280,36 @@ export default function AttendanceList() {
                 const status = attendance[student.id];
                 const isBday = student.fechaNacimiento?.slice(5, 10) === new Date().toISOString().slice(5, 10);
                 const isStar = student.avgGrade >= 4.5;
+                
+                // Cálculo de inasistencia recurrente
+                const totalAbsences = student.attendanceRecord 
+                  ? Object.values(student.attendanceRecord).filter(v => v === 'absent').length 
+                  : 0;
+                const isAtRisk = totalAbsences >= 3;
+                
+                // Alerta de rendimiento
+                const isFailing = student.avgGrade > 0 && student.avgGrade < 3.0;
 
                 return (
                   <tr key={student.id} className="hover:bg-surface-container-lowest transition-all group cursor-pointer" onClick={() => setSelectedStudent(student)}>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                           <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center font-black text-xs border border-primary/10">
+                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs border ${isFailing ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-primary/5 text-primary border-primary/10'}`}>
                               {student.primerApellido[0]}{student.primerNombre[0]}
                            </div>
-                           {isBday && <div className="absolute -top-2 -right-2 bg-secondary text-white p-1 rounded-full animate-bounce"><Cake size={12} /></div>}
-                           {isStar && <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-on-surface p-1 rounded-full"><Star size={12} /></div>}
+                           {isBday && <div className="absolute -top-2 -right-2 bg-secondary text-white p-1 rounded-full animate-bounce shadow-lg"><Cake size={12} /></div>}
+                           {isStar && <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-on-surface p-1 rounded-full shadow-lg"><Star size={12} /></div>}
+                           {isAtRisk && <div className="absolute top-0 -left-2 bg-rose-600 text-white p-1 rounded-full animate-pulse shadow-lg" title="Inasistencia Recurrente"><AlertTriangle size={10} /></div>}
                         </div>
                         <div>
-                          <p className="text-[12px] font-black text-on-surface uppercase leading-tight">{student.primerApellido} {student.primerNombre}</p>
-                          <p className="text-[9px] font-bold text-on-surface-variant uppercase opacity-60">ID: {student.nroDocumento}</p>
+                          <p className={`text-[12px] font-black uppercase leading-tight ${isFailing ? 'text-rose-700' : 'text-on-surface'}`}>
+                            {student.primerApellido} {student.primerNombre}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-[9px] font-bold text-on-surface-variant uppercase opacity-60 tracking-tighter">ID: {student.nroDocumento}</p>
+                            {isFailing && <span className="text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 uppercase">Bajo Rendimiento</span>}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -299,26 +318,30 @@ export default function AttendanceList() {
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex justify-center gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); handleStatusChange(student.id, 'present'); }} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'present' ? "bg-secondary text-white scale-110" : "bg-surface-container text-on-surface-variant"}`}><CheckCircle size={18} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); handleStatusChange(student.id, 'absent'); }} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'absent' ? "bg-error text-white scale-110" : "bg-surface-container text-on-surface-variant"}`}><XCircle size={18} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); handleStatusChange(student.id, 'late'); }} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'late' ? "bg-tertiary text-white scale-110" : "bg-surface-container text-on-surface-variant"}`}><Clock size={18} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleStatusChange(student.id, 'present'); }} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'present' ? "bg-secondary text-white scale-110 shadow-lg shadow-secondary/30" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}><CheckCircle size={18} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleStatusChange(student.id, 'absent'); }} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'absent' ? "bg-error text-white scale-110 shadow-lg shadow-error/30" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}><XCircle size={18} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleStatusChange(student.id, 'late'); }} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'late' ? "bg-tertiary text-white scale-110 shadow-lg shadow-tertiary/30" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}><Clock size={18} /></button>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                        <div className="flex flex-wrap gap-2 justify-center">
+                        {isAtRisk && (
+                          <div className="flex items-center gap-1.5 bg-rose-50 text-rose-700 px-3 py-1.5 rounded-xl border border-rose-200 text-[8px] font-black uppercase animate-in fade-in">
+                            <AlertCircle size={12} /> {totalAbsences} Fallas
+                          </div>
+                        )}
                         {status === 'absent' && (
-                          <button onClick={(e) => { e.stopPropagation(); sendWA(student, 'absent'); }} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all"><MessageSquare size={12} /> Inasistencia</button>
+                          <button onClick={(e) => { e.stopPropagation(); sendWA(student, 'absent'); }} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all shadow-md shadow-green-600/20"><MessageSquare size={12} /> Avisar Acudiente</button>
                         )}
                         {isBday && (
-                          <button onClick={(e) => { e.stopPropagation(); sendWA(student, 'birthday'); }} className="px-3 py-1.5 bg-secondary text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all"><Cake size={12} /> Felicitar</button>
+                          <button onClick={(e) => { e.stopPropagation(); sendWA(student, 'birthday'); }} className="px-3 py-1.5 bg-secondary text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all shadow-md shadow-secondary/20"><Cake size={12} /> Felicitar</button>
                         )}
                         {isStar && (
-                          <button onClick={(e) => { e.stopPropagation(); sendWA(student, 'excellence'); }} className="px-3 py-1.5 bg-yellow-500 text-on-surface rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all"><Star size={12} /> Excelencia</button>
+                          <button onClick={(e) => { e.stopPropagation(); sendWA(student, 'excellence'); }} className="px-3 py-1.5 bg-yellow-500 text-on-surface rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all shadow-md shadow-yellow-500/20"><Star size={12} /> Excelencia</button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); setParticipationModal({ studentId: student.id, name: `${student.primerNombre} ${student.primerApellido}` }); }} className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all">
+                        <button onClick={(e) => { e.stopPropagation(); setParticipationModal({ studentId: student.id, name: `${student.primerNombre} ${student.primerApellido}` }); }} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1 hover:scale-105 transition-all shadow-md shadow-blue-600/20">
                           + Participación
                         </button>
-                        {!status && !isBday && !isStar && <span className="text-[8px] font-bold opacity-10 uppercase italic">Sin Alertas Activas</span>}
                        </div>
                     </td>
                   </tr>

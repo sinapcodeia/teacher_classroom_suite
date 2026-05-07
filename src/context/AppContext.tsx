@@ -212,8 +212,7 @@ interface AppContextType {
   deleteSubject: (id: string) => void;
   schedule: ScheduleEntry[];
   setSchedule: (schedule: ScheduleEntry[]) => void;
-  sessionNotes: string;
-  setSessionNotes: (notes: string) => void;
+
   agendaNotes: AgendaNote[];
   addAgendaNote: (note: Omit<AgendaNote, "id">) => Promise<void>;
   updateAgendaNote: (id: string, updates: Partial<AgendaNote>) => Promise<void>;
@@ -316,7 +315,7 @@ const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [sessionNotes, setSessionNotes] = useState("");
+
   const [agendaNotes, setAgendaNotes] = useState<AgendaNote[]>([]);
   const [curriculum, setCurriculum] = useState<Curriculum[]>([]);
   const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
@@ -604,13 +603,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // ── PERSISTENCIA LOCAL (no students — Firestore es la fuente de verdad) ────
+  // ── PERSISTENCIA LOCAL (Configuraciones y Caché de UI) ────────────────────
   useEffect(() => {
     const savedMasterData = localStorage.getItem("edu_masterData");
     const savedSubjects   = localStorage.getItem("edu_subjects");
-    const savedNotes      = localStorage.getItem("edu_sessionNotes");
+
     localStorage.removeItem("edu_schedule");
     localStorage.removeItem("edu_students"); // clear old cache
+    
     if (savedMasterData) {
       try { 
         const parsed = JSON.parse(savedMasterData);
@@ -622,15 +622,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }); 
       } catch { /* ignore */ }
     }
-    if (savedSubjects)   try { setSubjects(JSON.parse(savedSubjects));   } catch { /* ignore */ }
-    if (savedNotes) setSessionNotes(savedNotes);
+    if (savedSubjects) try { setSubjects(JSON.parse(savedSubjects)); } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("edu_masterData",    JSON.stringify(masterData));
-    localStorage.setItem("edu_subjects",      JSON.stringify(subjects));
-    localStorage.setItem("edu_sessionNotes",  sessionNotes);
-  }, [masterData, subjects, sessionNotes]);
+    localStorage.setItem("edu_masterData", JSON.stringify(masterData));
+    localStorage.setItem("edu_subjects", JSON.stringify(subjects));
+  }, [masterData, subjects]);
 
   // ── AUTO-SYNC STUDENTS DATA TO MASTER DATA ────────────────────────────────
   useEffect(() => {
@@ -889,7 +887,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       masterData, updateMasterData, removeMasterItem, updateMasterItem,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
-      sessionNotes, setSessionNotes,
       agendaNotes, addAgendaNote, updateAgendaNote,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
