@@ -348,8 +348,132 @@ BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Problemas de Alta Exigencia)
     }, profile.name || "Docente IETABA", type);
   };
 
-  const handleDownload = (name: string) => {
-    alert(`Iniciando descarga segura de: ${name}`);
+  const handleDownload = async (name: string) => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      
+      // Configuración inicial
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(20, 83, 45); // Verde oscuro elegante
+      
+      const isSupportMaterial = name.includes("Material_Apoyo");
+      
+      if (isSupportMaterial) {
+        doc.text("MATERIAL DE APOYO DIDÁCTICO Y PROFUNDIZACIÓN", 20, 25);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 116, 139);
+        doc.text("Institución Educativa Indígena Técnica Agroambiental Bilingüe Awá - IETABA", 20, 31);
+        
+        doc.setDrawColor(20, 83, 45);
+        doc.setLineWidth(0.5);
+        doc.line(20, 34, 190, 34);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Asignatura: ${selectedSubject}   |   Grado: ${selectedGrade}`, 20, 42);
+        
+        const content = [
+          "",
+          "1. FUNDAMENTACIÓN PEDAGÓGICA (MODELO TEJIENDO SABERES):",
+          "Este material complementario tiene como propósito articular los saberes universales con el",
+          "pensamiento propio de la comunidad Awá (Higra), promoviendo la soberanía alimentaria,",
+          "el cuidado de la Madre Tierra (Katsa Su) y el fortalecimiento matemático y científico.",
+          "",
+          "2. ESTRATEGIAS DE INTEGRACIÓN AGROAMBIENTAL EN EL AULA:",
+          "• Implementar mediciones directas en las huertas escolares y viveros forestales.",
+          "• Fomentar el trabajo cooperativo mediante 'Mingas de Pensamiento' para resolver problemas.",
+          "• Relacionar las variables teóricas con elementos tangibles del entorno veredal.",
+          "",
+          "3. PAUTAS PARA EL TRABAJO AUTÓNOMO DEL ESTUDIANTE:",
+          "Se sugiere que el docente guíe la lectura de los conceptos fundamentales antes de iniciar",
+          "la fase de estructuración, permitiendo que los estudiantes formulen hipótesis basadas en la",
+          "observación tradicional de sus familias y mayores.",
+          "",
+          "4. REFERENCIAS Y BIBLIOGRAFÍA SUGERIDA:",
+          "• Lineamientos Curriculares Comunitarios - Plan de Vida Awá.",
+          "• Estándares Básicos de Competencias adaptados a la interculturalidad.",
+          "• Módulos Pedagógicos IETABA - Edición de Fortalecimiento Técnico."
+        ];
+        
+        let y = 48;
+        content.forEach(line => {
+          if (line.startsWith("1.") || line.startsWith("2.") || line.startsWith("3.") || line.startsWith("4.")) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(20, 83, 45);
+          } else {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(15, 23, 42);
+          }
+          doc.text(line, 20, y);
+          y += 6;
+        });
+        
+      } else {
+        doc.text("GUÍA DE PRESENTACIÓN INTERACTIVA (DIAPOSITIVAS)", 20, 25);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 116, 139);
+        doc.text("Estructura Secuencial para Proyección y Diálogo en Aula — IETABA", 20, 31);
+        
+        doc.setDrawColor(20, 83, 45);
+        doc.setLineWidth(0.5);
+        doc.line(20, 34, 190, 34);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Módulo: ${selectedSubject}   |   Nivel: ${selectedGrade}`, 20, 42);
+        
+        const slides = [
+          "",
+          "DIAPOSITIVA 1: PORTADA Y BIENVENIDA",
+          "• Título: Minga de Pensamiento y Construcción del Saber.",
+          "• Dinámica: Saludo tradicional y contextualización del tema curricular.",
+          "",
+          "DIAPOSITIVA 2: SABERES PREVIOS DESDE EL TERRITORIO",
+          "• Pregunta Central: ¿Cómo aplican nuestras familias este conocimiento en el día a día?",
+          "• Objetivo: Conectar la memoria biocultural con los objetivos del periodo.",
+          "",
+          "DIAPOSITIVA 3: DESARROLLO TEÓRICO RIGUROSO",
+          "• Contenido: Definiciones precisas, diagramas conceptuales y axiomas clave.",
+          "• Enfoque: Claridad absoluta, paso a paso lógico y uso de unidades correctas.",
+          "",
+          "DIAPOSITIVA 4: EJEMPLO PRÁCTICO AGROAMBIENTAL",
+          "• Caso de Estudio: Aplicación directa en proyectos productivos del IETABA.",
+          "• Demostración: Resolución en pizarra involucrando activamente a los estudiantes.",
+          "",
+          "DIAPOSITIVA 5: CONCLUSIONES Y EVALUACIÓN COOPERATIVA",
+          "• Cierre: Síntesis de los aprendizajes y asignación de roles para el taller comunitario."
+        ];
+        
+        let y = 48;
+        slides.forEach(line => {
+          if (line.startsWith("DIAPOSITIVA")) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(20, 83, 45);
+          } else {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(15, 23, 42);
+          }
+          doc.text(line, 20, y);
+          y += 6;
+        });
+      }
+      
+      // Guardar el documento generado
+      doc.save(name);
+    } catch (err) {
+      console.error("Error al generar el archivo de descarga:", err);
+      alert("Hubo un error al generar el archivo para su descarga.");
+    }
   };
 
   // Cargando datos iniciales
@@ -466,15 +590,15 @@ BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Problemas de Alta Exigencia)
                         <Download size={14} className="text-slate-300 group-hover:text-primary transition-colors" />
                       </div>
                       <div 
-                        onClick={() => handleDownload(`Presentacion_Interactiva_${selectedGrade}.pptx`)}
+                        onClick={() => handleDownload(`Guia_Presentacion_${selectedGrade}.pdf`)}
                         className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-primary/5 rounded-xl cursor-pointer transition-all border border-transparent hover:border-primary/20 group"
                       >
                         <div className="w-10 h-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                            <Presentation size={20} />
                         </div>
                         <div className="flex-1">
-                           <p className="text-xs font-black uppercase tracking-tight">Presentacion_Interactiva_{selectedGrade}.pptx</p>
-                           <p className="text-[8px] font-bold text-slate-400 uppercase">Recurso de Higra</p>
+                           <p className="text-xs font-black uppercase tracking-tight">Guia_Presentacion_{selectedGrade}.pdf</p>
+                           <p className="text-[8px] font-bold text-slate-400 uppercase">Guía de Diapositivas</p>
                         </div>
                         <Download size={14} className="text-slate-300 group-hover:text-primary transition-colors" />
                       </div>

@@ -69,11 +69,11 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
       const deterministicId = `cur-${detectedGrade}-${subject}`
         .toLowerCase().replace(/\s+/g, '-').replace(/°/g, '');
       
-      setExtractedData({
-        id: deterministicId,
-        grade: detectedGrade,
-        subjectId: subject,
-        units: [
+      const subLower = subject.toLowerCase();
+      let extractedUnits: any[] = [];
+
+      if (subLower.includes("tecnolog") || subLower.includes("informática") || subLower.includes("informatica") || subLower.includes("sistemas")) {
+        extractedUnits = [
           {
             id: "unit-periodo-1",
             title: "MAZA T+T – PRIMER PERIODO",
@@ -82,24 +82,13 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
               {
                 id: "P1-T1",
                 status: "active",
-                tuhPutkamna: "Numérico variacional: Operaciones con números naturales, fraccionarios, decimales. Situaciones problemas.",
-                title: "Conocer definiciones y propiedades de los conjuntos de números naturales y racionales.",
-                hacer: "Realizar operaciones básicas como números naturales y racionales.",
-                ser: "Ser lógico preciso y analítico al trabajar con números naturales y racionales.",
-                panapain: "Los conjuntos de los números naturales se utilizan comúnmente en la vida diaria. En la contabilidad para poder manejar sus recursos económicos. Los números racionales se utilizan para calcular precios y cantidades fraccionarias en nuestro territorio.",
-                nanpaskas: "En diferentes culturas, los conjuntos de números naturales y racionales se utilizan de manera única y reflejan las prácticas y tradiciones locales.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
-              },
-              {
-                id: "P1-T2",
-                status: "not_started",
-                tuhPutkamna: "Numérico Variacional: Concepto de número entero. Representación de números enteros en la recta numérica. Valor absoluto, Orden en los enteros. Operación con números enteros. Situaciones problemas.",
-                title: "Identifica las principales propiedades de los números enteros y comprende el algoritmo de las operaciones básicas.",
-                hacer: "Resuelve situaciones que involucran las operaciones básicas con números enteros y aplica sus propiedades en el desarrollo de polinomios aritméticos.",
-                ser: "Comparte su saber en el trabajo colectivo, demostrando responsabilidad y respeto hacia sus compañeros.",
-                panapain: "Proponer diferentes caminos de solución a un problema determinado, utilizando técnicas, conceptos, procedimientos y/o argumentos matemáticos adecuados, propios de los números enteros.",
-                nanpaskas: "Identifica los números enteros, y sus propiedades en un contexto social y económico; además, plantea y resuelve problemas de tipo matemático y de otras ciencias, utilizando las operaciones básicas con números enteros.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
+                tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Artefactos y procesos tecnológicos ancestrales y modernos en el territorio.",
+                title: "Identificar y clasificar herramientas tradicionales de uso comunitario frente a tecnologías mecánicas y digitales.",
+                hacer: "Analizar el funcionamiento de herramientas agrícolas y de comunicación utilizadas en el resguardo Awá.",
+                ser: "Valorar el ingenio de los saberes ancestrales combinados con las herramientas tecnológicas actuales.",
+                panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
+                nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
+                satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores, Demostración de artefactos, Lluvia de ideas.",
               }
             ]
           },
@@ -111,24 +100,13 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
               {
                 id: "P2-T1",
                 status: "not_started",
-                tuhPutkamna: "Geométrico Métrico: Elementos de geometría, Definiciones, Segmentos y rayos, Ángulos y su clasificación, Rectas paralelas y perpendiculares.",
-                title: "Reconoce los principales elementos de la geometría y los identifica en construcciones de tipo geométrico y artístico, además construye e identifica cualquier clase de ángulos.",
-                hacer: "Interpreta su magnitud, clasificación de ángulos por medio del transportador y los identifica en espacios de su entorno.",
-                ser: "Interioriza los conceptos vistos, los integra y los aplica en su entorno.",
-                panapain: "Identificar, construir y clasificar los principales elementos de la geometría (puntos, rectas, semirrectas, ángulos, etc.).",
-                nanpaskas: "Reconoce algunos elementos de la geometría, asimismo construye y clasifica todo tipo de ángulos con ayuda del transportador.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
-              },
-              {
-                id: "P2-T2",
-                status: "not_started",
-                tuhPutkamna: "Geométrico Métrico: Polígonos, Elementos del polígono, Clasificación de polígonos, Triángulos cuadriláteros, Transformaciones en el plano cartesiano (traslación, rotación, reflexión, homotecia), Área y perímetro de las figuras geométricas.",
-                title: "Identifica qué es un polígono y sus principales elementos. Fórmulas para el cálculo de áreas de algunas figuras planas.",
-                hacer: "Clasifica los polígonos según el número de lados y la medida de sus ángulos. Resolver problemas sobre áreas y perímetros de figuras planas.",
-                ser: "Integra los contenidos trabajados en el aula de clase con su diario vivir, con el fin de dar soluciones a problemas cotidianos.",
-                panapain: "Identificar los polígonos, sus principales elementos y su clasificación.",
-                nanpaskas: "Reconoce y construye polígonos, además determina sus principales elementos y lo clasifica según el número de lados o medida de sus ángulos internos.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
+                tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo responsable de la información, redes y medios de comunicación comunitaria.",
+                title: "Comprender la importancia de la comunicación digital y radial para la defensa y soberanía del territorio.",
+                hacer: "Crear contenidos digitales o guiones de radio comunitaria enfocados en la preservación de la lengua Awapit y las tradiciones.",
+                ser: "Hacer un uso ético y responsable de los dispositivos móviles y el acceso a internet en la institución.",
+                panapain: "Aprovechar las redes para visibilizar la cultura Awá y fortalecer los lazos entre los diferentes resguardos y comunidades.",
+                nanpaskas: "Reconocer el impacto global de la era de la información y adaptar sus beneficios al contexto local del IETABA.",
+                satIshkit: "Trabajo en equipo, Creación de medios, Exposiciones, Foros de debate, Edición básica de audio/video.",
               }
             ]
           },
@@ -140,39 +118,264 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
               {
                 id: "P3-T1",
                 status: "not_started",
-                tuhPutkamna: "Métrico: Unidades de masa y longitud. Conversiones de unidades.",
-                title: "Identifica la principal unidad de longitud, además de sus múltiplos y submúltiplos.",
-                hacer: "Realiza conversiones entre unidades de longitud y masa.",
-                ser: "Crea estrategias para solucionar problemas sobre conversiones y figuras planas, además respeta las estrategias de sus compañeros.",
-                panapain: "Realizar conversiones entre unidades de longitud y masa para aplicar dichas conversiones en su diario vivir.",
-                nanpaskas: "Soluciona problemas en los que intervengan conversiones entre unidades de longitud y masa en situaciones de su diario vivir.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
-              },
-              {
-                id: "P3-T2",
-                status: "not_started",
-                tuhPutkamna: "Aleatorio: Definición de población, muestra, variable. Clasificación de variables. Tablas de frecuencia absoluta, relativa y acumulada. Diagramas de barras. Histograma. Diagramas circulares.",
-                title: "Reconoce qué es la población, la muestra, la variable y los datos de la investigación; los ordena en tablas de frecuencia.",
-                hacer: "Aplica procedimientos para determinar la población, la muestra, la variable y los datos de diferentes estudios estadísticos para construir tablas de frecuencia a partir de la información recolectada.",
-                ser: "Favorece su espíritu emprendedor participando activamente en el desarrollo de la clase, mostrando la importancia de la estadística en situaciones de la vida cotidiana.",
-                panapain: "Resumir y descubrir patrones de comportamiento en la exploración de datos, obtenidos a través de un estudio estadístico.",
-                nanpaskas: "Reconoce y obtiene datos de la población, la muestra, la variable mediante investigaciones estadísticas que están relacionados con su entorno social y/o económico, organizando dicha información en tablas de frecuencia.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras.",
-              },
-              {
-                id: "P3-T3",
-                status: "not_started",
-                tuhPutkamna: "Aleatorio: Medidas de tendencia central (Media o promedio, Moda, Mediana).",
-                title: "Formula e interpreta problemas estadísticos de su entorno cotidiano que requieren el manejo de la media, moda y mediana.",
-                hacer: "Ordena, cuenta y representa gráficamente los datos recolectados empleando las medidas de tendencia central en el análisis.",
-                ser: "Participa activamente en el desarrollo de investigaciones estadísticas y de la elaboración de su análisis.",
-                panapain: "Crear representaciones gráficas de información procedente de entrevistas, censos, encuestas, entre otros. Calcula la media, mediana y moda a partir de un conjunto de datos obtenido mediante la aplicación de instrumentos de recolección pertinentes.",
-                nanpaskas: "Identifica y construye diferentes tipos de gráficos estadísticos, y calcula las diferentes medidas de tendencia central en datos no agrupados interpretando la información obtenida de diferentes medios.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras.",
+                tuhPutkamna: "Solución de Problemas con Tecnología: Diseño de sistemas sencillos para el cuidado ambiental y productivo.",
+                title: "Proponer soluciones técnicas elementales (como recolección de agua o abono orgánico optimizado) para las huertas escolares.",
+                hacer: "Diseñar esquemas o maquetas de prototipos tecnológicos sustentables aplicados al entorno del resguardo.",
+                ser: "Ser consciente del impacto ambiental de los desechos tecnológicos y promover el reciclaje en la comunidad.",
+                panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
+                nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental con las prácticas ancestrales de conservación.",
+                satIshkit: "Proyectos de aula, Ferias de ciencia y tecnología, Trabajo práctico, Exposición comunitaria.",
               }
             ]
           }
-        ]
+        ];
+      } else if (subLower.includes("física") || subLower.includes("fisica")) {
+        extractedUnits = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "active",
+                tuhPutkamna: "Cinemática y Movimiento: Magnitudes físicas, distancia, desplazamiento y velocidad en el entorno geográfico Awá.",
+                title: "Comprender los conceptos relativos al movimiento y representarlos gráficamente relacionándolos con los recorridos cotidianos.",
+                hacer: "Calcular distancias y tiempos estimados en los trayectos entre veredas y el centro educativo utilizando unidades convencionales y propias.",
+                ser: "Desarrollar un pensamiento analítico y riguroso al observar los fenómenos físicos de la naturaleza.",
+                panapain: "Las nociones de tiempo y espacio son vivenciadas en las largas caminatas y recorridos por la selva y la montaña en nuestro territorio.",
+                nanpaskas: "Establecer la equivalencia entre el sistema internacional de medidas y las formas tradicionales de estimación de distancias.",
+                satIshkit: "Salidas de campo, Medición en terreno, Trabajo en equipo, Resolución de problemas, Guías de observación.",
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-2",
+            title: "PAS T+T – SEGUNDO PERIODO",
+            order: 2,
+            topics: [
+              {
+                id: "P2-T1",
+                status: "not_started",
+                tuhPutkamna: "Dinámica y Fuerzas: Leyes de Newton, masa, peso, fricción y su aplicación en labores comunitarias.",
+                title: "Identificar las fuerzas que intervienen en el equilibrio y movimiento de los cuerpos en actividades agrícolas y de construcción.",
+                hacer: "Diagramar las fuerzas mecánicas involucradas en el uso de palancas, poleas y el transporte de cargas pesadas en el resguardo.",
+                ser: "Reconocer el valor del esfuerzo físico armónico y el cuidado del cuerpo durante el trabajo comunitario.",
+                panapain: "Toda acción en nuestro entorno genera una reacción; mantener el equilibrio físico y espiritual con la Madre Tierra es fundamental.",
+                nanpaskas: "Relacionar los principios de la mecánica clásica con la eficiencia en las técnicas de construcción y cultivo globales y locales.",
+                satIshkit: "Laboratorios vivenciales, Demostraciones con elementos locales, Talleres grupales, Discusión en plenaria.",
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-3",
+            title: "KUTÑA T+T – TERCER PERIODO",
+            order: 3,
+            topics: [
+              {
+                id: "P3-T1",
+                status: "not_started",
+                tuhPutkamna: "Energía y Conservación: Trabajo, potencia y fuentes de energía limpias (hídrica y solar) presentes en Katsa Su.",
+                title: "Analizar las transformaciones de la energía y proponer formas sustentables de aprovechamiento en el territorio.",
+                hacer: "Identificar el potential energético de los ríos y quebradas locales sin afectar el cauce natural ni la fauna.",
+                ser: "Defender los recursos naturales del territorio como fuentes sagradas de vida y energía.",
+                panapain: "El agua y el sol son los principales motores de vida de la selva Awá; su uso debe basarse en el respeto absoluto a los espíritus de la naturaleza.",
+                nanpaskas: "Estudiar tecnologías limpias de generación de energía a pequeña escala y su viabilidad para comunidades indígenas rurales.",
+                satIshkit: "Investigación guiada, Elaboración de carteleras, Mesas de trabajo, Exposiciones, Paneles de discusión.",
+              }
+            ]
+          }
+        ];
+      } else if (subLower.includes("ética") || subLower.includes("etica") || subLower.includes("valores")) {
+        extractedUnits = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "active",
+                tuhPutkamna: "Identidad y Valores Comunitarios: El sentido de pertenencia, la familia y el respeto a la cosmovisión Awá.",
+                title: "Reconocer y apropiar los principios éticos que rigen la vida comunitaria y la armonía con los seres de la naturaleza.",
+                hacer: "Participar en círculos de palabra reflexionando sobre los consejos de los mayores y el respeto mutuo.",
+                ser: "Sentir orgullo de la identidad Awá y practicar la solidaridad y la honestidad en el entorno escolar.",
+                panapain: "Nuestros valores nacen del fogón y de la relación profunda con los ancestros y el territorio sagrado.",
+                nanpaskas: "Dialogar con otras formas de pensamiento ético y moral promoviendo la tolerancia y el respeto a la diversidad cultural.",
+                satIshkit: "Círculos de palabra, Entrevistas, Dramatizaciones, Lectura de relatos propios, Compartir comunitario.",
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-2",
+            title: "PAS T+T – SEGUNDO PERIODO",
+            order: 2,
+            topics: [
+              {
+                id: "P2-T1",
+                status: "not_started",
+                tuhPutkamna: "Convivencia y Resolución de Conflictos: La Minga como modelo de justicia restaurativa y paz comunitaria.",
+                title: "Comprender los mecanismos propios para resolver diferencias y restaurar la armonía colectiva frente a conflictos.",
+                hacer: "Aplicar la escucha activa y el diálogo pacífico al mediar en desacuerdos cotidianos dentro del aula.",
+                ser: "Ser un gestor de paz, promoviendo el compañerismo y evitando cualquier forma de discriminación o violencia.",
+                panapain: "La palabra dulce y el consejo oportuno de la autoridad tradicional evitan la ruptura del tejido social en el resguardo.",
+                nanpaskas: "Conocer los derechos humanos universales y su complementariedad con el derecho propio y la jurisdicción especial indígena.",
+                satIshkit: "Estudio de casos, Juegos de rol, Debates armónicos, Elaboración de acuerdos de convivencia.",
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-3",
+            title: "KUTÑA T+T – TERCER PERIODO",
+            order: 3,
+            topics: [
+              {
+                id: "P3-T1",
+                status: "not_started",
+                tuhPutkamna: "Proyecto de Vida y Territorio: El futuro individual entrelazado con la pervivencia del pueblo Awá.",
+                title: "Diseñar metas personales de superación académica y comunitaria que fortalezcan el Plan de Vida institucional y colectivo.",
+                hacer: "Redactar un manifiesto o plan de vida personal destacando sus aportes al bienestar de su familia y comunidad.",
+                ser: "Proyectarse con esperanza, liderazgo y compromiso indeclinable hacia la defensa de Katsa Su.",
+                panapain: "Cada joven Awá que se educa es un pilar fundamental para garantizar la pervivencia física y cultural de nuestra nación.",
+                nanpaskas: "Explorar oportunidades académicas y laborales externas manteniendo el arraigo y el compromiso de retorno al resguardo.",
+                satIshkit: "Talleres de proyecto de vida, Cartografía personal, Reflexión individual, Galerías de sueños.",
+              }
+            ]
+          }
+        ];
+      } else if (subLower.includes("matemáticas") || subLower.includes("matematicas")) {
+        extractedUnits = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "active",
+                tuhPutkamna: "Numérico variacional: Operaciones con números naturales, fraccionarios, decimales. Situaciones problemas.",
+                title: "Conocer definiciones y propiedades de los conjuntos de números naturales y racionales.",
+                hacer: "Realizar operaciones básicas con números naturales y racionales.",
+                ser: "Ser lógico preciso y analítico al trabajar con números naturales y racionales.",
+                panapain: "Los conjuntos de los números naturales se utilizan comúnmente en la vida diaria. En la contabilidad para poder manejar sus recursos económicos. Los números racionales se utilizan para calcular precios y cantidades fraccionarias en nuestro territorio.",
+                nanpaskas: "En diferentes culturas, los conjuntos de números naturales y racionales se utilizan de manera única y reflejan las prácticas y tradiciones locales.",
+                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
+              },
+              {
+                id: "P1-T2",
+                status: "not_started",
+                tuhPutkamna: "Numérico Variacional: Concepto de número entero. Representación en la recta numérica. Operaciones y problemas.",
+                title: "Identifica las principales propiedades de los números enteros y comprende el algoritmo de las operaciones básicas.",
+                hacer: "Resuelve situaciones que involucran operaciones básicas con números enteros y aplica sus propiedades.",
+                ser: "Comparte su saber en el trabajo colectivo, demostrando responsabilidad y respeto hacia sus compañeros.",
+                panapain: "Proponer diferentes caminos de solución a un problema determinado en el contexto del comercio y trueque local.",
+                nanpaskas: "Identifica los números enteros y sus propiedades en un contexto social y económico más amplio.",
+                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones.",
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-2",
+            title: "PAS T+T – SEGUNDO PERIODO",
+            order: 2,
+            topics: [
+              {
+                id: "P2-T1",
+                status: "not_started",
+                tuhPutkamna: "Geométrico Métrico: Elementos de geometría, Definiciones, Segmentos, Ángulos y Polígonos en el diseño de artesanías.",
+                title: "Reconoce los principales elementos de la geometría y los identifica en construcciones y tejidos propios.",
+                hacer: "Construye y clasifica polígonos y ángulos relacionándolos con los patrones del canasto y el tejido Awá.",
+                ser: "Interioriza la belleza geométrica de las creaciones tradicionales de su comunidad.",
+                panapain: "La geometría está viva en la arquitectura tradicional de las casas y en el trazado de las chagras comunitarias.",
+                nanpaskas: "Reconoce la universalidad de las formas geométricas combinadas con la particularidad artística local.",
+                satIshkit: "Talleres de tejido y geometría, Uso del transportador, Salidas de campo, Carteleras.",
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-3",
+            title: "KUTÑA T+T – TERCER PERIODO",
+            order: 3,
+            topics: [
+              {
+                id: "P3-T1",
+                status: "not_started",
+                tuhPutkamna: "Métrico y Aleatorio: Unidades de medida propias y convencionales. Recolección de datos y estadística descriptiva.",
+                title: "Aplica conversiones de unidades y organiza datos estadísticos de encuestas sobre producción agrícola local.",
+                hacer: "Elabora tablas de frecuencia y diagramas de barras sobre la diversidad de cultivos en el resguardo.",
+                ser: "Muestra rigor y honestidad en la recolección y presentación de información estadística comunitaria.",
+                panapain: "Las estadísticas propias ayudan a planificar la soberanía alimentaria y a defender los recursos ante entidades externas.",
+                nanpaskas: "Interpreta información estadística de medios de comunicación nacionales contrastándola con la realidad territorial.",
+                satIshkit: "Censos escolares, Entrevistas, Gráficos en papel milimetrado, Exposición grupal.",
+              }
+            ]
+          }
+        ];
+      } else {
+        const subjCapitalized = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
+        extractedUnits = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "active",
+                tuhPutkamna: `Fundamentos y Contexto de ${subject}: Apropiación de conceptos clave orientados a la realidad del territorio.`,
+                title: `Identificar los principios teóricos y prácticos fundamentales de ${subjCapitalized} en la vida diaria.`,
+                hacer: `Analizar situaciones del entorno escolar y comunitario aplicando las herramientas propias de ${subjCapitalized}.`,
+                ser: `Demostrar interés, respeto y sentido crítico al integrar nuevos conocimientos para el beneficio colectivo.`,
+                panapain: `Articular los contenidos de ${subjCapitalized} con las vivencias cotidianas y los saberes propios de las familias Awá.`,
+                nanpaskas: `Contrastar los enfoques globales de esta disciplina con la visión particular y armónica de los pueblos originarios.`,
+                satIshkit: `Trabajo colaborativo, Indagación guiada, Mesas de diálogo, Elaboración de resúmenes y esquemas.`,
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-2",
+            title: "PAS T+T – SEGUNDO PERIODO",
+            order: 2,
+            topics: [
+              {
+                id: "P2-T1",
+                status: "not_started",
+                tuhPutkamna: `Desarrollo Comunitario e Investigación en ${subject}: Procedimientos metodológicos y análisis contextual.`,
+                title: `Profundizar en las técnicas y metodologías de ${subjCapitalized} para proponer mejoras en el entorno escolar.`,
+                hacer: `Desarrollar pequeños proyectos o guías prácticas integrando el saber de ${subjCapitalized} con la protección territorial.`,
+                ser: `Fomentar el trabajo solidario en equipo, compartiendo hallazgos y respetando las opiniones de sus pares.`,
+                panapain: `El conocimiento adquiere verdadero valor cuando se comparte en Minga y ayuda a fortalecer el tejido social.`,
+                nanpaskas: `Reconocer aportes universales en el campo de ${subjCapitalized} y su aplicabilidad sustentable en la región.`,
+                satIshkit: `Exposiciones, Talleres grupales, Entrevistas comunitarias, Paneles de discusión.`,
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-3",
+            title: "KUTÑA T+T – TERCER PERIODO",
+            order: 3,
+            topics: [
+              {
+                id: "P3-T1",
+                status: "not_started",
+                tuhPutkamna: `Proyectos de Integración y Sustentabilidad en ${subject}: Aportes integrales al Plan de Vida Institucional.`,
+                title: `Evaluar de forma crítica y propositiva el impacto de ${subjCapitalized} en la consolidación del Buen Vivir comunitario.`,
+                hacer: `Sintetizar los aprendizajes del año mediante la presentación de un portafolio o muestra pedagógica contextualizada.`,
+                ser: `Consolidar su identidad y liderazgo estudiantil, comprometiéndose con el progreso armónico del resguardo.`,
+                panapain: `Todo saber cultivado en el IETABA está destinado a resguardar la vida, la cultura y la soberanía de Katsa Su.`,
+                nanpaskas: `Proyectar los conocimientos adquiridos hacia escenarios académicos superiores manteniendo el orgullo por sus raíces.`,
+                satIshkit: `Muestras pedagógicas, Foros comunitarios, Portafolios de evidencias, Plenarias de cierre.`,
+              }
+            ]
+          }
+        ];
+      }
+
+      setExtractedData({
+        id: deterministicId,
+        grade: detectedGrade,
+        subjectId: subject,
+        units: extractedUnits
       });
       setIsExtracting(false);
     }, 3500);
