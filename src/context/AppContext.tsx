@@ -450,7 +450,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               let computedAvg = data.avgGrade || 0;
               if (data.grades && data.grades.length > 0) {
                 const validScores = data.grades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
-                let baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+                const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
                 const bonus = data.grades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
                 computedAvg = Number(Math.min(5.0, baseAvg + bonus).toFixed(1));
               }
