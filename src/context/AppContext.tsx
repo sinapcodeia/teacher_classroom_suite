@@ -130,6 +130,7 @@ interface Student {
   acudienteTelefono?: string;
   isActive?: boolean;
   grades?: { id: string, title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }[];
+  observations?: string;
 }
 
 // Legacy format kept for backward-compat on some views

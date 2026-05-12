@@ -42,9 +42,18 @@ export default function AttendanceReportPage() {
     ? (masterData.grades || []) 
     : (profile.teachingGrades || []);
 
-  const availableCourses = profile.role === "RECTOR" || profile.role === "COORDINADOR"
-    ? Array.from(new Set(students.map(s => s.curso))).sort()
+  // Cursos disponibles: filtra por grado seleccionado si hay uno específico
+  const allAvailableCourses = profile.role === "RECTOR" || profile.role === "COORDINADOR"
+    ? Array.from(new Set(students.map(s => s.curso))).filter(Boolean).sort()
     : (profile.teachingCourses || []);
+
+  const availableCourses = selectedGrade !== "TODOS"
+    ? Array.from(new Set(
+        students
+          .filter(s => normalizeGrade(s.grado) === normalizeGrade(selectedGrade))
+          .map(s => s.curso)
+      )).filter(Boolean).sort()
+    : allAvailableCourses;
 
   const handlePrint = () => {
     if (selectedGrade === "TODOS" || selectedCurso === "TODOS") {
@@ -91,7 +100,7 @@ export default function AttendanceReportPage() {
               <div className="w-px h-6 bg-slate-200" />
               <select 
                 value={selectedGrade} 
-                onChange={(e) => setSelectedGrade(e.target.value)}
+                onChange={(e) => { setSelectedGrade(e.target.value); setSelectedCurso("TODOS"); }}
                 className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
               >
                 <option value="TODOS">TODOS LOS GRADOS</option>
@@ -183,7 +192,7 @@ export default function AttendanceReportPage() {
                 <th className="border border-on-surface p-1 w-24 text-center uppercase font-black">FECHA NACIMIENTO</th>
                 <th className="border border-on-surface p-1 w-6 text-center rotate-[-90deg]">GENER O</th>
                 {days.map(d => (
-                  <th key={d} className={`border border-on-surface w-6 text-center font-black ${d === 23 ? 'bg-yellow-300 text-on-surface' : ''}`}>{d}</th>
+                  <th key={d} className={`border border-on-surface w-6 text-center font-black ${d === new Date().getDate() ? 'bg-yellow-300 text-on-surface' : ''}`}>{d}</th>
                 ))}
               </tr>
             </thead>
@@ -213,7 +222,7 @@ export default function AttendanceReportPage() {
                     if (status === 'late') { symbol = "T"; textColor = "text-orange-500 font-black"; }
 
                     return (
-                      <td key={d} className={`border border-on-surface text-center align-middle font-bold text-[10px] ${d === 23 ? 'bg-yellow-50' : ''} ${textColor}`}>
+                      <td key={d} className={`border border-on-surface text-center align-middle font-bold text-[10px] ${d === new Date().getDate() ? 'bg-yellow-50' : ''} ${textColor}`}>
                         {symbol}
                       </td>
                     );

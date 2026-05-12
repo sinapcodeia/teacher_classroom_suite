@@ -12,6 +12,12 @@ import {
   BrainCircuit, Trophy, CalendarDays, UploadCloud, Target, Sparkles
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
+
+const CriticalAlerts = dynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
+const EduAISentinel = dynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
+const PredictiveTrends = dynamic(() => import("@/components/analytics/PredictiveTrends"), { ssr: false });
 
 const GREETINGS = ["¡Buenos días", "¡Buenas tardes", "¡Buenas noches"];
 function getGreeting() {
@@ -342,6 +348,9 @@ export default function Home() {
             </div>
           </section>
 
+          {/* ── ALERTA CRÍTICA PARA DIRECTIVOS ── */}
+          <CriticalAlerts />
+
           {/* ── KPI STATS ── */}
           <section className="mb-10">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -386,85 +395,11 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── APOYO PEDAGÓGICO DINÁMICO ── */}
-          {!profile.isSuperAdmin && (
-            <section className="mb-10">
-              <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-outline-variant p-1 shadow-2xl shadow-blue-500/5">
-                <div className="flex flex-col md:flex-row items-stretch">
-                  {/* Left Accent */}
-                  <div className={`w-full md:w-2 hidden md:block rounded-l-full ${subjectNews.color.replace('text', 'bg')}`} />
-                  
-                  <div className="flex-1 p-8">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-50 border border-slate-100 ${subjectNews.color}`}>
-                        <subjectNews.icon size={24} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Noticia Pedagógica del Día</h3>
-                        </div>
-                        <p className="text-xl font-black text-slate-800 tracking-tight italic">Próxima clase: {nextClass?.subject || 'Preparación'}</p>
-                      </div>
-                    </div>
+          {/* ── ANALÍTICA DE ÚLTIMA GENERACIÓN ── */}
+          <PredictiveTrends />
 
-                    <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 relative group overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                         <BookOpen size={64} />
-                      </div>
-                      <h4 className={`text-sm font-black uppercase tracking-widest mb-3 ${subjectNews.color}`}>
-                        {subjectNews.title}
-                      </h4>
-                      <p className="text-sm font-medium text-slate-600 leading-relaxed mb-4 relative z-10">
-                        {subjectNews.news}
-                      </p>
-                      <div className="flex items-center gap-2 p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                        <Sparkles size={14} className="text-amber-500 shrink-0" />
-                        <p className="text-[11px] font-bold text-slate-500 italic">
-                          {subjectNews.tip}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="hidden lg:flex w-72 bg-slate-50/30 border-l border-slate-100 p-8 flex-col justify-center items-center text-center">
-                    <div className="mb-4">
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Recurso de Apoyo</p>
-                       <p className="text-xs font-bold text-slate-600">Material didáctico verificado por IA</p>
-                    </div>
-                    <Link href="/curriculo" className="w-full py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-blue-500 transition-all shadow-sm">
-                       Ver Planeación
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* ── ASISTENTE IA ── */}
-          {!profile.isSuperAdmin && (
-             <section className="mb-10">
-                <div className={`rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border shadow-sm transition-all hover:shadow-md ${aiInsight.bg} ${aiInsight.border}`}>
-                  <div className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center ${aiInsight.iconBg} ${aiInsight.color}`}>
-                     <BrainCircuit size={28} />
-                  </div>
-                  <div className="flex-1">
-                     <div className="flex items-center gap-2 mb-1">
-                        <aiInsight.icon size={16} className={aiInsight.color} />
-                        <h3 className={`text-[11px] font-black uppercase tracking-widest ${aiInsight.color}`}>Asistente IA · {aiInsight.title}</h3>
-                     </div>
-                     <p className="text-sm font-medium text-slate-700 leading-relaxed max-w-3xl">
-                       {aiInsight.message}
-                     </p>
-                  </div>
-                  <div className="shrink-0">
-                     <button className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white border shadow-sm hover:scale-105 transition-all ${aiInsight.color} ${aiInsight.border}`}>
-                        Descartar
-                     </button>
-                  </div>
-                </div>
-             </section>
-          )}
+          {/* ── EDUAI SENTINEL (IA PROFESIONAL) ── */}
+          <EduAISentinel />
 
           {/* ── MAIN GRID ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

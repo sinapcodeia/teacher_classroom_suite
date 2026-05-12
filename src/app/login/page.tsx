@@ -180,6 +180,17 @@ export default function LoginPage() {
               <>
                 {/* Header */}
                 <div style={{ textAlign: "center", marginBottom: 36 }}>
+                  {/* Mobile Logo */}
+                  <div className="lg:hidden flex justify-center mb-6">
+                    <div style={{
+                      width: 50, height: 50, borderRadius: 14,
+                      background: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: "0 8px 32px rgba(26,86,219,0.3)"
+                    }}>
+                      <img src="/logo.png" alt="IETABA" style={{ width: "80%", height: "80%", objectFit: "contain" }} />
+                    </div>
+                  </div>
                   <h2 style={{ color: "#fff", fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em", textTransform: "uppercase", fontStyle: "italic" }}>Acceso</h2>
                   <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 600, marginTop: 8, letterSpacing: "0.05em" }}>Ingresa con tu identidad institucional</p>
                 </div>

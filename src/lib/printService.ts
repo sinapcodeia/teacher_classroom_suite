@@ -269,3 +269,77 @@ export function printPedagogicalPlan(
     <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA — Bajo Mira y Frontera. ${nowFullStr()}</div>
   </body></html>`);
 }
+
+export function printGradesTable(
+  students: any[],
+  meta: { grade: string; course: string; teacher: string; subject: string }
+) {
+  const columns = [
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `SB${i + 1}`, type: "SB", idx: i })),
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
+    ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
+    { id: "AUT", type: "AUT", idx: 0 }
+  ];
+
+  const getGradeValue = (stGrades: any[] | undefined, colType: string, index: number, subject: string) => {
+    if (!stGrades) return "";
+    const subjectGrades = stGrades.filter(g => g.title?.includes(`[${subject}]`));
+    let filtered: any[] = [];
+    if (colType === "SB") filtered = subjectGrades.filter(g => g.type === "exam");
+    else if (colType === "SBH") filtered = subjectGrades.filter(g => g.type === "activity");
+    else if (colType === "SR") filtered = subjectGrades.filter(g => g.type === "participation");
+    else if (colType === "CV") filtered = subjectGrades.filter(g => g.type === "participation").slice(5);
+    else if (colType === "AUT") filtered = subjectGrades.filter(g => g.title?.toUpperCase().includes("AUTO"));
+    const grade = filtered[index];
+    return grade ? grade.score.toFixed(1) : "";
+  };
+
+  const rows = students.map((st) => {
+    const colCells = columns.map(col => {
+      const val = getGradeValue(st.grades, col.type, col.idx, meta.subject);
+      const color = val && parseFloat(val) < 3.0 ? "color:#ba1a1a; font-weight:bold;" : "";
+      return `<td style="border:1px solid #000; text-align:center; ${color}">${val}</td>`;
+    }).join("");
+
+    return `
+      <tr>
+        <td style="border:1px solid #000; text-align:center; font-size:8px;">${st.nroDocumento}</td>
+        <td style="border:1px solid #000; font-weight:bold;">${st.primerApellido} ${st.segundoApellido}</td>
+        <td style="border:1px solid #000;">${st.primerNombre} ${st.segundoNombre}</td>
+        ${colCells}
+      </tr>
+    `;
+  }).join("");
+
+  const headerCells = columns.map(c => 
+    `<th style="border:1px solid #000; background:#f1f5f9; color:#000; font-size:7px; padding:2px; width:25px;">${c.id}</th>`
+  ).join("");
+
+  open(`<!DOCTYPE html><html><head><title>Sábana ${meta.subject}</title>${baseStyles()}
+    <style>
+      @page { size: landscape; margin: 0.5cm; }
+      table { border: 1px solid #000; table-layout: fixed; }
+      td, th { border: 1px solid #000 !important; font-size: 8px !important; padding: 2px 4px !important; }
+      .inst-title { font-size: 14px !important; }
+    </style>
+  </head><body>
+    ${standardHeader("Sábana Auxiliar de Calificaciones", meta)}
+    <table>
+      <thead>
+        <tr>
+          <th style="width:70px">CODIGO</th>
+          <th style="width:140px">APELLIDO</th>
+          <th style="width:140px">NOMBRE</th>
+          ${headerCells}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="sign">
+      <div class="sign-line"><hr/><p>Firma Docente</p></div>
+      <div class="sign-line"><hr/><p>Vo.Bo. Coordinación</p></div>
+    </div>
+    <div class="footer">IETABA · Premium Suite · Generado el ${nowFullStr()}</div>
+  </body></html>`);
+}

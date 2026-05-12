@@ -3,9 +3,10 @@
 import { useState } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
-import StudentList from "@/components/students/StudentList";
-import StudentProfile from "@/components/students/StudentProfile";
-import PerformanceStats from "@/components/students/PerformanceStats";
+import dynamic from "next/dynamic";
+const StudentList = dynamic(() => import("@/components/students/StudentList"), { ssr: false });
+const StudentProfile = dynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
+const PerformanceStats = dynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
 import { FileDown, FileText, UserPlus, X, CheckCircle } from "lucide-react";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
 import { useApp } from "@/context/AppContext";
@@ -80,17 +81,13 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-12">
-            <PerformanceStats />
-          </div>
-        </div>
+        <PerformanceStats />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7">
             <StudentList selectedId={selectedId} onSelect={setSelectedId} />
           </div>
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-5">
             <div className="sticky top-24">
               <StudentProfile id={selectedId} />
             </div>
