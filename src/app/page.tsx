@@ -22,7 +22,7 @@ function getGreeting() {
 }
 
 export default function Home() {
-  const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote } = useApp();
+  const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum } = useApp();
 
   const formattedDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long", day: "numeric", month: "long",
@@ -49,7 +49,16 @@ export default function Home() {
     };
   }, [profile, students]);
 
-  const todaySchedule = useMemo(() => schedule.slice(0, 5), [schedule]);
+  const todaySchedule = useMemo(() => {
+    const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const currentDay = days[new Date().getDay()];
+    // Filtrar por el día de hoy. Si es fin de semana o no hay clases, mostrará vacío.
+    return schedule.filter(s => s.day === currentDay).slice(0, 5);
+  }, [schedule]);
+
+  const nextClass = useMemo(() => {
+    return todaySchedule.length > 0 ? todaySchedule[0] : schedule[0] || null;
+  }, [todaySchedule, schedule]);
 
   // Memoize critical absences and high performance
   const { criticalAbsences, highPerf, atRisk } = useMemo(() => {
@@ -156,6 +165,10 @@ export default function Home() {
       bg: "rgba(139,92,246,0.1)",
       link: "/curriculo",
       trend: `${subjects.length} Planificadas`,
+      isNew: curriculum.some(c => {
+        const created = parseInt(c.id?.split("-")[1] || "0");
+        return Date.now() - created < 60000; // Creado en el último minuto
+      })
     },
     {
       label: "Nivel Superior",
@@ -308,6 +321,11 @@ export default function Home() {
                     <p className="text-[9px] font-semibold mt-1" style={{ color: stat.color }}>
                       {stat.trend}
                     </p>
+                    {stat.isNew && (
+                      <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[7px] font-black uppercase px-2 py-1 rounded-full animate-bounce shadow-lg">
+                        ¡Recién Cargado!
+                      </div>
+                    )}
                     {/* Accent corner */}
                     <div className="absolute bottom-0 right-0 w-16 h-16 rounded-tl-[2rem] opacity-5 group-hover:opacity-10 transition-all"
                       style={{ background: stat.color }} />
@@ -485,7 +503,7 @@ export default function Home() {
               </div>
 
               {/* NEXT CLASS CARD — Solo para docentes */}
-              {schedule[0] && !profile.isSuperAdmin && (
+              {nextClass && !profile.isSuperAdmin && (
                 <div className="rounded-[2rem] p-7 relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg, #0f172a, #1e3a8a)",
@@ -496,10 +514,10 @@ export default function Home() {
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] mb-3"
                     style={{ color: "rgba(147,197,253,0.7)" }}>Próxima Sesión</p>
                   <h4 className="text-2xl font-black uppercase tracking-tight italic mb-1" style={{ color: "#fff" }}>
-                    {schedule[0].subject}
+                    {nextClass.subject}
                   </h4>
                   <p className="text-[10px] font-bold uppercase mb-6" style={{ color: "rgba(191,219,254,0.6)" }}>
-                    Grado {schedule[0].group} · {schedule[0].time}
+                    Grado {nextClass.group} · {nextClass.time}
                   </p>
                   <Link href="/clase-en-vivo"
                     className="flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-[1.02]"

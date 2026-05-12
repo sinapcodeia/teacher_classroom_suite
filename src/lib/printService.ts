@@ -21,8 +21,7 @@ interface Student {
   isActive?: boolean;
 }
 
-const INSTITUTION = "INSTITUCIÓN EDUCATIVA TÉCNICO AMBIENTAL BAJO MIRA Y FRONTERA";
-const SUB_HEADER  = "EduManager — Sistema de Gestión Docente";
+const INSTITUTION = "INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ - IETABA";
 
 function baseStyles(): string {
   return `
@@ -31,8 +30,6 @@ function baseStyles(): string {
       body { font-family: 'Arial', sans-serif; font-size: 11px; color: #111; padding: 20px 24px; }
       h1 { font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
       h2 { font-size: 11px; font-weight: 700; color: #444; margin-top: 2px; }
-      .header { text-align: center; border-bottom: 2px solid #1a56db; padding-bottom: 10px; margin-bottom: 14px; }
-      .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 10px; color: #555; }
       table { width: 100%; border-collapse: collapse; }
       th { background: #1a56db; color: #fff; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; text-align: left; }
       td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
@@ -47,10 +44,39 @@ function baseStyles(): string {
   `;
 }
 
-function nowStr(): string {
-  return new Date().toLocaleDateString("es-CO", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric"
-  });
+function nowFullStr(): string {
+  const d = new Date();
+  const date = d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+  const time = d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return `${date} | ${time}`;
+}
+
+function standardHeader(
+  title: string,
+  meta: { grade?: string; course?: string; teacher: string; subject?: string }
+): string {
+  return `
+    <style>
+      .doc-header-unified { border-bottom: 3px solid #1a56db; padding-bottom: 15px; margin-bottom: 20px; }
+      .inst-title { font-size: 16px; font-weight: 900; color: #1e3a8a; text-align: center; margin-bottom: 4px; }
+      .inst-sub { font-size: 10px; font-weight: 700; color: #64748b; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 15px; }
+      .doc-meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
+      .meta-item { font-size: 10px; color: #334155; }
+      .meta-item strong { color: #1e293b; text-transform: uppercase; }
+      .doc-title-main { font-size: 20px; font-weight: 900; color: #111; margin: 15px 0 5px; text-transform: uppercase; }
+    </style>
+    <div class="doc-header-unified">
+      <div class="inst-title">${INSTITUTION}</div>
+      <div class="inst-sub">EduManager — Sistema de Gestión Docente v2.4</div>
+      <div class="doc-meta-grid">
+        <div class="meta-item"><strong>Docente:</strong> ${meta.teacher.toUpperCase()}</div>
+        <div class="meta-item"><strong>Fecha/Hora:</strong> ${nowFullStr()}</div>
+        <div class="meta-item"><strong>Grado/Curso:</strong> ${meta.grade || meta.course || "N/A"}</div>
+        <div class="meta-item"><strong>Materia:</strong> ${meta.subject || "GENERAL"}</div>
+      </div>
+      <h1 class="doc-title-main">${title}</h1>
+    </div>
+  `;
 }
 
 function fullName(s: Student): string {
@@ -69,12 +95,9 @@ function open(html: string) {
 
 // ── PUBLIC FUNCTIONS ──────────────────────────────────────────────────────────
 
-export function printStudentsByCourse(
-  students: Student[],
-  course: string,
-  teacherName: string
-) {
-  const list = students.filter(s => s.curso === course && s.isActive !== false)
+export function printStudentsByCourse(students: Student[], course: string, teacherName: string) {
+  const list = students
+    .filter(s => s.curso === course && s.isActive !== false)
     .sort((a, b) => a.primerApellido.localeCompare(b.primerApellido));
 
   const rows = list.map((s, i) => `
@@ -88,15 +111,7 @@ export function printStudentsByCourse(
   `).join("");
 
   open(`<!DOCTYPE html><html><head><title>Listado ${course}</title>${baseStyles()}</head><body>
-    <div class="header">
-      <h1>${INSTITUTION}</h1>
-      <h2>${SUB_HEADER}</h2>
-    </div>
-    <div class="meta">
-      <span><strong>Curso:</strong> ${course} &nbsp;|&nbsp; <strong>Total:</strong> ${list.length} estudiantes</span>
-      <span><strong>Docente:</strong> ${teacherName}</span>
-      <span>${nowStr()}</span>
-    </div>
+    ${standardHeader("Listado Oficial de Estudiantes", { course, teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Nombre Completo</th><th>Documento</th><th>Género</th><th>Firma / Visto</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -105,16 +120,13 @@ export function printStudentsByCourse(
       <div class="sign-line"><hr/><p>Firma Docente</p></div>
       <div class="sign-line"><hr/><p>Firma Coordinación</p></div>
     </div>
-    <div class="footer">EduManager · IETABA · Impreso el ${nowStr()}</div>
+    <div class="footer">EduManager · IETABA · Generado el ${nowFullStr()}</div>
   </body></html>`);
 }
 
-export function printStudentsByGrade(
-  students: Student[],
-  grade: string,
-  teacherName: string
-) {
-  const list = students.filter(s => normalizeGrade(s.grado) === grade && s.isActive !== false)
+export function printStudentsByGrade(students: Student[], grade: string, teacherName: string) {
+  const list = students
+    .filter(s => normalizeGrade(s.grado) === grade && s.isActive !== false)
     .sort((a, b) => a.curso.localeCompare(b.curso) || a.primerApellido.localeCompare(b.primerApellido));
 
   const rows = list.map((s, i) => `
@@ -128,20 +140,12 @@ export function printStudentsByGrade(
   `).join("");
 
   open(`<!DOCTYPE html><html><head><title>Grado ${grade}</title>${baseStyles()}</head><body>
-    <div class="header">
-      <h1>${INSTITUTION}</h1>
-      <h2>${SUB_HEADER}</h2>
-    </div>
-    <div class="meta">
-      <span><strong>Grado:</strong> ${grade} &nbsp;|&nbsp; <strong>Total:</strong> ${list.length} estudiantes</span>
-      <span><strong>Docente:</strong> ${teacherName}</span>
-      <span>${nowStr()}</span>
-    </div>
+    ${standardHeader(`Consolidado Grado ${grade}`, { grade, teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Curso</th><th>Nombre Completo</th><th>Documento</th><th>Género</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="footer">EduManager · IETABA · Impreso el ${nowStr()}</div>
+    <div class="footer">EduManager · IETABA · Generado el ${nowFullStr()}</div>
   </body></html>`);
 }
 
@@ -150,9 +154,10 @@ export function printAttendanceSheet(
   course: string,
   teacherName: string,
   subject: string,
-  dateStr?: string
+  _dateStr?: string
 ) {
-  const list = students.filter(s => s.curso === course && s.isActive !== false)
+  const list = students
+    .filter(s => s.curso === course && s.isActive !== false)
     .sort((a, b) => a.primerApellido.localeCompare(b.primerApellido));
 
   const rows = list.map((s, i) => `
@@ -166,15 +171,7 @@ export function printAttendanceSheet(
   `).join("");
 
   open(`<!DOCTYPE html><html><head><title>Asistencia ${course}</title>${baseStyles()}</head><body>
-    <div class="header">
-      <h1>${INSTITUTION}</h1>
-      <h2>PLANILLA DE ASISTENCIA · ${SUB_HEADER}</h2>
-    </div>
-    <div class="meta">
-      <span><strong>Curso:</strong> ${course} &nbsp;|&nbsp; <strong>Materia:</strong> ${subject}</span>
-      <span><strong>Docente:</strong> ${teacherName}</span>
-      <span><strong>Fecha:</strong> ${dateStr || nowStr()}</span>
-    </div>
+    ${standardHeader("Planilla de Control de Asistencia", { course, teacher: teacherName, subject })}
     <table>
       <thead><tr><th>#</th><th>Nombre Completo</th><th>✓ Presente</th><th>✗ Ausente</th><th>Observaciones</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -183,7 +180,7 @@ export function printAttendanceSheet(
       <div class="sign-line"><hr/><p>Firma Docente</p></div>
       <div class="sign-line"><hr/><p>Visto Bueno Coordinación</p></div>
     </div>
-    <div class="footer">EduManager · IETABA · Planilla generada el ${nowStr()}</div>
+    <div class="footer">EduManager · IETABA · Generado el ${nowFullStr()}</div>
   </body></html>`);
 }
 
@@ -191,9 +188,9 @@ export function printWeeklySchedule(
   schedule: Array<{ day: string; subject: string; course: string; startTime: string; endTime: string }>,
   teacherName: string
 ) {
-  const DAYS = ["LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES"];
+  const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
   const rows = schedule
-    .sort((a,b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.startTime.localeCompare(b.startTime))
+    .sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.startTime.localeCompare(b.startTime))
     .map((s, i) => `
       <tr>
         <td>${i + 1}</td>
@@ -205,17 +202,70 @@ export function printWeeklySchedule(
     `).join("");
 
   open(`<!DOCTYPE html><html><head><title>Horario Semanal</title>${baseStyles()}</head><body>
-    <div class="header">
-      <h1>${INSTITUTION}</h1>
-      <h2>HORARIO SEMANAL · ${teacherName.toUpperCase()}</h2>
-    </div>
-    <div class="meta">
-      <span>${nowStr()}</span>
-    </div>
+    ${standardHeader("Horario Semanal Docente", { teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Día</th><th>Horario</th><th>Materia</th><th>Curso</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="footer">EduManager · IETABA</div>
+  </body></html>`);
+}
+
+export function printPedagogicalPlan(
+  data: {
+    summary: string;
+    lesson: string;
+    workshop: string;
+    activity: string;
+    exam: string;
+    grade: string;
+    subject: string;
+  },
+  teacherName: string,
+  type: "full" | "lesson" | "workshop" | "activity" | "exam" = "full"
+) {
+  const titles: Record<string, string> = {
+    full: "Planeación Pedagógica Integral",
+    lesson: "I. Desarrollo de Clase",
+    workshop: "II. Taller de Aplicación",
+    activity: "III. Actividad Lúdica — Tejiendo Aprendo",
+    exam: "IV. Evaluación de Competencias",
+  };
+
+  const moduleColors: Record<string, string> = {
+    lesson: "#1a56db",
+    workshop: "#006c4a",
+    activity: "#ca8a04",
+    exam: "#ba1a1a",
+  };
+
+  const allModules = [
+    { id: "lesson", title: "I. DESARROLLO DE CLASE", body: data.lesson },
+    { id: "workshop", title: "II. TALLER DE APLICACIÓN", body: data.workshop },
+    { id: "activity", title: "III. ACTIVIDAD LÚDICA — TEJIENDO APRENDO", body: data.activity },
+    { id: "exam", title: "IV. EVALUACIÓN DE COMPETENCIAS", body: data.exam },
+  ];
+
+  const filtered = type === "full" ? allModules : allModules.filter(m => m.id === type);
+
+  const contentHtml = filtered.map(m => `
+    <div style="margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+      <div style="background: ${moduleColors[m.id]}; color: #fff; padding: 12px 20px; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">
+        ${m.title}
+      </div>
+      <div style="padding: 24px; line-height: 1.8; font-size: 12px; color: #333; background: #fff;">
+        ${m.body.replace(/\n/g, "<br/>")}
+      </div>
+      <div style="background: #f9fafb; padding: 10px 20px; border-top: 1px solid #eee; font-size: 9px; color: #888; display: flex; justify-content: space-between;">
+        <span>Firma Docente: _______________________</span>
+        <span>Visto Bueno Coordinación: __________</span>
+      </div>
+    </div>
+  `).join("");
+
+  open(`<!DOCTYPE html><html><head><title>${titles[type]}</title>${baseStyles()}</head><body>
+    ${standardHeader(titles[type], { grade: data.grade, teacher: teacherName, subject: data.subject })}
+    ${contentHtml}
+    <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA — Bajo Mira y Frontera. ${nowFullStr()}</div>
   </body></html>`);
 }

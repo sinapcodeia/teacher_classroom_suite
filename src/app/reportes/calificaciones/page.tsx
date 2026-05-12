@@ -14,11 +14,26 @@ export default function GradesReportPage() {
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
 
   const filteredStudents = students.filter(st => {
-    if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== selectedGrade) return false;
+    // Restricción para docentes: solo sus propios cursos
+    if (profile.role === "DOCENTE") {
+      const myCourses = profile.teachingCourses || [];
+      if (!myCourses.includes(st.curso)) return false;
+    }
+
+    if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== normalizeGrade(selectedGrade)) return false;
     if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
     if (st.isActive === false) return false;
     return true;
   });
+
+  // Filtrar opciones de dropdown según permisos
+  const availableGrades = profile.role === "RECTOR" || profile.role === "COORDINADOR" 
+    ? (masterData.grades || []) 
+    : (profile.teachingGrades || []);
+
+  const availableCourses = profile.role === "RECTOR" || profile.role === "COORDINADOR"
+    ? Array.from(new Set(students.map(s => s.curso))).sort()
+    : (profile.teachingCourses || []);
 
   const handlePrint = () => {
     window.print();
@@ -109,7 +124,7 @@ export default function GradesReportPage() {
                 className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
               >
                 <option value="TODOS">TODOS LOS GRADOS</option>
-                {(masterData.grades || []).map(g => <option key={g} value={g}>GRADO {g}</option>)}
+                {availableGrades.map(g => <option key={g} value={g}>GRADO {g}</option>)}
               </select>
               <div className="w-px h-6 bg-slate-200" />
               <select 
@@ -118,7 +133,7 @@ export default function GradesReportPage() {
                 className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
               >
                 <option value="TODOS">TODOS LOS CURSOS</option>
-                {Array.from(new Set(students.map(s => s.curso))).sort().map(c => <option key={c} value={c}>CURSO {c}</option>)}
+                {availableCourses.map(c => <option key={c} value={c}>CURSO {c}</option>)}
               </select>
            </div>
 

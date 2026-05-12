@@ -3,10 +3,12 @@
 import { useApp } from "@/context/AppContext";
 import { useMemo } from "react";
 
-export default function UnitProgress() {
+export default function UnitProgress({ grade, subject }: { grade: string, subject: string }) {
   const { curriculum } = useApp();
 
-  const activeCurriculum = useMemo(() => curriculum[0], [curriculum]);
+  const activeCurriculum = useMemo(() => 
+    curriculum.find(c => c.grade === grade && c.subjectId === subject), 
+  [curriculum, grade, subject]);
 
   const stats = useMemo(() => {
     if (!activeCurriculum) return { percentage: 0, unitsDone: 0, totalUnits: 0, topicsDone: 0, totalTopics: 0 };

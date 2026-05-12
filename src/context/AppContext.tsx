@@ -73,25 +73,34 @@ export interface Subtopic {
 
 export interface Topic {
   id: string;
-  title: string;
+  title: string; // piankammuMi (Hilos del Saber - Núcleo Temático)
   date?: string;
   status: "covered" | "active" | "not_started";
-  objectives?: string[];
-  subtopics?: Subtopic[];
+  
+  // Nuevos campos institucionales Awá
+  tuhPutkamna?: string; // Higra del Conocimiento
+  panapain?: string;    // Competencias Sabidurías: Saberes Propios
+  nanpaskas?: string;   // Competencias Sabidurías: Saberes Interculturales
+  katkinAizpa?: string; // Ayudas Pedagógicas
+  satIshkit?: string;   // Metodología (Tejiendo Aprendo)
+  
+  objectives?: string[]; // (Mantenido por compatibilidad)
+  subtopics?: Subtopic[]; // (Mantenido por compatibilidad)
 }
 
 export interface Unit {
   id: string;
-  title: string;
+  title: string; // Primer Periodo, Segundo Periodo, Tercer Periodo
   order: number;
   topics: Topic[];
 }
 
 export interface Curriculum {
   id: string;
-  subjectId: string; // e.g., "calculo-11"
+  subjectId: string; // e.g., "TECNOLOGÍA"
   grade: string;
-  units: Unit[];
+  objective?: string; // Objetivo general de la materia (del Tejido de Aprendizaje)
+  units: Unit[]; // Serán siempre 3 periodos
 }
 
 interface Subject {
@@ -120,7 +129,7 @@ interface Student {
   acudienteNombre?: string;
   acudienteTelefono?: string;
   isActive?: boolean;
-  grades?: { id: string, title: string, score: number, type: 'activity' | 'participation', date: string }[];
+  grades?: { id: string, title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }[];
 }
 
 // Legacy format kept for backward-compat on some views
@@ -202,7 +211,7 @@ interface AppContextType {
   importStudents: (incoming: Omit<Student, "id">[]) => Promise<void>;
   removeStudent: (id: string) => Promise<void>;
   updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
-  addGrade: (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation', date: string }) => Promise<void>;
+  addGrade: (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
   updateMasterItem: (key: keyof MasterData, oldItem: string, newItem: string) => void;
@@ -436,9 +445,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
             const firestoreStudents = snap.docs.map(d => {
               const data = d.data();
+              
+              // Recalcular dinámicamente el promedio para aplicar reglas nuevas (ej. bonos de participación) a datos históricos
+              let computedAvg = data.avgGrade || 0;
+              if (data.grades && data.grades.length > 0) {
+                const validScores = data.grades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
+                let baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+                const bonus = data.grades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
+                computedAvg = Number(Math.min(5.0, baseAvg + bonus).toFixed(1));
+              }
+
               return {
                 id: d.id,
                 ...data,
+                avgGrade: computedAvg,
                 grado: normalizeGrade(data.grado as string),
                 curso: (data.curso || "").toString().trim().toUpperCase(),
               } as Student;
@@ -763,7 +783,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStudents(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
   };
 
-  const addGrade = async (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation', date: string }) => {
+  const addGrade = async (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }) => {
     try {
       const student = students.find(s => s.id === studentId);
       if (!student) return;
@@ -772,8 +792,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentGrades = student.grades || [];
       const newGrades = [...currentGrades, newGrade];
       
-      const validScores = newGrades.map(g => g.score);
-      const newAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
+      const validScores = newGrades.filter(g => g.type !== 'participation').map(g => g.score);
+      let newAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
+      
+      // Sumar bonificación por participación (0.1 por cada nota de 5.0)
+      const bonus = newGrades.filter(g => g.type === 'participation').reduce((a, b) => a + (b.score * 0.02), 0);
+      newAvg = Math.min(5.0, newAvg + bonus);
       
       const updates = { grades: newGrades, avgGrade: Number(newAvg.toFixed(1)) };
       

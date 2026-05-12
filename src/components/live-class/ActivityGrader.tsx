@@ -12,7 +12,7 @@ interface ActivityGraderProps {
 export default function ActivityGrader({ course, subject }: ActivityGraderProps) {
   const { students, addGrade } = useApp();
   const [activityTitle, setActivityTitle] = useState("");
-  const [activityType, setActivityType] = useState<"activity" | "participation">("activity");
+  const [activityType, setActivityType] = useState<"activity" | "participation" | "exam">("activity");
   const [grades, setGrades] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -21,7 +21,8 @@ export default function ActivityGrader({ course, subject }: ActivityGraderProps)
     return students.filter(s => s.curso === course && s.isActive !== false);
   }, [students, course]);
 
-  const handleGradeChange = (studentId: string, value: string) => {
+  const handleGradeChange = (studentId: string, rawValue: string) => {
+    const value = rawValue.replace(',', '.');
     // Validar que sea un número entre 0 y 5
     const num = parseFloat(value);
     if (value !== "" && (isNaN(num) || num < 0 || num > 5)) return;
@@ -81,6 +82,7 @@ export default function ActivityGrader({ course, subject }: ActivityGraderProps)
               className="bg-slate-100 border-none rounded-xl px-4 py-3 font-black text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="activity">Actividad / Taller</option>
+              <option value="exam">Examen</option>
               <option value="participation">Participación</option>
             </select>
             <button 
