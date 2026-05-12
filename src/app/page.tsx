@@ -252,7 +252,7 @@ export default function Home() {
     },
   ], [activeStudents, students.length, subjects.length, highPerf, atRisk]);
 
-  const quickActions = useMemo(() => QUICK_ACTIONS(profile.isSuperAdmin), [profile.isSuperAdmin]);
+  const quickActions = useMemo(() => QUICK_ACTIONS(!!profile.isSuperAdmin), [profile.isSuperAdmin]);
 
   return (
     <RoleGuard>
