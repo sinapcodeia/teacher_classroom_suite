@@ -121,56 +121,34 @@ export default function CurriculumPage() {
 
       const contextPrefix = feedback ? `🎯 ENFOQUE DE FORTALECIMIENTO PEDAGÓGICO: ${feedback.toUpperCase()}\n\n` : "";
 
-      // --- MOTOR DE GENERACIÓN DE CONCEPTOS MATEMÁTICOS REALES ---
-      let topicDefinition = "El tema comprende el estudio sistemático de las relaciones cuantitativas, espaciales y lógicas. Consiste en abstraer propiedades reales, identificar patrones y aplicar algoritmos de resolución con precisión absoluta.";
-      let example1Text = `Enunciado: Si en una huerta escolar del IETABA se siembran plantas mediante la relación P = 4x + 12, y tenemos x = 8 surcos, ¿cuál es el total de plantas?
-PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Extracción): Variable independiente x = 8.
-- Paso 2 (Sustitución): P = 4(8) + 12.
-- Paso 3 (Jerarquía): Multiplicación primero (4×8 = 32). Luego suma (32+12 = 44).
-- Conclusión: Se plantan exactamente 44 individuos vegetales.`;
-
+      // --- MOTOR DE GENERACIÓN DINÁMICA BASADO EN LA MATERIA ---
       const tLower = topicName.toLowerCase();
+      const sLower = selectedSubject.toLowerCase();
       
-      if (tLower.includes("ángulo") || tLower.includes("angulo")) {
-        topicDefinition = "Geométricamente, un ángulo es la porción o amplitud del plano comprendida entre dos semirrectas (lados) que comparten un origen común llamado vértice. Se mide en grados (°) con un transportador y se clasifica en agudo (<90°), recto (90°), obtuso (>90°) y llano (180°).";
-        example1Text = `Enunciado: Si trazamos una bisectriz exacta en un ángulo recto que mide 90°, ¿cuánto medirá cada nuevo ángulo formado?
+      let topicDefinition = `El tema comprende el estudio sistemático de los fundamentos teóricos y prácticos de ${selectedSubject}. Consiste en abstraer conceptos, identificar aplicaciones en el entorno natural y social, y desarrollar un pensamiento crítico sobre el territorio.`;
+      let example1Text = `Enunciado: Situación de análisis en nuestra comunidad Awá relacionada con ${topicName}.
 PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Datos Base): El ángulo recto mide exactamente 90°.
-- Paso 2 (Concepto Clave): La bisectriz es la semirrecta interior que divide el ángulo original en dos partes métricamente idénticas.
-- Paso 3 (Operación Aritmética): Dividimos 90° ÷ 2 = 45°.
-- Conclusión Didáctica: Resultan dos ángulos agudos simétricos de 45° cada uno.`;
-      } else if (tLower.includes("línea") || tLower.includes("linea") || tLower.includes("recta")) {
-        topicDefinition = "Una línea (o recta) es una sucesión continua e infinita de puntos extendidos en una sola dimensión, sin curvas ni ángulos. Un fragmento delimitado se denomina 'segmento'. Las rectas en el plano pueden ser paralelas (jamás se cruzan, mantienen distancia constante) o perpendiculares (se cruzan formando exactamente 90°).";
-        example1Text = `Enunciado: El sendero de nuestra reserva natural está enmarcado por dos líneas de árboles sembradas de forma estrictamente paralela, separadas por 4 metros. ¿Se cruzarán en algún punto a los 100 metros de distancia?
+- Paso 1 (Contextualización): Identificamos el problema desde la perspectiva de ${selectedSubject}.
+- Paso 2 (Aplicación de Saberes): Vinculamos el conocimiento ancestral con la teoría contemporánea.
+- Paso 3 (Desarrollo): Realizamos el análisis o procedimiento pertinente.
+- Conclusión: Comprendemos el impacto de este saber en el plan de vida de la comunidad.`;
+
+      if (sLower.includes("matemáticas") || sLower.includes("matematicas")) {
+        topicDefinition = "El tema comprende el estudio sistemático de las relaciones cuantitativas y lógicas, aplicando algoritmos de resolución con precisión para analizar nuestro entorno.";
+        example1Text = `Enunciado: Si en una huerta escolar del IETABA se siembran plantas, calculemos el total usando operaciones aritméticas básicas.
 PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Concepto Geométrico): Dos rectas son paralelas si su pendiente es idéntica, es decir, la distancia que las separa nunca aumenta ni disminuye.
-- Paso 2 (Análisis del Espacio): Si están separadas por 4 metros desde el inicio, y son estrictamente paralelas.
-- Conclusión Didáctica: Es matemáticamente imposible que se crucen; mantendrán la misma separación de 4 metros en el kilómetro 0 y en el kilómetro infinito.`;
-      } else if (tLower.includes("polígono") || tLower.includes("figura") || tLower.includes("área")) {
-        topicDefinition = "Un polígono es una figura geométrica bidimensional completamente cerrada, delimitada por tres o más segmentos rectos consecutivos (lados). Su 'perímetro' es la suma del contorno externo, y su 'área' representa la superficie cubierta en su interior, evaluada comúnmente en unidades cuadradas (cm², m², hectáreas).";
-        example1Text = `Enunciado: Necesitamos calcular la superficie total de una casa comunal rectangular que tiene 15 metros de largo y 8 metros de ancho para estimar el material del piso.
+- Paso 1 (Identificación): Extraemos las variables numéricas.
+- Paso 2 (Sustitución): Planteamos la operación.
+- Paso 3 (Jerarquía): Resolvemos con precisión.
+- Conclusión: Obtenemos un resultado cuantitativo aplicable a la comunidad.`;
+      } else if (sLower.includes("tecnología") || sLower.includes("informatica") || sLower.includes("tecnologia")) {
+        topicDefinition = "Este tema abarca el uso responsable de las herramientas tecnológicas y los sistemas de información, buscando potenciar la comunicación comunitaria sin perder nuestra identidad.";
+        example1Text = `Enunciado: ¿Cómo podemos utilizar las herramientas digitales para documentar y proteger las tradiciones de los mayores en la reserva?
 PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Identificación de Fórmula): Área del rectángulo = Base × Altura (o Largo × Ancho).
-- Paso 2 (Sustitución de Variables): A = 15 m × 8 m.
-- Paso 3 (Operación Numérica y Dimensional): 15 × 8 = 120. (m × m = m²).
-- Conclusión Didáctica: El área techada es de 120 metros cuadrados (m²).`;
-      } else if (tLower.includes("población") || tLower.includes("muestra") || tLower.includes("estadística") || tLower.includes("media") || tLower.includes("moda")) {
-        topicDefinition = "La estadística es el modelado y análisis de datos. La 'población' es el conjunto total del universo a investigar (ej. todos los Awá). La 'muestra' es un subgrupo representativo extraído para inferir resultados. Variables como la Moda (valor que más se repite), Media (promedio absoluto) y Mediana (valor central) son medidas de tendencia central.";
-        example1Text = `Enunciado: Una familia registró el número de peces capturados cada día durante la semana: Lunes(5), Martes(3), Miércoles(5), Jueves(8), Viernes(4). Calcula la Moda y la Media.
-PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Cálculo de la Moda): Observamos los valores ordenados: {3, 4, 5, 5, 8}. El número que más se repite es el 5. Por ende, la Moda (Mo) = 5 peces.
-- Paso 2 (Planteamiento del Promedio/Media): Se suman todos los datos y se dividen entre los días. (3+4+5+5+8) ÷ 5.
-- Paso 3 (Operación de la Media): 25 ÷ 5 = 5.
-- Conclusión Didáctica: El promedio estadístico (Media) y el valor más frecuente (Moda) coinciden ambos en 5 peces diarios.`;
-      } else if (tLower.includes("fraccion") || tLower.includes("racional")) {
-        topicDefinition = "Una fracción (número racional) representa matemáticamente las partes de un todo. Está compuesta por un Numerador (indica cuántas partes tomamos) y un Denominador (indica en cuántas partes iguales se ha dividido la unidad). Son clave para repartir recursos o evaluar porcentajes de terrenos.";
-        example1Text = `Enunciado: Si la cosecha comunitaria produjo 120 libras de cacao, y se ha destinado 3/4 de la producción para la venta al cabildo, ¿cuántas libras se van a vender?
-PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Fórmula Operativa): Fracción de un número = (Cantidad Total ÷ Denominador) × Numerador.
-- Paso 2 (División / Partición de la Unidad): Dividimos 120 lbs entre 4 partes iguales (120 ÷ 4 = 30 lbs por cada cuarto).
-- Paso 3 (Multiplicación / Extracción): Tomamos 3 de esas partes (30 lbs × 3 = 90 lbs).
-- Conclusión Didáctica: Se venderán exactamente 90 libras de cacao, lo cual representa el 75% del volumen total cosechado.`;
+- Paso 1 (Análisis): Identificar las herramientas de grabación o software disponibles.
+- Paso 2 (Diseño): Estructurar un proyecto de registro digital.
+- Paso 3 (Implementación): Poner en marcha la capacitación de los jóvenes.
+- Conclusión: La tecnología se convierte en aliada de nuestra cosmovisión.`;
       }
 
       const lessonStr = `${contextPrefix}📅 PARÁMETROS CURRICULARES DEL PERIODO
@@ -182,138 +160,130 @@ PASO A PASO DE RESOLUCIÓN:
 ======================================================================
 I. FASE DE EXPLORACIÓN: CONTEXTUALIZACIÓN Y SABERES PREVIOS (Sesión 1)
 ======================================================================
-🎯 Objetivo de la Fase: Despertar el interés del estudiante vinculando su realidad territorial, familiar y cultural en el IETABA con las estructuras del pensamiento lógico-matemático.
+🎯 Objetivo de la Fase: Despertar el interés del estudiante vinculando su realidad territorial, familiar y cultural en el IETABA con las estructuras de pensamiento de ${selectedSubject}.
 
-🗣️ Actividad de Motivación Inicial: "La Minga del Pensamiento Numérico"
-Iniciamos la semana de clase organizando el aula en un círculo tradicional. El docente introduce el tema [ ${topicName} ] (${topicHigra}) mediante un diálogo participativo sobre cómo nuestras autoridades indígenas y mayores realizan conteos, mediciones de parcelas agroambientales y estimaciones de tiempo para la siembra y cosecha.
-• Pregunta Generadora 1: Cuando acompañamos a nuestros padres a medir un terreno para cultivo, ¿qué estrategias o instrumentos no convencionales (varas, pasos, brazadas) utilizamos y cómo se relacionan con las medidas exactas?
-• Pregunta Generadora 2: ¿Por qué el dominio de las matemáticas y la contabilidad comunitaria es fundamental para defender la soberanía y administrar los recursos de nuestra reserva indígena?
+🗣️ Actividad de Motivación Inicial: "La Minga del Conocimiento"
+Iniciamos la semana de clase organizando el aula en un círculo tradicional. El docente introduce el tema [ ${topicName} ] (${topicHigra}) mediante un diálogo participativo sobre cómo nuestras autoridades indígenas abordan este aspecto de la vida.
+• Pregunta Generadora 1: Desde la visión de nuestra comunidad, ¿cómo se relaciona este tema con las prácticas agroambientales diarias?
+• Pregunta Generadora 2: ¿Por qué el dominio de los conceptos de ${selectedSubject} es fundamental para defender la soberanía de nuestra reserva indígena?
 
 ======================================================================
-II. FASE DE ESTRUCTURACIÓN: CONCEPTUALIZACIÓN EXHAUSTIVA Y ALGORITMOS (Sesiones 2 y 3)
+II. FASE DE ESTRUCTURACIÓN: CONCEPTUALIZACIÓN EXHAUSTIVA Y ANÁLISIS (Sesiones 2 y 3)
 ======================================================================
 📖 Desarrollo Teórico de Alto Rigor (Para Dictar y Consignar en el Cuaderno):
 CONCEPTO FUNDAMENTAL: ${topicDefinition}
 
-Para dominar este concepto, el estudiante debe interiorizar y seguir estrictamente los siguientes axiomas universales:
-1. Identificación de Variables: Separar claramente los valores conocidos (constantes numéricas) de los valores desconocidos (incógnitas espaciales).
-2. Estructura Lógica de Operaciones: Recordar que la matemática exige precisión. Primero signos de agrupación, luego jerarquías avanzadas, seguido de multiplicaciones/divisiones, y finalmente sumas/restas.
-3. Consistencia Dimensional: Toda magnitud (grados, metros, porcentajes, promedios) debe conservar su unidad al dictar el resultado final.
+Para dominar este concepto, el estudiante debe interiorizar las siguientes pautas:
+1. Identificación de Contexto: Separar claramente los elementos teóricos de su aplicación práctica.
+2. Estructura Lógica: Entender la causalidad y relación de los elementos estudiados.
+3. Consistencia Territorial: Todo saber debe tener coherencia y utilidad para el cuidado de Katsa Su (la Gran Tierra).
 
-💡 Ejemplos Científicos Resueltos y Explicados al Detalle:
+💡 Ejemplos Resueltos y Explicados al Detalle:
 
-• EJEMPLO MODELO 1: APLICACIÓN CONCEPTUAL PURA
+• EJEMPLO MODELO 1: APLICACIÓN CONCEPTUAL
 ${example1Text}
 
 • EJEMPLO MODELO 2: CONTEXTUALIZACIÓN AGROAMBIENTAL TERRITORIAL
-Enunciado: Una familia Awá desea cercar una zona de reserva forestal rectangular que mide 120 metros de largo por 45 metros de ancho. Si el metro de alambre liso tiene un costo de $2,500 y se requieren pasar 3 hilos de alambre, calcule el presupuesto total necesario.
+Enunciado: Una familia Awá desea aplicar los saberes de ${selectedSubject} en la administración de un cultivo tradicional. ¿Qué pasos deben seguir para asegurar que su acción esté alineada con el Plan de Vida institucional?
 PASO A PASO DE RESOLUCIÓN:
-- Paso 1 (Cálculo del Perímetro): El perímetro L de un rectángulo es L = 2(largo) + 2(ancho).
-  L = 2(120 m) + 2(45 m) = 240 m + 90 m = 330 metros lineales por cada vuelta.
-- Paso 2 (Cálculo del Alambre Total): Como son 3 hilos, multiplicamos el perímetro por 3.
-  Total Alambre = 330 m × 3 = 990 metros lineales.
-- Paso 3 (Cálculo del Costo Financiero): Multiplicamos la longitud total por el precio unitario.
-  Costo Total = 990 m × $2,500 = $2,475,000.
-- Conclusión Didáctica: Este ejercicio conecta la geometría plana con la economía familiar, enseñando a los estudiantes a planificar y presupuestar proyectos reales en su comunidad.
+- Paso 1 (Diagnóstico): Evaluar el estado actual de la parcela.
+- Paso 2 (Aplicación Teórica): Utilizar las metodologías propias de la materia para optimizar el recurso.
+- Paso 3 (Cierre Comunitario): Compartir el conocimiento con el cabildo escolar.
+- Conclusión Didáctica: Este ejercicio conecta la teoría académica con la vida cotidiana y el tejido social.
 
 ======================================================================
 III. FASE DE TRANSFERENCIA: APLICACIÓN PRÁCTICA EN AULA (Sesiones 4 y 5)
 ======================================================================
 ✍️ Taller Guiado en Clase:
-Los estudiantes se organizan en mesas de trabajo cooperativo. El docente entrega una guía de ejercicios donde cada grupo debe mapear un problema real de su vereda (ej. distribución del agua, cálculo de insumos orgánicos) aplicando las fórmulas analizadas.
-Cada equipo plasmará su procedimiento en un papelógrafo, utilizando diagramas limpios, reglas y colores distintivos, preparando una breve sustentación oral para el final de la semana.`;
+Los estudiantes se organizan en mesas de trabajo cooperativo. El docente entrega una guía donde cada grupo debe mapear un problema real de su vereda aplicando los saberes de ${selectedSubject}.
+Cada equipo plasmará su propuesta en un papelógrafo, utilizando diagramas claros y sustentando sus ideas ante el grupo.`;
 
       const workshopStr = `${contextPrefix}📝 TALLER DE APLICACIÓN DIDÁCTICA INTENSIVA
 Institución: IETABA — Territorio Awá
 Grado: ${selectedGrade} | Materia: ${selectedSubject}
+Tema: ${topicName}
 Tiempo Estimado de Resolución: 2 Horas de Trabajo Autónomo/Grupal
 
 ======================================================================
-SECCIÓN A: EJERCITACIÓN MECÁNICA Y DESARROLLO DE ALGORITMOS (40%)
+SECCIÓN A: DESARROLLO ANALÍTICO Y PROCEDIMIENTOS (40%)
 ======================================================================
-Instrucción: Copia en tu cuaderno cada uno de los siguientes ejercicios, desarrolla el procedimiento completo hacia abajo (paso a paso) y encierra el resultado final en un recuadro con regla.
-1. 🧮 Simplifica la siguiente expresión matemática aplicando estrictamente la jerarquía de operaciones estudiada en clase:
-   M = [ 5 × (12 + 3) - 4² ] ÷ 2 + 15
-2. 📐 Despeja la variable desconocida 'y' en la ecuación lineal fundamental, justificando qué propiedad aplicas en cada salto:
-   7y - 21 = 2y + 34
-3. 📊 Completa la siguiente tabla de proporcionalidad directa para un cultivo, determinando la constante de proporcionalidad K:
-   | Surcos (S)  |  2  |  4  |  6  |  8  |
-   | Semillas(P) | 50  | 100 |  ?  |  ?  |
+Instrucción: Desarrolla en tu cuaderno las siguientes actividades paso a paso, justificando cada respuesta a partir de los apuntes de la clase.
+1. 📖 Describe con tus propias palabras cómo el concepto de ${topicName} puede observarse en la naturaleza o en la organización comunitaria de tu vereda.
+2. ✍️ Aplica la metodología de ${selectedSubject} para estructurar una solución a un problema simulado en el aula.
+3. 📊 Compara las prácticas ancestrales con los conocimientos occidentales sobre este tema y establece dos similitudes y dos diferencias.
 
 ======================================================================
 SECCIÓN B: RESOLUCIÓN DE CASOS AGROAMBIENTALES Y COMUNITARIOS (40%)
 ======================================================================
-Lee con detenimiento la siguiente situación contextualizada en nuestra comunidad y responde los retos formulados mostrando operaciones claras:
+Lee con detenimiento la siguiente situación contextualizada en nuestra comunidad y responde:
 
-🌱 Caso Práctico: "Optimización del Vivero Forestal Comunitario"
-El cabildo escolar del IETABA ha decidido construir un vivero para reforestar cuencas hídricas. El terreno disponible tiene forma cuadrada con un área total de 400 metros cuadrados.
-• Reto 1: Aplica la operación de radicación para determinar la longitud exacta de cada lado del terreno.
-• Reto 2: Si por cada metro cuadrado se pueden acomodar exactamente 12 plántulas nativas, ¿cuál será la capacidad máxima de producción del vivero?
-• Reto 3: Si el 25% de las plántulas se destinan a la vereda vecina, ¿cuántas plántulas quedan para el uso exclusivo de nuestra institución?
+🌱 Caso Práctico: "Proyecto Integrador en la Reserva"
+El cabildo escolar del IETABA debe ejecutar un proyecto formativo utilizando las bases de ${selectedSubject}. 
+• Reto 1: Identifica los elementos principales necesarios para llevar a cabo la iniciativa.
+• Reto 2: ¿De qué manera la temática de ${topicName} influye directamente en el éxito de este proyecto?
+• Reto 3: Formula una recomendación técnica fundamentada en la materia para mejorar las prácticas actuales.
 
 ======================================================================
 SECCIÓN C: PRODUCCIÓN ARGUMENTATIVA E INTERCULTURALIDAD (20%)
 ======================================================================
 ✍️ Redacta un ensayo corto (mínimo 3 párrafos bien estructurados) donde respondas a la siguiente reflexión:
-"¿De qué manera el aprendizaje riguroso de las matemáticas y la administración técnica nos permite cuidar a la Madre Tierra (Katsa Su) y fortalecer los planes de vida de la nación Awá?"`;
+"¿De qué manera el aprendizaje de ${selectedSubject} nos permite cuidar a la Madre Tierra (Katsa Su) y fortalecer los planes de vida de la nación Awá?"`;
 
-      const activityStr = `${contextPrefix}🎲 DINÁMICA LÚDICA Y DIDÁCTICA: "LA MINGA MATEMÁTICA DEL IETABA"
-Eje Didáctico: Aprendizaje Basado en Juegos (Gamificación Territorial)
+      const activityStr = `${contextPrefix}🎲 DINÁMICA LÚDICA Y DIDÁCTICA: "LA MINGA DE SABERES EN ${selectedSubject.toUpperCase()}"
+Eje Didáctico: Aprendizaje Cooperativo (Gamificación Territorial)
 Duración: 1 Hora de Clase Dinámica
 
 🎯 OBJETIVO PEDAGÓGICO:
-Consolidar el cálculo mental rápido, la resolución de problemas bajo presión y la comunicación asertiva entre los estudiantes, transformando la abstracción matemática en una vivencia lúdica y cooperativa.
+Consolidar la apropiación del conocimiento de ${topicName}, fortaleciendo el pensamiento analítico y la comunicación asertiva entre los estudiantes, transformando la teoría en una vivencia lúdica comunitaria.
 
 🛠️ RECURSOS Y MATERIALES NECESARIOS:
-- 20 Tarjetas de Retos Matemáticos impresas o dibujadas en cartulina.
-- Un "Dado de las Operaciones" (cuyas caras muestran: +, -, ×, ÷, Duplica, Pasa Turno).
-- Pizarra del aula y marcadores de colores.
-- Cronómetro.
+- 20 Tarjetas de Retos sobre ${selectedSubject} impresas o dibujadas.
+- Pizarra del aula y marcadores.
+- Material natural del entorno (hojas, semillas) para representación simbólica.
 
 🚀 INSTRUCCIONES Y REGLAS DE EJECUCIÓN PASO A PASO:
-1. Conformación de las Cuadrillas (Equipos): El grupo de clase se divide en 4 "Cuadrillas Agroambientales". Cada cuadrilla elige democráticamente a un Sabedor (quien lidera las respuestas), un Escribano (quien anota en la pizarra) y dos Verificadores.
-2. Dinámica del Lanzamiento: Por turnos, un representante de cada cuadrilla pasa al frente y lanza el "Dado de las Operaciones", mientras el docente extrae al azar una Tarjeta de Reto sobre [ ${topicName} ].
-3. Resolución Contrarreloj: El equipo tiene exactamente 60 segundos para aplicar la operación del dado al valor o problema de la tarjeta. El Escribano debe plasmar el cálculo completo en la pizarra de forma impecable.
-4. Sistema de Puntuación y Veeduría: 
-   - Respuesta correcta con procedimiento limpio: +10 Puntos Comunitarios.
-   - Respuesta correcta pero desordenada: +5 Puntos.
-   - Si el equipo falla, se activa el "Rebote Solidario" para que otro equipo robe los puntos explicando el error.
-5. Cierre Pedagógico: Al finalizar el tiempo, la cuadrilla ganadora recibe un reconocimiento simbólico. El docente aprovecha los errores cometidos en la pizarra para explicar nuevamente los conceptos difíciles, asegurando que el juego deje un aprendizaje profundo y permanente.`;
+1. Conformación de las Cuadrillas (Equipos): El grupo se divide en 4 "Cuadrillas Agroambientales". Cada cuadrilla elige a un Sabedor (quien lidera las respuestas) y un Vocero (quien expone).
+2. Dinámica de Participación: El docente extrae al azar una Tarjeta de Reto sobre [ ${topicName} ].
+3. Resolución Contrarreloj: El equipo tiene 2 minutos para debatir y formular una respuesta o solución fundamentada. El Vocero debe exponerla al grupo.
+4. Sistema de Puntuación: 
+   - Respuesta argumentada y precisa: +10 Puntos Comunitarios.
+   - Respuesta correcta pero incompleta: +5 Puntos.
+   - Si hay error, otro equipo puede complementar (Rebote Solidario).
+5. Cierre Pedagógico: Al finalizar, el docente retroalimenta y conecta los resultados del juego con la conservación de nuestra identidad.`;
 
       const examStr = `${contextPrefix}🏆 EVALUACIÓN SUMATIVA POR COMPETENCIAS (RÚBRICA DE EXCELENCIA)
 Institución: INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ - IETABA
 Asignatura: ${selectedSubject} | Grado: ${selectedGrade}
-Estructura: Prueba de Calidad Técnica alineada a Estándares Básicos y Saberes Propios
+Estructura: Prueba de Calidad Académica alineada a Saberes Propios
 
 ======================================================================
-BLOQUE I: COMPETENCIA INTERPRETATIVA (Selección Múltiple con Única Respuesta)
+BLOQUE I: COMPETENCIA INTERPRETATIVA
 ======================================================================
-Instrucción: Lee detenidamente cada planteamiento, realiza el cálculo auxiliar en el margen derecho de la hoja y rellena completamente el óvalo correspondiente a la respuesta correcta.
+Instrucción: Lee detenidamente cada planteamiento y selecciona la respuesta más adecuada según lo aprendido en clase sobre ${topicName}.
 
-1. Al modelar matemáticamente el comportamiento de un sistema agroambiental en el territorio, encontramos la expresión algebraica: R = 120 + 5(20 - 8). Aplicando rigurosamente el orden de las operaciones, el valor numérico de R es:
-   a) 180 (Resultado de resolver primero el paréntesis y luego multiplicar por 5 antes de sumar).
-   b) 1,500 (Resultado erróneo de sumar 120 + 5 y luego multiplicar por el interior).
-   c) 60 (Resultado de restar los extremos omitiendo el factor multiplicativo).
-   d) 240 (Resultado derivado de una simplificación lineal sin jerarquía).
+1. Al analizar los principios fundamentales de ${selectedSubject} en nuestro contexto territorial, es correcto afirmar que:
+   a) Su aplicación está desconectada de la realidad ambiental y solo tiene valor teórico.
+   b) Permite comprender dinámicas, resolver problemas y organizar información vital para la comunidad.
+   c) Promueve el abandono de los saberes ancestrales en favor de metodologías ajenas.
+   d) Únicamente es útil para la aprobación del área académica sin impacto práctico.
 
-2. La principal ventaja de representar un conjunto de datos estadísticos o de producción comunitaria mediante un gráfico de barras o circular radica en que:
-   a) Oculta las variaciones pequeñas para simplificar el reporte final.
-   b) Permite visualizar rápidamente las proporciones, modas y tendencias para tomar decisiones informadas.
-   c) Reemplaza por completo la necesidad de realizar operaciones aritméticas de control.
-   d) Exige el uso exclusivo de software avanzado, impidiendo su trazo manual.
-
-======================================================================
-BLOQUE II: COMPETENCIA ARGUMENTATIVA Y PROCEDIMIENTOS CRÍTICOS
-======================================================================
-3. ✍️ Un estudiante del IETABA afirma que "al multiplicar dos cantidades, el orden en que colocamos los factores no altera el producto total (Propiedad Conmutativa), pero al dividir recursos o áreas, el orden sí resulta estrictamente determinante". 
-   Demuestra si esta afirmación es VERDADERA o FALSA mediante dos ejemplos matemáticos concretos, explicando paso a paso tu razonamiento.
+2. Cuando aplicamos el concepto principal de ${topicName} en un escenario práctico del IETABA, la ventaja primordial es que:
+   a) Facilita la toma de decisiones informadas para proyectos de sostenibilidad y convivencia.
+   b) Limita la creatividad de los estudiantes al imponer fórmulas rígidas.
+   c) Sustituye el diálogo comunitario por reportes técnicos complejos.
+   d) Evita que la comunidad participe en la evaluación de sus propios recursos.
 
 ======================================================================
-BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Problemas de Alta Exigencia)
+BLOQUE II: COMPETENCIA ARGUMENTATIVA
 ======================================================================
-4. 🚀 Diseña un plan matemático integral para resolver el siguiente reto institucional:
-   "El colegio IETABA necesita recolectar agua lluvia para el mantenimiento de sus unidades productivas. Contamos con un techo rectangular de 30 metros por 12 metros. Si una lluvia fuerte deposita un promedio de 15 litros de agua por cada metro cuadrado, calcule el volumen total captado y determine cuántos tanques de 500 litros de capacidad se requieren para almacenar toda el agua recolectada".
-   (Nota: Presenta los pasos en orden lógico: Fórmulas aplicadas, Operaciones aritméticas y Respuesta redactada formalmente).`;
+3. ✍️ Un estudiante afirma que "el aprendizaje riguroso de ${selectedSubject} no aporta herramientas significativas para la preservación de Katsa Su (La Gran Tierra)". 
+   Demuestra si esta afirmación es VERDADERA o FALSA elaborando un argumento sustentado en los conceptos vistos sobre ${topicName}.
+
+======================================================================
+BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Casos)
+======================================================================
+4. 🚀 Diseña una propuesta de intervención estructurada para el siguiente reto institucional:
+   "El cabildo escolar IETABA requiere optimizar una de sus áreas de trabajo comunitario apoyándose en los principios de ${selectedSubject}. Redacta cómo estructurarías el plan de acción, incluyendo el diagnóstico, los conceptos clave a utilizar y los beneficios esperados para la comunidad estudiantil."`;
 
       const newPlan = {
         summary: `Planeación Integral: ${selectedSubject} (${selectedGrade})`,
