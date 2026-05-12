@@ -75,9 +75,11 @@ export default function AttendanceList() {
     return () => clearTimeout(timeout);
   }, [hasUnsavedChanges, attendance]);
 
-  // Carga automática de información de clase desde la URL (si se navega desde el Horario)
+  // Efecto para cargar información inicial de la URL (SOLO UNA VEZ al montar el componente)
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !isInitialized && subjects.length > 0) {
       const params = new URLSearchParams(window.location.search);
       const urlSubject = params.get("subject");
       const urlCurso = params.get("curso");
@@ -114,8 +116,9 @@ export default function AttendanceList() {
           setSelectedCurso(urlCurso); // Fallback
         }
       }
+      setIsInitialized(true);
     }
-  }, [subjects, students]);
+  }, [subjects, isInitialized, students, selectedSubject]);
 
   const gradoOptions = useMemo(() => {
     return [...new Set(students.map(s => normalizeGrade(s.grado)))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
@@ -308,6 +311,11 @@ export default function AttendanceList() {
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="text-[9px] font-bold text-on-surface-variant uppercase opacity-60 tracking-tighter">ID: {student.nroDocumento}</p>
+                            {student.grades && student.grades.length > 0 && (
+                              <span className="text-[8px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 uppercase">
+                                {student.grades.length} {student.grades.length === 1 ? 'Actividad' : 'Actividades'}
+                              </span>
+                            )}
                             {isFailing && <span className="text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 uppercase">Bajo Rendimiento</span>}
                           </div>
                         </div>
@@ -511,17 +519,18 @@ export default function AttendanceList() {
 
              <div className="flex w-full gap-3">
                <button onClick={() => setParticipationModal(null)} className="flex-1 py-3 rounded-xl bg-surface-container text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-high transition-all">Cancelar</button>
-               <button onClick={() => {
-                 addGrade(participationModal.studentId, {
-                   title: partTitle,
-                   score: parseFloat(partScore),
-                   type: 'participation',
-                   date: new Date().toISOString()
-                 });
-                 setParticipationModal(null);
-                 setPartTitle("Participación en Clase");
-                 setPartScore("5.0");
-               }} className="flex-1 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-500/30">Guardar</button>
+                <button onClick={async () => {
+                  await addGrade(participationModal.studentId, {
+                    title: partTitle,
+                    score: parseFloat(partScore),
+                    type: 'participation',
+                    date: new Date().toISOString()
+                  });
+                  setParticipationModal(null);
+                  setPartTitle("Participación en Clase");
+                  setPartScore("5.0");
+                  setHasUnsavedChanges(true);
+                }} className="flex-1 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-500/30">Guardar</button>
              </div>
           </div>
         </div>

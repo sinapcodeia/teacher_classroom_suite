@@ -21,6 +21,58 @@ function getGreeting() {
   return GREETINGS[2];
 }
 
+const QUICK_ACTIONS = (isSuperAdmin: boolean) => isSuperAdmin
+  ? [
+      { label: "Administración", icon: ShieldCheck, href: "/admin", color: "#f43f5e" },
+      { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#3b82f6" },
+      { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
+      { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
+    ]
+  : [
+      { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
+      { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
+      { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
+      { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
+    ];
+
+const SUBJECT_SUPPORT: Record<string, { title: string, news: string, tip: string, icon: any, color: string }> = {
+  "TECNOLOGÍA": {
+    title: "Innovación y Territorio",
+    news: "Nuevas herramientas de IA pueden ayudar a los estudiantes de 8-3 a visualizar conceptos de robótica básica usando materiales reciclados.",
+    tip: "Tip: Inicia la clase preguntando cómo la tecnología puede proteger los ríos del piedemonte costero.",
+    icon: Zap,
+    color: "text-blue-600"
+  },
+  "MATEMÁTICAS": {
+    title: "Pensamiento Numérico Awá",
+    news: "Se recomienda usar el sistema de conteo basado en el tejido de 'shingras' para explicar progresiones aritméticas hoy.",
+    tip: "Tip: Los patrones geométricos en la cestería tradicional son ideales para explicar simetría.",
+    icon: Target,
+    color: "text-emerald-600"
+  },
+  "ÉTICA": {
+    title: "Tejido Social",
+    news: "Dinámica sugerida: El 'Círculo de la Palabra' para resolver conflictos recientes detectados en los grados superiores.",
+    tip: "Tip: Refuerza el valor de la 'Minga' como forma de trabajo colaborativo en el aula.",
+    icon: Sparkles,
+    color: "text-amber-600"
+  },
+  "FÍSICA": {
+    title: "Física del Entorno",
+    news: "Usa el ejemplo del funcionamiento del trapiche para explicar torque y fuerza centrífuga en la sesión de hoy.",
+    tip: "Tip: La caída del agua en las quebradas cercanas es perfecta para introducir energía potencial.",
+    icon: Activity,
+    color: "text-rose-600"
+  },
+  "DEFAULT": {
+    title: "Inspiración Docente",
+    news: "La educación contextualizada es la clave del éxito en el IETABA. Cada clase es un tejido de saberes.",
+    tip: "Tip: Recuerda que tu rol como guía es fundamental para el fortalecimiento de la identidad Awá.",
+    icon: BrainCircuit,
+    color: "text-primary"
+  }
+};
+
 export default function Home() {
   const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum } = useApp();
 
@@ -147,6 +199,16 @@ export default function Home() {
     };
   }, [criticalAbsences.length, pendingTasks.length, daysLeft]);
 
+  const subjectNews = useMemo(() => {
+    if (!nextClass) return SUBJECT_SUPPORT.DEFAULT;
+    const normalized = nextClass.subject.toUpperCase();
+    if (normalized.includes("TECNOLOGÍA") || normalized.includes("INFORMÁTICA")) return SUBJECT_SUPPORT.TECNOLOGÍA;
+    if (normalized.includes("MATEMÁTICAS")) return SUBJECT_SUPPORT.MATEMÁTICAS;
+    if (normalized.includes("ÉTICA")) return SUBJECT_SUPPORT.ÉTICA;
+    if (normalized.includes("FÍSICA")) return SUBJECT_SUPPORT.FÍSICA;
+    return SUBJECT_SUPPORT.DEFAULT;
+  }, [nextClass]);
+
   const quickStats = useMemo(() => [
     {
       label: "Estudiantes",
@@ -190,18 +252,7 @@ export default function Home() {
     },
   ], [activeStudents, students.length, subjects.length, highPerf, atRisk]);
 
-  const quickActions = useMemo(() => profile.isSuperAdmin
-    ? [
-        { label: "Administración", icon: ShieldCheck, href: "/admin", color: "#f43f5e" },
-        { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#3b82f6" },
-        { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
-        { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
-      ]
-    : [
-        { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
-        { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
-        { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
-      ], [profile.isSuperAdmin]);
+  const quickActions = useMemo(() => QUICK_ACTIONS(profile.isSuperAdmin), [profile.isSuperAdmin]);
 
   return (
     <RoleGuard>
@@ -334,6 +385,61 @@ export default function Home() {
               })}
             </div>
           </section>
+
+          {/* ── APOYO PEDAGÓGICO DINÁMICO ── */}
+          {!profile.isSuperAdmin && (
+            <section className="mb-10">
+              <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-outline-variant p-1 shadow-2xl shadow-blue-500/5">
+                <div className="flex flex-col md:flex-row items-stretch">
+                  {/* Left Accent */}
+                  <div className={`w-full md:w-2 hidden md:block rounded-l-full ${subjectNews.color.replace('text', 'bg')}`} />
+                  
+                  <div className="flex-1 p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-50 border border-slate-100 ${subjectNews.color}`}>
+                        <subjectNews.icon size={24} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Noticia Pedagógica del Día</h3>
+                        </div>
+                        <p className="text-xl font-black text-slate-800 tracking-tight italic">Próxima clase: {nextClass?.subject || 'Preparación'}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                         <BookOpen size={64} />
+                      </div>
+                      <h4 className={`text-sm font-black uppercase tracking-widest mb-3 ${subjectNews.color}`}>
+                        {subjectNews.title}
+                      </h4>
+                      <p className="text-sm font-medium text-slate-600 leading-relaxed mb-4 relative z-10">
+                        {subjectNews.news}
+                      </p>
+                      <div className="flex items-center gap-2 p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                        <Sparkles size={14} className="text-amber-500 shrink-0" />
+                        <p className="text-[11px] font-bold text-slate-500 italic">
+                          {subjectNews.tip}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hidden lg:flex w-72 bg-slate-50/30 border-l border-slate-100 p-8 flex-col justify-center items-center text-center">
+                    <div className="mb-4">
+                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Recurso de Apoyo</p>
+                       <p className="text-xs font-bold text-slate-600">Material didáctico verificado por IA</p>
+                    </div>
+                    <Link href="/curriculo" className="w-full py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-blue-500 transition-all shadow-sm">
+                       Ver Planeación
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* ── ASISTENTE IA ── */}
           {!profile.isSuperAdmin && (

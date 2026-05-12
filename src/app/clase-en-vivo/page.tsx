@@ -93,7 +93,7 @@ export default function LiveClassPage() {
         <aside className="lg:col-span-4 flex flex-col gap-6">
           <ClassInsights course={displayGrado} subject={displaySubject} />
           <TopicSelector subjectId={displaySubject} grade={normalizedGradeForCurriculum} />
-          <SessionNotes />
+          <SessionNotes subject={displaySubject} course={displayGrado} />
           
           <div className="p-8 bg-surface-container rounded-[2.5rem] border border-outline-variant relative overflow-hidden group shadow-inner">
             <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:rotate-12 transition-transform duration-500">
