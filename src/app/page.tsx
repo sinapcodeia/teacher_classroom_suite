@@ -50,10 +50,10 @@ export default function Home() {
   }, [profile, students]);
 
   const todaySchedule = useMemo(() => {
-    const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const days = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
     const currentDay = days[new Date().getDay()];
     // Filtrar por el día de hoy. Si es fin de semana o no hay clases, mostrará vacío.
-    return schedule.filter(s => s.day === currentDay).slice(0, 5);
+    return schedule.filter(s => s.day?.toUpperCase() === currentDay).slice(0, 5);
   }, [schedule]);
 
   const nextClass = useMemo(() => {
