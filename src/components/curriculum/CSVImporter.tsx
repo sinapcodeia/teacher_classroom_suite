@@ -1,22 +1,82 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, FileSpreadsheet, X, Check } from "lucide-react";
+import { Upload, FileSpreadsheet, X, Check, Loader2 } from "lucide-react";
 import Papa from "papaparse";
+import { useApp } from "@/context/AppContext";
+import { db } from "@/lib/firebase";
+import { setDoc, doc } from "firebase/firestore";
 
 export default function CSVImporter() {
   const [show, setShow] = useState(false);
   const [data, setData] = useState<any[]>([]);
+  const { curriculum } = useApp();
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       Papa.parse(file, {
         header: true,
+        skipEmptyLines: true,
         complete: (results) => {
           setData(results.data);
         }
       });
+    }
+  };
+
+  const handleSave = async () => {
+    if (data.length === 0) return;
+    setIsSaving(true);
+    try {
+      const units: any[] = [
+        { id: "p1", title: "MAZA T+T – PRIMER PERIODO", order: 1, topics: [] },
+        { id: "p2", title: "PAS T+T – SEGUNDO PERIODO", order: 2, topics: [] },
+        { id: "p3", title: "KUTÑA T+T – TERCER PERIODO", order: 3, topics: [] }
+      ];
+
+      data.forEach((row, idx) => {
+        const periodNum = row.Periodo || row.periodo || "1";
+        const unitIndex = parseInt(periodNum) - 1;
+        const targetUnit = units[unitIndex] || units[0];
+
+        targetUnit.topics.push({
+          id: row.ID || row.id || `T${periodNum}-${idx}`,
+          status: idx === 0 ? "active" : "not_started",
+          title: row["Piankammu Mi"] || row.Piankammu || row.Tema || row.tema || row.title || row.Title || "Sin Título",
+          tuhPutkamna: row["Tuh Putkamna"] || row.Putkamna || row.Higra || row.higra || "",
+          hijosSaber: row["Hijos del Saber"] || row.Hijos || row.hijos || row.subtopics || "",
+          panapain: row.Panapain || row["Saberes Propios"] || row.propios || "",
+          nanpaskas: row.Nanpaskas || row["Saberes Interculturales"] || row.intercultural || "",
+          katkinAizpa: row["Katkin Aizpa"] || row.Ayudas || row.ayudas || "",
+          satIshkit: row["Sat Ishkit"] || row.Metodologia || row.metodologia || ""
+        });
+      });
+
+      const firstRow = data[0];
+      const detectedGrade = firstRow.Grado || firstRow.grado || "6°";
+      const detectedSubject = firstRow.Materia || firstRow.materia || "TECNOLOGÍA";
+      
+      const deterministicId = `cur-${detectedGrade}-${detectedSubject}`
+        .toLowerCase().replace(/\s+/g, '-').replace(/°/g, '');
+
+      const curriculumData = {
+        id: deterministicId,
+        grade: detectedGrade,
+        subjectId: detectedSubject,
+        units: units.filter(u => u.topics.length > 0)
+      };
+
+      await setDoc(doc(db, "curriculum", deterministicId), curriculumData);
+      alert("¡Tejidos cargados con éxito para " + detectedSubject + "!");
+      setShow(false);
+      setData([]);
+    } catch (err) {
+      console.error("Error al guardar CSV:", err);
+      alert("Error al guardar los datos del CSV.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -38,7 +98,7 @@ export default function CSVImporter() {
             <FileSpreadsheet className="text-primary" />
             <h2 className="text-xl font-bold">Importar Malla Curricular</h2>
           </div>
-          <button onClick={() => setShow(false)}><X /></button>
+          <button onClick={() => { setShow(false); setData([]); }}><X /></button>
         </div>
         
         <div className="p-6 space-y-6">
@@ -54,7 +114,7 @@ export default function CSVImporter() {
             </div>
             <div className="text-center">
               <p className="font-bold text-on-surface">Selecciona tu archivo .csv</p>
-              <p className="text-xs text-on-surface-variant">o arrástralo aquí (Máx. 5MB)</p>
+              <p className="text-xs text-on-surface-variant">Debe incluir columnas: Piankammu Mi, Hijos del Saber, Tuh Putkamna...</p>
             </div>
           </div>
 
@@ -82,16 +142,17 @@ export default function CSVImporter() {
 
           <div className="flex gap-3 justify-end pt-4">
             <button 
-              onClick={() => setShow(false)}
+              onClick={() => { setShow(false); setData([]); }}
               className="px-6 py-2 text-sm font-bold text-on-surface-variant hover:bg-surface-container rounded-xl"
             >
               Cancelar
             </button>
             <button 
-              disabled={data.length === 0}
+              disabled={data.length === 0 || isSaving}
+              onClick={handleSave}
               className="px-8 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50 flex items-center gap-2"
             >
-              <Check size={18} />
+              {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
               Confirmar Carga
             </button>
           </div>

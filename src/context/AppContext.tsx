@@ -83,6 +83,7 @@ export interface Topic {
   nanpaskas?: string;   // Competencias Sabidurías: Saberes Interculturales
   katkinAizpa?: string; // Ayudas Pedagógicas
   satIshkit?: string;   // Metodología (Tejiendo Aprendo)
+  hijosSaber?: string;  // Hijos del Saber (Subtemas específicos)
   
   objectives?: string[]; // (Mantenido por compatibilidad)
   subtopics?: Subtopic[]; // (Mantenido por compatibilidad)

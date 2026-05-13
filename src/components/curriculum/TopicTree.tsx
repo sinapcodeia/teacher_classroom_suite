@@ -129,7 +129,7 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
                     </div>
 
                     {expandedId === topic.id && (
-                      <div className="p-6 bg-surface-container-lowest border-t border-outline-variant grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 md:p-6 bg-surface-container-lowest border-t border-outline-variant grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                         
                         {/* Higra del Conocimiento & Hilos del Saber */}
                         <div className="space-y-4">
@@ -141,8 +141,17 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
                            
                            <div className="p-4 bg-secondary/5 border border-secondary/20 rounded-xl">
                               <h5 className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Piankammu Mi</h5>
-                              <p className="text-[9px] font-bold text-on-surface-variant uppercase opacity-70 mb-2">Núcleo Temático</p>
+                              <p className="text-[9px] font-bold text-on-surface-variant uppercase opacity-70 mb-2">Núcleo Temático (Hilos del Saber)</p>
                               <p className="text-sm font-medium text-on-surface">{topic.title || "No definido"}</p>
+                              
+                              {topic.hijosSaber && (
+                                <div className="mt-4 pt-4 border-t border-secondary/10">
+                                  <p className="text-[9px] font-black text-secondary uppercase opacity-70 mb-2 tracking-widest">Hijos del Saber</p>
+                                  <p className="text-xs font-medium text-on-surface-variant leading-relaxed whitespace-pre-line">
+                                    {topic.hijosSaber}
+                                  </p>
+                                </div>
+                              )}
                            </div>
                         </div>
 

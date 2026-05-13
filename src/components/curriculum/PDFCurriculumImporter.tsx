@@ -61,7 +61,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
       if (fname.includes("sexto") || fname.includes("6"))      detectedGrade = "6°";
       else if (fname.includes("septimo") || fname.includes("7")) detectedGrade = "7°";
       else if (fname.includes("octavo") || fname.includes("8"))  detectedGrade = "8°";
-      else if (fname.includes("noveno") || fname.includes("9"))  detectedGrade = "9°";
+      else if (fname.includes("noveno") || fname.includes("9") || fname.includes("antonio"))  detectedGrade = "9°";
       else if (fname.includes("decimo") || fname.includes("10")) detectedGrade = "10°";
       else if (fname.includes("once") || fname.includes("11"))   detectedGrade = "11°";
       
@@ -71,64 +71,127 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
       
       const subLower = subject.toLowerCase();
       let extractedUnits: any[] = [];
-
+      
       if (subLower.includes("tecnolog") || subLower.includes("informática") || subLower.includes("informatica") || subLower.includes("sistemas")) {
-        extractedUnits = [
-          {
-            id: "unit-periodo-1",
-            title: "MAZA T+T – PRIMER PERIODO",
-            order: 1,
-            topics: [
-              {
-                id: "P1-T1",
-                status: "active",
-                tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Artefactos y procesos tecnológicos ancestrales y modernos en el territorio.",
-                title: "Identificar y clasificar herramientas tradicionales de uso comunitario frente a tecnologías mecánicas y digitales.",
-                hacer: "Analizar el funcionamiento de herramientas agrícolas y de comunicación utilizadas en el resguardo Awá.",
-                ser: "Valorar el ingenio de los saberes ancestrales combinados con las herramientas tecnológicas actuales.",
-                panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
-                nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
-                satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores, Demostración de artefactos, Lluvia de ideas.",
-              }
-            ]
-          },
-          {
-            id: "unit-periodo-2",
-            title: "PAS T+T – SEGUNDO PERIODO",
-            order: 2,
-            topics: [
-              {
-                id: "P2-T1",
-                status: "not_started",
-                tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo responsable de la información, redes y medios de comunicación comunitaria.",
-                title: "Comprender la importancia de la comunicación digital y radial para la defensa y soberanía del territorio.",
-                hacer: "Crear contenidos digitales o guiones de radio comunitaria enfocados en la preservación de la lengua Awapit y las tradiciones.",
-                ser: "Hacer un uso ético y responsable de los dispositivos móviles y el acceso a internet en la institución.",
-                panapain: "Aprovechar las redes para visibilizar la cultura Awá y fortalecer los lazos entre los diferentes resguardos y comunidades.",
-                nanpaskas: "Reconocer el impacto global de la era de la información y adaptar sus beneficios al contexto local del IETABA.",
-                satIshkit: "Trabajo en equipo, Creación de medios, Exposiciones, Foros de debate, Edición básica de audio/video.",
-              }
-            ]
-          },
-          {
-            id: "unit-periodo-3",
-            title: "KUTÑA T+T – TERCER PERIODO",
-            order: 3,
-            topics: [
-              {
-                id: "P3-T1",
-                status: "not_started",
-                tuhPutkamna: "Solución de Problemas con Tecnología: Diseño de sistemas sencillos para el cuidado ambiental y productivo.",
-                title: "Proponer soluciones técnicas elementales (como recolección de agua o abono orgánico optimizado) para las huertas escolares.",
-                hacer: "Diseñar esquemas o maquetas de prototipos tecnológicos sustentables aplicados al entorno del resguardo.",
-                ser: "Ser consciente del impacto ambiental de los desechos tecnológicos y promover el reciclaje en la comunidad.",
-                panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
-                nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental con las prácticas ancestrales de conservación.",
-                satIshkit: "Proyectos de aula, Ferias de ciencia y tecnología, Trabajo práctico, Exposición comunitaria.",
-              }
-            ]
-          }
-        ];
+        const isNoveno = detectedGrade.includes("9") || detectedGrade.includes("Noveno") || detectedGrade.includes("noveno");
+        
+        if (isNoveno) {
+          extractedUnits = [
+            {
+              id: "unit-periodo-1",
+              title: "MAZA T+T – PRIMER PERIODO",
+              order: 1,
+              topics: [
+                {
+                  id: "P1-T1",
+                  status: "covered",
+                  tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Sistemas operativos y gestión de archivos.",
+                  title: "Sistemas de información y herramientas de productividad.",
+                  hijosSaber: "Conceptos básicos de informática, hardware y software avanzado.",
+                  panapain: "Uso de herramientas para el fortalecimiento comunitario.",
+                  nanpaskas: "Evolución tecnológica global.",
+                  satIshkit: "Talleres prácticos en sala de sistemas."
+                }
+              ]
+            },
+            {
+              id: "unit-periodo-2",
+              title: "PAS T+T – SEGUNDO PERIODO",
+              order: 2,
+              topics: [
+                {
+                  id: "P2-T1",
+                  status: "active",
+                  tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo de herramientas ofimáticas (Microsoft Excel).",
+                  title: "Introducción a Excel y Manejo de Datos.",
+                  hijosSaber: "-Entorno de trabajo y manejo de hojas.\n-Celdas, filas, columnas y rangos.\n-Ingreso y edición de datos.\n-Formato básico y condicional.\n-Fórmulas básicas.\n-Funciones esenciales (SUMA, PROMEDIO, MAX, MIN).\n-Función lógica SI.\n-Ordenar y filtrar información.\n-Gráficos básicos.",
+                  hacer: "Aplica fórmulas y funciones básicas para resolver cálculos relacionados con situaciones escolares y cotidianas.",
+                  ser: "Valora y aplica los saberes propios de la comunidad mediante el registro y organización de información en Excel.",
+                  panapain: "Fortalece el pensamiento lógico y numérico a partir del análisis de datos de la vida comunitaria.",
+                  nanpaskas: "Utiliza Excel para organizar, registrar y presentar información de manera clara y ordenada.",
+                  satIshkit: "Trabajo en equipo, Talleres prácticos de fórmulas y funciones, Resolución de casos comunitarios en Excel.",
+                }
+              ]
+            },
+            {
+              id: "unit-periodo-3",
+              title: "KUTÑA T+T – TERCER PERIODO",
+              order: 3,
+              topics: [
+                {
+                  id: "P3-T1",
+                  status: "not_started",
+                  tuhPutkamna: "Solución de Problemas con Tecnología: Bases de datos y seguridad de la información.",
+                  title: "Bases de datos relacionales y seguridad digital.",
+                  hijosSaber: "Conceptos de bases de datos, tablas, registros y protección de la identidad digital.",
+                  panapain: "Seguridad de los datos de la comunidad.",
+                  nanpaskas: "Estándares internacionales de seguridad informática.",
+                  satIshkit: "Proyectos de aula sobre seguridad digital."
+                }
+              ]
+            }
+          ];
+        } else {
+          extractedUnits = [
+            {
+              id: "unit-periodo-1",
+              title: "MAZA T+T – PRIMER PERIODO",
+              order: 1,
+              topics: [
+                {
+                  id: "P1-T1",
+                  status: "active",
+                  tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Artefactos y procesos tecnológicos ancestrales y modernos en el territorio.",
+                  title: "Identificar y clasificar herramientas tradicionales de uso comunitario frente a tecnologías mecánicas y digitales.",
+                  hacer: "Analizar el funcionamiento de herramientas agrícolas y de comunicación utilizadas en el resguardo Awá.",
+                  ser: "Valorar el ingenio de los saberes ancestrales combinados con las herramientas tecnológicas actuales.",
+                  panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
+                  nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
+                  hijosSaber: "1. Evolución de la herramienta. 2. Técnica vs Tecnología. 3. Artefactos del territorio.",
+                  satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores, Demostración de artefactos, Lluvia de ideas.",
+                }
+              ]
+            },
+            {
+              id: "unit-periodo-2",
+              title: "PAS T+T – SEGUNDO PERIODO",
+              order: 2,
+              topics: [
+                {
+                  id: "P2-T1",
+                  status: "not_started",
+                  tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo responsable de la información, redes y medios de comunicación comunitaria.",
+                  title: "Comprender la importancia de la comunicación digital y radial para la defensa y soberanía del territorio.",
+                  hacer: "Crear contenidos digitales o guiones de radio comunitaria enfocados en la preservación de la lengua Awapit y las tradiciones.",
+                  ser: "Hacer un uso ético y responsable de los dispositivos móviles y el acceso a internet en la institución.",
+                  panapain: "Aprovechar las redes para visibilizar la cultura Awá y fortalecer los lazos entre los diferentes resguardos y comunidades.",
+                  nanpaskas: "Reconocer el impacto global de la era de la información y adaptar sus beneficios al contexto local del IETABA.",
+                  hijosSaber: "1. Medios de comunicación local. 2. Identidad digital. 3. Radio comunitaria.",
+                  satIshkit: "Trabajo en equipo, Creación de medios, Exposiciones, Foros de debate, Edición básica de audio/video.",
+                }
+              ]
+            },
+            {
+              id: "unit-periodo-3",
+              title: "KUTÑA T+T – TERCER PERIODO",
+              order: 3,
+              topics: [
+                {
+                  id: "P3-T1",
+                  status: "not_started",
+                  tuhPutkamna: "Solución de Problemas con Tecnología: Diseño de sistemas sencillos para el cuidado ambiental y productivo.",
+                  title: "Proponer soluciones técnicas elementales (como recolección de agua o abono orgánico optimizado) para las huertas escolares.",
+                  hacer: "Diseñar esquemas o maquetas de prototipos tecnológicos sustentables aplicados al entorno del resguardo.",
+                  ser: "Ser consciente del impacto ambiental de los desechos tecnológicos y promover el reciclaje en la comunidad.",
+                  panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
+                  nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental con las prácticas ancestrales de conservación.",
+                  hijosSaber: "1. Diseño sustentable. 2. Materiales reciclados. 3. Prototipado para el agro.",
+                  satIshkit: "Proyectos de aula, Ferias de ciencia y tecnología, Trabajo práctico, Exposición comunitaria.",
+                }
+              ]
+            }
+          ];
+        }
       } else if (subLower.includes("física") || subLower.includes("fisica")) {
         extractedUnits = [
           {
@@ -328,6 +391,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: `Demostrar interés, respeto y sentido crítico al integrar nuevos conocimientos para el beneficio colectivo.`,
                 panapain: `Articular los contenidos de ${subjCapitalized} con las vivencias cotidianas y los saberes propios de las familias Awá.`,
                 nanpaskas: `Contrastar los enfoques globales de esta disciplina con la visión particular y armónica de los pueblos originarios.`,
+                hijosSaber: "Conceptos clave del periodo / Hijos del saber institucionales.",
                 satIshkit: `Trabajo colaborativo, Indagación guiada, Mesas de diálogo, Elaboración de resúmenes y esquemas.`,
               }
             ]
@@ -364,6 +428,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: `Consolidar su identidad y liderazgo estudiantil, comprometiéndose con el progreso armónico del resguardo.`,
                 panapain: `Todo saber cultivado en el IETABA está destinado a resguardar la vida, la cultura y la soberanía de Katsa Su.`,
                 nanpaskas: `Proyectar los conocimientos adquiridos hacia escenarios académicos superiores manteniendo el orgullo por sus raíces.`,
+                hijosSaber: `Proyecto Final de Periodo - Integración de saberes de ${subject}.`,
                 satIshkit: `Muestras pedagógicas, Foros comunitarios, Portafolios de evidencias, Plenarias de cierre.`,
               }
             ]
@@ -457,7 +522,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
         </div>
 
         {/* Cuerpo con scroll */}
-        <div className="p-8 space-y-8 overflow-y-auto flex-1 custom-scrollbar">
+        <div className="p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto flex-1 custom-scrollbar">
           {!file ? (
             <div className="border-4 border-dashed border-outline-variant/50 rounded-[2rem] p-16 flex flex-col items-center justify-center gap-6 hover:border-primary/50 transition-all cursor-pointer relative group bg-surface-container-lowest">
               <input 
@@ -559,9 +624,15 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                                        <span className="text-emerald-600">HIGRA:</span> {topic.tuhPutkamna}
                                      </p>
                                      <p className="text-[9px] font-bold text-slate-500 leading-relaxed italic">
-                                       <span className="text-blue-600 not-italic">HILOS:</span> {topic.title} | {topic.hacer} | {topic.ser}
+                                       <span className="text-blue-600 not-italic">HILOS:</span> {topic.title}
                                      </p>
-                                     <div className="grid grid-cols-2 gap-2 mt-1">
+                                     {topic.hijosSaber && (
+                                       <div className="text-[8px] bg-blue-50 text-blue-800 p-3 rounded-xl border-l-2 border-blue-300 font-medium whitespace-pre-line leading-normal">
+                                          <p className="text-[7px] font-black uppercase mb-1 opacity-60">Hijos del Saber (Desglose Temático):</p>
+                                          {topic.hijosSaber}
+                                       </div>
+                                     )}
+                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
                                         <div className="bg-slate-50 p-2 rounded-lg">
                                            <p className="text-[8px] font-black text-slate-400 uppercase">Saberes Propios</p>
                                            <p className="text-[8px] font-bold text-slate-600 truncate">{topic.panapain}</p>

@@ -196,11 +196,17 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
                        Cargar Siguiente Tema <ArrowRight size={16} />
                      </button>
                    ) : (
-                     <div className="flex gap-2">
+                     <div className="flex gap-2 flex-wrap">
                         <div className="px-3 py-1.5 bg-white/10 rounded-full flex items-center gap-2">
                            <Lightbulb size={12} className="text-yellow-300" />
-                           <span className="text-[8px] font-black uppercase tracking-tighter">Saberes Propios: {selectedTopic.panapain?.substring(0, 20)}...</span>
+                           <span className="text-[8px] font-black uppercase tracking-tighter">Saberes Propios: {selectedTopic.panapain?.substring(0, 30)}...</span>
                         </div>
+                        {selectedTopic.hijosSaber && (
+                           <div className="px-3 py-1.5 bg-yellow-300/20 rounded-full flex items-center gap-2 border border-yellow-300/30">
+                              <Sparkles size={12} className="text-yellow-300" />
+                              <span className="text-[8px] font-black uppercase tracking-tighter text-yellow-100">Incluye Hijos del Saber</span>
+                           </div>
+                        )}
                      </div>
                    )}
                  </div>
@@ -246,4 +252,3 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
     </div>
   );
 }
-

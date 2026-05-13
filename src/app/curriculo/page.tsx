@@ -117,9 +117,11 @@ export default function CurriculumPage() {
         : null;
       
       const topicName = activeTopic?.title || "Contenido Curricular";
+      const topicHijos = activeTopic?.hijosSaber || "";
       const topicHigra = activeTopic?.tuhPutkamna || "Pensamiento Matemático";
 
       const contextPrefix = feedback ? `🎯 ENFOQUE DE FORTALECIMIENTO PEDAGÓGICO: ${feedback.toUpperCase()}\n\n` : "";
+      const hilosContext = topicHijos ? `\n📖 HILOS/HIJOS DEL SABER A CUBRIR:\n${topicHijos}\n` : "";
 
       // --- MOTOR DE GENERACIÓN DINÁMICA BASADO EN LA MATERIA ---
       const tLower = topicName.toLowerCase();
@@ -156,6 +158,8 @@ PASO A PASO DE RESOLUCIÓN:
 • Duración Académica: 3 Meses (Trimestre Reglado)
 • Intensidad Horaria: 1 hora diaria de Lunes a Viernes (Total: 5 horas semanales / 60 horas por periodo)
 • Modelo Pedagógico: Tejiendo Saberes (Awá) — Enfoque Crítico, Activo y Comunitario
+
+${hilosContext}
 
 ======================================================================
 I. FASE DE EXPLORACIÓN: CONTEXTUALIZACIÓN Y SABERES PREVIOS (Sesión 1)
@@ -202,6 +206,7 @@ Cada equipo plasmará su propuesta en un papelógrafo, utilizando diagramas clar
 Institución: IETABA — Territorio Awá
 Grado: ${selectedGrade} | Materia: ${selectedSubject}
 Tema: ${topicName}
+${hilosContext}
 Tiempo Estimado de Resolución: 2 Horas de Trabajo Autónomo/Grupal
 
 ======================================================================
@@ -231,6 +236,7 @@ SECCIÓN C: PRODUCCIÓN ARGUMENTATIVA E INTERCULTURALIDAD (20%)
 
       const activityStr = `${contextPrefix}🎲 DINÁMICA LÚDICA Y DIDÁCTICA: "LA MINGA DE SABERES EN ${selectedSubject.toUpperCase()}"
 Eje Didáctico: Aprendizaje Cooperativo (Gamificación Territorial)
+${hilosContext}
 Duración: 1 Hora de Clase Dinámica
 
 🎯 OBJETIVO PEDAGÓGICO:
@@ -255,6 +261,7 @@ Consolidar la apropiación del conocimiento de ${topicName}, fortaleciendo el pe
 Institución: INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ - IETABA
 Asignatura: ${selectedSubject} | Grado: ${selectedGrade}
 Estructura: Prueba de Calidad Académica alineada a Saberes Propios
+${hilosContext}
 
 ======================================================================
 BLOQUE I: COMPETENCIA INTERPRETATIVA
