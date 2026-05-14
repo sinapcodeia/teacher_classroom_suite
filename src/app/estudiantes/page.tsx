@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
-import dynamic from "next/dynamic";
-const StudentList = dynamic(() => import("@/components/students/StudentList"), { ssr: false });
-const StudentProfile = dynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
-const PerformanceStats = dynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
+import nextDynamic from "next/dynamic";
+const StudentList = nextDynamic(() => import("@/components/students/StudentList"), { ssr: false });
+const StudentProfile = nextDynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
+const PerformanceStats = nextDynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
+const ImportSummaryModal = nextDynamic(() => import("@/components/students/ImportSummaryModal"), { ssr: false });
 import { FileDown, FileText, UserPlus, X, CheckCircle } from "lucide-react";
+import Papa from "papaparse";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
@@ -15,9 +19,30 @@ import RoleGuard from "@/components/shared/RoleGuard";
 import { Users } from "lucide-react";
 
 export default function StudentsPage() {
-  const { students, addStudent, masterData } = useApp();
-  const [selectedId, setSelectedId] = useState(students[0]?.id || "");
+  const { myStudents, addStudent, masterData, profile, importStudents } = useApp();
+  
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [search, setSearch] = useState("");
+  const [gradoFilter, setGradoFilter] = useState("TODOS");
+  const [cursoFilter, setCursoFilter] = useState("TODOS");
+
+  const [selectedId, setSelectedId] = useState(myStudents[0]?.id || "");
+
+  // Update selectedId if the list changes and current selection is no longer valid
+  useEffect(() => {
+    if (selectedId && !myStudents.find(s => s.id === selectedId)) {
+      setSelectedId(myStudents[0]?.id || "");
+    }
+  }, [myStudents, profile]);
   const [showModal, setShowModal] = useState(false);
+  const [showImportResults, setShowImportResults] = useState(false);
+  const [importStats, setImportStats] = useState({
+    total: 0,
+    success: 0,
+    novelties: [] as any[],
+    errors: [] as string[]
+  });
+
   const [formData, setFormData] = useState({
     nombre: "",
     grado: "",
@@ -67,7 +92,7 @@ export default function StudentsPage() {
               <FileText size={18} className="text-primary-container" /> Asistencia Oficial
             </Link>
             <button 
-              onClick={() => exportToPDF("Reporte Institucional de Estudiantes", students)}
+              onClick={() => exportToPDF("Reporte Institucional de Estudiantes", myStudents)}
               className="flex items-center gap-2 px-5 py-3 bg-white border-2 border-outline-variant rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all"
             >
               <FileText size={18} className="text-error" /> Exportar PDF
@@ -78,18 +103,128 @@ export default function StudentsPage() {
             >
               <UserPlus size={18} /> Nueva Matrícula
             </button>
+            <label className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all cursor-pointer shadow-lg active:scale-95">
+              <FileDown size={18} /> Carga Masiva (CSV)
+              <input 
+                type="file" 
+                accept=".csv" 
+                className="hidden" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: async (results) => {
+                      const rows = results.data as any[];
+                      const dataToImport: any[] = [];
+                      
+                      for (const row of rows) {
+                        // Normalizar llaves y valores (limpiar caracteres invisibles como BOM o espacios extra)
+                        const s: any = {};
+                        const rawValues = Object.values(row);
+                        
+                        Object.keys(row).forEach((k, idx) => {
+                          const cleanKey = k.replace(/^\uFEFF/, "").toLowerCase().trim();
+                          s[cleanKey] = row[k];
+                          // Guardar por posición también como fallback (0: Grado, 1: Curso, 2: Documento)
+                          s[`pos_${idx}`] = row[k];
+                        });
+
+                        // Mapeo inteligente con prioridad institucional IETABA
+                        const docNum = s["nro documento"] || s.documento || s.nrodocumento || s.document || s.identificacion || s.pos_3 || s.pos_2;
+                        const rawCurso = (s["curso ietaba"] || s.curso || s.grupo || s.pos_1 || s.pos_0 || "1").toString().toUpperCase();
+                        const rawGrado = (s.grado || s.nivel || s.pos_0 || s.pos_2 || "").toString();
+
+                        if (docNum && rawGrado) {
+                          dataToImport.push({
+                            grado: rawGrado.trim(),
+                            curso: rawCurso.trim(),
+                            nroDocumento: String(docNum).trim(),
+                            tipoDocumento: s["tipo doc."] || s.tipodoc || s.pos_2 || "T.I.",
+                            primerApellido: s["primer apellido"] || s.primerapellido || s.apellido || s.pos_4 || "",
+                            segundoApellido: s["segundo apellido"] || s.segundoapellido || s.pos_5 || "",
+                            primerNombre: s["primer nombre"] || s.primernombre || s.nombre || s.pos_6 || "",
+                            segundoNombre: s["segundo nombre"] || s.segundonombre || s.pos_7 || "",
+                            fechaNacimiento: s["fecha nacimiento"] || s.fechanacimiento || s.pos_8 || "",
+                            genero: s.genero || s.pos_9 || "M"
+                          });
+                        }
+                      }
+
+                      if (dataToImport.length > 0) {
+                        const { novelties, notFound } = await importStudents(dataToImport);
+                        setImportStats({
+                          total: dataToImport.length,
+                          success: dataToImport.length - notFound.length,
+                          novelties,
+                          errors: notFound
+                        });
+                        setShowImportResults(true);
+                      } else {
+                        alert("No se encontraron datos válidos en el archivo. Revisa que las columnas coincidan con la plantilla.");
+                      }
+                      if (e.target) e.target.value = "";
+                    }
+                  });
+                }}
+              />
+            </label>
+            <button 
+              onClick={() => {
+                const headers = "CURSO IETABA,GRADO,TIPO DOC.,NRO DOCUMENTO,PRIMER APELLIDO,SEGUNDO APELLIDO,PRIMER NOMBRE,SEGUNDO NOMBRE,FECHA NACIMIENTO,GENERO\n";
+                const example = "1,6,T.I.,123456789,PEREZ,RODRIGUEZ,JUAN,CARLOS,2010-05-20,M";
+                const blob = new Blob([headers + example], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.setAttribute('hidden', '');
+                a.setAttribute('href', url);
+                a.setAttribute('download', 'Cargue_Maestro_IETABA.csv');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+            >
+              <FileDown size={18} /> Plantilla
+            </button>
           </div>
         </div>
+
+        <ImportSummaryModal 
+          isOpen={showImportResults} 
+          onClose={() => setShowImportResults(false)} 
+          stats={importStats} 
+        />
 
         <PerformanceStats />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7">
-            <StudentList selectedId={selectedId} onSelect={setSelectedId} />
+            <StudentList 
+              selectedId={selectedId} 
+              onSelect={setSelectedId} 
+              onFilteredCountChange={(count) => {
+                if (count === 0) setSelectedId("");
+              }}
+            />
           </div>
           <div className="lg:col-span-5">
             <div className="sticky top-24">
-              <StudentProfile id={selectedId} />
+              {selectedId ? (
+                <StudentProfile id={selectedId} />
+              ) : (
+                <div className="bg-white border border-outline-variant rounded-[2.5rem] p-16 flex flex-col items-center justify-center text-center gap-4 shadow-xl">
+                  <div className="w-20 h-20 rounded-3xl bg-surface-container flex items-center justify-center">
+                    <Users size={40} className="text-on-surface-variant opacity-30" />
+                  </div>
+                  <div>
+                    <p className="font-black uppercase tracking-widest text-sm text-on-surface opacity-40">No hay estudiantes seleccionados</p>
+                    <p className="text-[10px] text-on-surface-variant opacity-30 font-bold mt-1">Ajusta los filtros para ver perfiles</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

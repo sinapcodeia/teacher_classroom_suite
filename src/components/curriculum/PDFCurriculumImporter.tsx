@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Check, Sparkles, Loader2, Info } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { db } from "@/lib/firebase";
-import { setDoc, doc } from "firebase/firestore";
+import { setDoc, doc, getDoc } from "firebase/firestore";
 
 export default function PDFCurriculumImporter({ grade, subject }: { grade: string, subject: string }) {
   const { curriculum } = useApp();
@@ -450,7 +450,33 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
     if (!extractedData) return;
     setIsSaving(true);
     try {
-      await setDoc(doc(db, "curriculum", extractedData.id), extractedData);
+      const docRef = doc(db, "curriculum", extractedData.id);
+      
+      // Intentar obtener el currículo existente para preservar estados (covered, active)
+      const existingSnap = await getDoc(docRef);
+      if (existingSnap.exists()) {
+        const existingData = existingSnap.data() as any;
+        
+        // Mapear estados existentes por ID de tópico para una búsqueda rápida
+        const statusMap: Record<string, { status: string, date?: string }> = {};
+        existingData.units?.forEach((u: any) => {
+          u.topics?.forEach((t: any) => {
+            if (t.id) statusMap[t.id] = { status: t.status, date: t.date };
+          });
+        });
+
+        // Aplicar estados preservados a la nueva extracción
+        extractedData.units.forEach((u: any) => {
+          u.topics.forEach((t: any) => {
+            if (statusMap[t.id]) {
+              t.status = statusMap[t.id].status;
+              if (statusMap[t.id].date) t.date = statusMap[t.id].date;
+            }
+          });
+        });
+      }
+
+      await setDoc(docRef, extractedData);
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);

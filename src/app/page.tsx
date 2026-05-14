@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
@@ -12,12 +14,15 @@ import {
   BrainCircuit, Trophy, CalendarDays, UploadCloud, Target, Sparkles
 } from "lucide-react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { motion } from "framer-motion";
 
-const CriticalAlerts = dynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
-const EduAISentinel = dynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
-const PredictiveTrends = dynamic(() => import("@/components/analytics/PredictiveTrends"), { ssr: false });
+const CriticalAlerts = nextDynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
+const EduAISentinel = nextDynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
+const PredictiveTrends = nextDynamic(() => import("@/components/analytics/PredictiveTrends"), { ssr: false });
+const PedagogicalControlPanel = nextDynamic(() => import("@/components/dashboard/PedagogicalControlPanel"), { ssr: false });
+const QuickResourceHub = nextDynamic(() => import("@/components/dashboard/QuickResourceHub"), { ssr: false });
+const GovernanceKPIs = nextDynamic(() => import("@/components/dashboard/GovernanceKPIs"), { ssr: false });
 
 const GREETINGS = ["¡Buenos días", "¡Buenas tardes", "¡Buenas noches"];
 function getGreeting() {
@@ -96,9 +101,11 @@ export default function Home() {
         ? profile.teachingCourses
         : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
 
+    const courseSet = courses ? new Set(courses) : null;
+
     const filtered = profile.isSuperAdmin
       ? students
-      : students.filter(s => courses?.includes(s.curso));
+      : students.filter(s => courseSet?.has(s.curso));
     
     return {
       effectiveCourses: courses,
@@ -348,8 +355,19 @@ export default function Home() {
             </div>
           </section>
 
+          {/* ── CONTROL PEDAGÓGICO (ALERTAS Y SEGUIMIENTO) ── */}
+          {!profile.isSuperAdmin && <PedagogicalControlPanel />}
+
+          {/* ── RECURSOS DE CLASE INTUITIVOS ── */}
+          {!profile.isSuperAdmin && <QuickResourceHub />}
+
           {/* ── ALERTA CRÍTICA PARA DIRECTIVOS ── */}
           <CriticalAlerts />
+
+          {/* ── KPI DE GOBERNANZA E INTELIGENCIA DE POBLACIÓN ── */}
+          <section className="mb-10">
+            <GovernanceKPIs />
+          </section>
 
           {/* ── KPI STATS ── */}
           <section className="mb-10">

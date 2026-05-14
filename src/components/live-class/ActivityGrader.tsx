@@ -10,6 +10,7 @@ import {
 interface ActivityGraderProps {
   course: string;
   subject: string;
+  grade: string;
 }
 
 type GradeMode = "list" | "individual";
@@ -23,12 +24,13 @@ function scoreColor(n: number) {
   return "text-red-600 bg-red-50 border-red-200";
 }
 
-export default function ActivityGrader({ course, subject }: ActivityGraderProps) {
-  const { students, addGrade } = useApp();
+export default function ActivityGrader({ course, subject, grade }: ActivityGraderProps) {
+  const { students, addGrade, updateSingleDetailedGrade, masterData } = useApp();
+  const [targetCategory, setTargetCategory] = useState<"sb" | "sbh" | "sr" | "cv" | "aut">("sbh");
+  const [targetSlot, setTargetSlot] = useState(0);
 
   const [mode, setMode] = useState<GradeMode>("list");
   const [activityTitle, setActivityTitle] = useState("");
-  const [activityType, setActivityType] = useState<"activity" | "participation" | "exam">("activity");
   const [grades, setGrades] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -72,38 +74,71 @@ export default function ActivityGrader({ course, subject }: ActivityGraderProps)
     }
   };
 
+  const getActivePeriod = () => {
+    if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
+    return masterData.activePeriod || "p2";
+  };
+
   const handleSaveAll = async () => {
     if (!activityTitle.trim()) return alert("Ingresa un nombre para la actividad.");
     const toGrade = Object.keys(grades).filter(id => grades[id] !== "");
     if (toGrade.length === 0) return alert("No hay notas ingresadas.");
+    
     setIsSaving(true);
-    const prefixedTitle = subject ? `[${subject}] ${activityTitle}` : activityTitle;
+    const today = new Date().toISOString();
+    const periodId = getActivePeriod();
+
     try {
-      const today = new Date().toISOString();
-      await Promise.all(toGrade.map(id =>
-        addGrade(id, { title: prefixedTitle, score: parseFloat(grades[id]), type: activityType, date: today })
-      ));
+      for (const id of toGrade) {
+        const score = parseFloat(grades[id]);
+        
+        // 1. Sincronización con el Pilar Institucional (Planilla Oficial)
+        await updateSingleDetailedGrade(id, subject, periodId, targetCategory, targetSlot, score);
+        
+        // 2. Historial de sesión (Visibilidad en Consola)
+        await addGrade(id, { 
+          title: activityTitle, 
+          score, 
+          type: targetCategory === 'sb' ? 'exam' : (targetCategory === 'sbh' ? 'participation' : 'activity'), 
+          date: today,
+          periodId
+        });
+      }
       setSavedIds(prev => new Set([...prev, ...toGrade]));
       setShowSuccess(true);
-      setTimeout(() => { setShowSuccess(false); setGrades({}); setActivityTitle(""); }, 3500);
-    } catch { alert("Error al guardar las notas."); }
-    finally { setIsSaving(false); }
+      setTimeout(() => { setShowSuccess(false); setGrades({}); }, 3500);
+    } catch (err) {
+      console.error("Error al guardar:", err);
+      alert("Hubo un error al guardar las notas.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // ── Individual mode helpers ───────────────────────────────────────────────
   const handleSaveAndNext = async () => {
     if (!activityTitle.trim()) return alert("Ingresa un nombre para la evaluación.");
     if (!currentStudent) return;
+    
     setIndivSaving(true);
-    const prefixedTitle = subject ? `[${subject}] ${activityTitle}` : activityTitle;
+    const periodId = getActivePeriod();
+    const score = parseFloat(indivScore) || 0;
+    const today = new Date().toISOString();
+
     try {
+      // 1. Sincronización con el Pilar Institucional
+      await updateSingleDetailedGrade(currentStudent.id, subject, periodId, targetCategory, targetSlot, score);
+
+      // 2. Historial de sesión
       await addGrade(currentStudent.id, {
-        title: prefixedTitle,
-        score: parseFloat(indivScore) || 0,
-        type: activityType,
-        date: new Date().toISOString(),
+        title: activityTitle,
+        score,
+        type: targetCategory === 'sb' ? 'exam' : (targetCategory === 'sbh' ? 'participation' : 'activity'),
+        date: today,
+        periodId
       });
+      
       setSavedIds(prev => new Set([...prev, currentStudent.id]));
+      
       if (currentIdx < total - 1) {
         setCurrentIdx(i => i + 1);
         setIndivScore("5.0");
@@ -111,8 +146,12 @@ export default function ActivityGrader({ course, subject }: ActivityGraderProps)
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       }
-    } catch { alert("Error al guardar."); }
-    finally { setIndivSaving(false); }
+    } catch (err) {
+      console.error("Error al guardar:", err);
+      alert("Error al guardar.");
+    } finally {
+      setIndivSaving(false);
+    }
   };
 
   // ── Shared header ────────────────────────────────────────────────────────
@@ -149,27 +188,51 @@ export default function ActivityGrader({ course, subject }: ActivityGraderProps)
         </div>
       </div>
 
-      {/* Activity config */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={activityTitle}
-            onChange={e => setActivityTitle(e.target.value)}
-            placeholder="Nombre de la evaluación / actividad…"
-            className="w-full bg-white border border-outline-variant rounded-2xl px-5 py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase"
-          />
-          <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline" size={18} />
+      {/* Institutional Config Row */}
+      <div className="flex flex-col xl:flex-row gap-4 bg-slate-50 p-5 md:p-8 rounded-[2.5rem] border border-slate-200 shadow-inner">
+        <div className="flex-1 space-y-2 min-w-[200px]">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción de la Actividad</p>
+          <div className="relative">
+            <input
+              type="text"
+              value={activityTitle}
+              onChange={e => setActivityTitle(e.target.value)}
+              placeholder="Ej: Taller de circuitos, Examen parcial..."
+              className="w-full bg-white border border-outline-variant rounded-2xl px-5 py-4 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm"
+            />
+            <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline opacity-30" size={18} />
+          </div>
         </div>
-        <select
-          value={activityType}
-          onChange={e => setActivityType(e.target.value as typeof activityType)}
-          className="bg-white border border-outline-variant rounded-2xl px-4 py-3.5 font-black text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="activity">Actividad / Taller</option>
-          <option value="exam">Examen / Evaluación</option>
-          <option value="participation">Participación</option>
-        </select>
+
+        <div className="md:flex gap-4">
+          <div className="flex-1 md:w-64 space-y-2">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilar Institucional</p>
+            <select
+              value={targetCategory}
+              onChange={e => setTargetCategory(e.target.value as any)}
+              className="w-full h-14 bg-white border border-outline-variant rounded-2xl px-5 font-black text-[9px] sm:text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm"
+            >
+              <option value="sb">SABER (30%) - EXÁMENES</option>
+              <option value="sbh">SABER-HACER (40%) - PARTICIPACIÓN</option>
+              <option value="sr">SER (20%) - ACTITUDINAL</option>
+              <option value="cv">CONVIVENCIA (5%)</option>
+              <option value="aut">AUTOEVALUACIÓN (5%)</option>
+            </select>
+          </div>
+
+          <div className="w-full md:w-32 space-y-2 mt-4 md:mt-0">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Columna</p>
+            <select
+              value={targetSlot}
+              onChange={e => setTargetSlot(parseInt(e.target.value))}
+              className="w-full h-14 bg-white border border-outline-variant rounded-2xl px-5 font-black text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm"
+            >
+              {[...Array(targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : (targetCategory === 'aut' ? 1 : 8)))].map((_, i) => (
+                <option key={i} value={i}>COL {i + 1}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {showSuccess && (
@@ -235,11 +298,11 @@ export default function ActivityGrader({ course, subject }: ActivityGraderProps)
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-[10px] shrink-0 ${hasSaved ? "bg-emerald-100 text-emerald-700" : "bg-primary/10 text-primary"}`}>
-                          {hasSaved ? <CheckCircle2 size={16} /> : `${student.primerApellido[0]}${student.primerNombre[0]}`}
+                          {hasSaved ? <CheckCircle2 size={16} /> : `${(student.primerApellido || "")[0] || ""}${(student.primerNombre || "")[0] || ""}`}
                         </div>
                         <div>
                           <p className="text-[11px] font-black uppercase text-on-surface leading-tight">
-                            {student.primerApellido} {student.segundoApellido}, {student.primerNombre}
+                            {student.primerApellido || ""} {student.segundoApellido || ""}{student.primerApellido ? "," : ""} {student.primerNombre || ""} {student.segundoNombre || ""}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <p className="text-[8px] font-bold text-on-surface-variant opacity-50 uppercase">{student.nroDocumento}</p>

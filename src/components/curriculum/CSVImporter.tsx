@@ -5,7 +5,7 @@ import { Upload, FileSpreadsheet, X, Check, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import { useApp } from "@/context/AppContext";
 import { db } from "@/lib/firebase";
-import { setDoc, doc } from "firebase/firestore";
+import { setDoc, doc, getDoc } from "firebase/firestore";
 
 export default function CSVImporter() {
   const [show, setShow] = useState(false);
@@ -46,7 +46,7 @@ export default function CSVImporter() {
           status: idx === 0 ? "active" : "not_started",
           title: row["Piankammu Mi"] || row.Piankammu || row.Tema || row.tema || row.title || row.Title || "Sin Título",
           tuhPutkamna: row["Tuh Putkamna"] || row.Putkamna || row.Higra || row.higra || "",
-          hijosSaber: row["Hijos del Saber"] || row.Hijos || row.hijos || row.subtopics || "",
+          hijosSaber: row["Hijos del Saber"] || row["HIJOS DEL SABER"] || row.Hijos || row.hijos || row.subtopics || "",
           panapain: row.Panapain || row["Saberes Propios"] || row.propios || "",
           nanpaskas: row.Nanpaskas || row["Saberes Interculturales"] || row.intercultural || "",
           katkinAizpa: row["Katkin Aizpa"] || row.Ayudas || row.ayudas || "",
@@ -61,6 +61,28 @@ export default function CSVImporter() {
       const deterministicId = `cur-${detectedGrade}-${detectedSubject}`
         .toLowerCase().replace(/\s+/g, '-').replace(/°/g, '');
 
+      // --- PRESERVAR ESTADOS EXISTENTES ---
+      const docRef = doc(db, "curriculum", deterministicId);
+      const existingSnap = await getDoc(docRef);
+      if (existingSnap.exists()) {
+        const existingData = existingSnap.data() as any;
+        const statusMap: Record<string, { status: string, date?: string }> = {};
+        existingData.units?.forEach((u: any) => {
+          u.topics?.forEach((t: any) => {
+            if (t.id) statusMap[t.id] = { status: t.status, date: t.date };
+          });
+        });
+
+        units.forEach((u: any) => {
+          u.topics.forEach((t: any) => {
+            if (statusMap[t.id]) {
+              t.status = statusMap[t.id].status;
+              if (statusMap[t.id].date) t.date = statusMap[t.id].date;
+            }
+          });
+        });
+      }
+
       const curriculumData = {
         id: deterministicId,
         grade: detectedGrade,
@@ -68,7 +90,7 @@ export default function CSVImporter() {
         units: units.filter(u => u.topics.length > 0)
       };
 
-      await setDoc(doc(db, "curriculum", deterministicId), curriculumData);
+      await setDoc(docRef, curriculumData);
       alert("¡Tejidos cargados con éxito para " + detectedSubject + "!");
       setShow(false);
       setData([]);

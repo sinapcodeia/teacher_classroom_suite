@@ -15,38 +15,30 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
 
   // Normalización para encontrar el currículo correcto
   const activeCurriculum = useMemo(() => {
-    if (!curriculum.length) return null;
+    if (!curriculum.length || !subjectId) return null;
     
-    // Normalizar la materia de búsqueda (quitar acentos, minúsculas)
     const normStr = (s: string) => s
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase().trim();
+      .toLowerCase().replace(/[^a-z0-9]/g, "").trim();
     
-    const targetSubject = normStr(subjectId || "");
-    // El grado viene como "6-6" (curso) o "6°" — extraemos solo el número
+    const targetSubject = normStr(subjectId);
     const gradeNum = (grade || "").replace(/[^\d]/g, "");
     
-    // Búsqueda 1: coincidencia exacta de grado Y materia
-    const exact = curriculum.find(c => {
+    // Búsqueda de alta precisión: Grado Y Materia coinciden
+    return curriculum.find(c => {
       const cGradeNum = c.grade.replace(/[^\d]/g, "");
       const cSubject = normStr(c.subjectId);
+      
       const matchGrade = gradeNum && cGradeNum === gradeNum;
+      
+      // Coincidencia inteligente: Una materia puede estar contenida en la otra 
+      // (ej: "TECNOLOGIA" en "TECNOLOGIA E INFORMATICA")
       const matchSubject = targetSubject && (
         cSubject.includes(targetSubject) || targetSubject.includes(cSubject)
       );
+      
       return matchGrade && matchSubject;
-    });
-    if (exact) return exact;
-    
-    // Búsqueda 2: solo por grado
-    const byGrade = curriculum.find(c => {
-      const cGradeNum = c.grade.replace(/[^\d]/g, "");
-      return gradeNum && cGradeNum === gradeNum;
-    });
-    if (byGrade) return byGrade;
-    
-    // Fallback: primero disponible
-    return curriculum[0];
+    }) || null; // Retornar NULL si no hay coincidencia exacta para evitar datos falsos
   }, [curriculum, subjectId, grade]);
 
   // Aplanar todos los temas con su ID de unidad para el selector

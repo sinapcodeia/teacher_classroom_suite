@@ -1,12 +1,15 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useRef, useEffect } from "react";
-import { useApp } from "@/context/AppContext";
+import { useApp, toTitleCase } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
+import jsPDF from "jspdf";
 import Papa from "papaparse";
 import { 
   Users, Book, GraduationCap, ShieldCheck, 
-  Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, Info, RotateCcw, Clock,
+  Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, Info, RotateCcw, Clock, FileDown,
   BarChart3, LayoutGrid, Key, ShieldAlert, Mail, UserPlus, Fingerprint, Plus, Loader2, Search, Pencil
 } from "lucide-react";
 import Link from "next/link";
@@ -135,27 +138,40 @@ export default function AdminPage() {
 
     setIsImporting(true);
     Papa.parse(file, {
-      header: false,
+      header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const rows = results.data as string[][];
-        const startIdx = (rows[0][0]?.toUpperCase().includes("CURSO") || rows[0][4]?.toUpperCase().includes("DOCUMENTO")) ? 1 : 0;
-        const dataRows = rows.slice(startIdx);
+        const rows = results.data as any[];
 
         if (activeTab === "students") {
-          const newStudents = dataRows.map((row, index) => {
-            const docNum = row[4]?.trim() || `TMP-${Date.now()}-${index}`;
+          const newStudents = rows.map((row, index) => {
+            // Normalizar llaves
+            const s: any = {};
+            Object.keys(row).forEach(k => {
+              const cleanKey = k.replace(/^\uFEFF/, "").toLowerCase().trim();
+              s[cleanKey] = row[k];
+            });
+
+            // Mapeo inteligente con prioridad institucional IETABA
+            const docNum = s["nro documento"] || s.documento || s.nrodocumento || s.document || s.identificacion || `TMP-${Date.now()}-${index}`;
+            let rawCurso = (s["curso ietaba"] || s.curso || s.grupo || "1").toString().toUpperCase();
+            const rawGrado = (s.grado || s.nivel || "").toString();
+
+            if (rawCurso.includes("-")) {
+              rawCurso = rawCurso.split("-")[1];
+            }
+
             return {
-              curso: (row[0]?.trim() || "1").toUpperCase(),
-              grado: normalizeGrade(row[2]?.trim()),
-              tipoDocumento: row[3]?.trim().toUpperCase() || "T.I.",
-              nroDocumento: docNum,
-              primerApellido: row[5]?.trim().toUpperCase() || "",
-              segundoApellido: row[6]?.trim().toUpperCase() || "",
-              primerNombre: row[7]?.trim().toUpperCase() || "",
-              segundoNombre: row[8]?.trim().toUpperCase() || "",
-              fechaNacimiento: excelDateToJS(row[9]?.trim()),
-              genero: row[10]?.trim().toUpperCase() || "F",
+              curso: rawCurso,
+              grado: normalizeGrade(rawGrado),
+              tipoDocumento: (s["tipo doc."] || s.tipo_doc || s.tipodoc || s.tipo || "T.I.").toUpperCase(),
+              nroDocumento: docNum.toString().trim(),
+              primerApellido: toTitleCase((s["primer apellido"] || s.apellido1 || s.primerapellido || s.apellido || "").toString().trim()),
+              segundoApellido: toTitleCase((s["segundo apellido"] || s.apellido2 || s.segundoapellido || "").toString().trim()),
+              primerNombre: toTitleCase((s["primer nombre"] || s.nombre1 || s.primernombre || s.nombre || "").toString().trim()),
+              segundoNombre: toTitleCase((s["segundo nombre"] || s.nombre2 || s.segundonombre || "").toString().trim()),
+              fechaNacimiento: excelDateToJS(s["fecha nacimiento"] || s.fecha_nac || s.fechanacimiento || s.nacimiento || ""),
+              genero: (s.genero || s.sexo || "F").toString().toUpperCase().charAt(0),
               avgGrade: 0,
               attendance: "100%",
               present: true,
@@ -168,13 +184,16 @@ export default function AdminPage() {
           importStudents(newStudents).then(() => {
             setImportSummary({ count: newStudents.length, type: "Estudiantes" });
             
-            // AUTOMATIC FEED: Extract unique grades and courses from student list
-            const uniqueGrades = Array.from(new Set(newStudents.map(s => s.grado.toUpperCase()))).filter(v => v);
-            const uniqueCourses = Array.from(new Set(newStudents.map(s => s.curso.toUpperCase()))).filter(v => v);
+            // FEED MAESTRO: Limpiar y agregar solo grados y cursos válidos
+            const uniqueGrades = Array.from(new Set(newStudents.map(s => s.grado))).filter(v => v);
+            const uniqueCourses = Array.from(new Set(newStudents.map(s => s.curso))).filter(v => v);
             
-            // Update Master Data without overwriting existing
-            updateMasterData("grades", Array.from(new Set([...masterData.grades, ...uniqueGrades])));
-            updateMasterData("courses", Array.from(new Set([...masterData.courses, ...uniqueCourses])));
+            // Eliminar entradas mixtas previas (ej: "5-1") antes de guardar
+            const cleanGrades = masterData.grades.filter(g => !g.includes("-"));
+            const cleanCourses = masterData.courses.filter(c => !c.includes("-"));
+
+            updateMasterData("grades", Array.from(new Set([...cleanGrades, ...uniqueGrades])));
+            updateMasterData("courses", Array.from(new Set([...cleanCourses, ...uniqueCourses])));
             
           }).catch(err => {
             console.error("Error importando a Firestore:", err);
@@ -183,8 +202,12 @@ export default function AdminPage() {
           if (fileInputRef.current) fileInputRef.current.value = "";
           return; 
         } else if (activeTab !== "stats" && activeTab !== "users") {
-
-          const names = dataRows.map(row => row[0]?.trim().toUpperCase()).filter(n => n);
+          // Importación de datos maestros (Materias, Grados, etc.)
+          const names = rows.map(row => {
+            const val = Array.isArray(row) ? row[0] : Object.values(row)[0];
+            return toTitleCase((val || "").toString().trim());
+          }).filter(n => n);
+          
           updateMasterData(activeTab, Array.from(new Set([...masterData[activeTab], ...names])));
           setImportSummary({ count: names.length, type: activeTab });
         }
@@ -194,6 +217,94 @@ export default function AdminPage() {
         setTimeout(() => setImportSummary(null), 5000);
       }
     });
+  };
+
+  const downloadImportGuide = () => {
+    const doc = new jsPDF();
+    
+    // Configuración de estilo
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(30, 41, 59); // slate-800
+    doc.text("GUÍA DE IMPORTACIÓN MAESTRA", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(71, 85, 105); // slate-600
+    doc.text("Institución Educativa Técnica Agroindustrial Bilingüe Awá - IETABA", 20, 38);
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 45, 190, 45);
+
+    // Sección Estudiantes
+    doc.setFontSize(14);
+    doc.setTextColor(37, 99, 235); // primary
+    doc.text("1. IMPORTACIÓN DE ESTUDIANTES (.CSV)", 20, 60);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("El archivo debe ser un CSV con las siguientes columnas en este orden exacto:", 20, 68);
+    
+    const headers = ["CURSO IETABA", "GRADO", "TIPO DOC.", "NRO DOCUMENTO", "APELLIDO 1", "APELLIDO 2", "NOMBRE 1", "NOMBRE 2", "F. NACIM.", "GÉNERO"];
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, 75, 170, 8, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(headers.join(" | "), 22, 80);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("- CURSO IETABA: Identificador oficial (ej: '11-1', '6A', '01')", 20, 90);
+    doc.text("- GRADO: Nivel académico (ej: '6', '11', 'TRANSICION')", 20, 95);
+    doc.text("- NRO DOCUMENTO: Número de identificación sin puntos.", 20, 100);
+    doc.text("- NOMBRES/APELLIDOS: Cuatro columnas obligatorias.", 20, 105);
+    doc.text("- F. NACIM.: Fecha de nacimiento (AAAA-MM-DD).", 20, 110);
+
+    // Sección Otros Datos
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(37, 99, 235);
+    doc.text("2. OTROS DATOS MAESTROS", 20, 125);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Para Materias, Docentes o Grados, suba un CSV con una sola columna sin encabezado.", 20, 133);
+    doc.text("- Cada fila representará un nuevo elemento en el catálogo.", 20, 138);
+
+    // Recomendación de Almacenamiento
+    doc.setFont("helvetica", "bold");
+    doc.text("POLÍTICA DE DATOS:", 20, 160);
+    doc.setFont("helvetica", "normal");
+    doc.text("El sistema organiza la BD con la primera letra en Mayúscula para Nombres y Apellidos", 20, 165);
+    doc.text("para garantizar la legibilidad en reportes oficiales y boletines.", 20, 170);
+
+    doc.save("Guia_Importacion_IETABA.pdf");
+  };
+
+  const downloadTemplate = () => {
+    let headers = "";
+    let fileName = "";
+    
+    if (activeTab === 'students') {
+      headers = "CURSO IETABA,GRADO,TIPO DOC.,NRO DOCUMENTO,PRIMER APELLIDO,SEGUNDO APELLIDO,PRIMER NOMBRE,SEGUNDO NOMBRE,FECHA NACIMIENTO,GENERO\n";
+      headers += "1,6,T.I.,123456789,PEREZ,RODRIGUEZ,JUAN,CARLOS,2010-05-20,M";
+      fileName = "Cargue_Maestro_IETABA.csv";
+    } else {
+      headers = "NOMBRE\n";
+      headers += activeTab === 'teachers' ? "JUAN PEREZ" : activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
+      fileName = `Plantilla_${activeTab}_IETABA.csv`;
+    }
+
+    const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const getCurrentList = () => {
@@ -256,6 +367,12 @@ export default function AdminPage() {
                
                {activeTab !== "users" && activeTab !== "stats" && (
                  <>
+                   <button onClick={downloadTemplate} className="px-6 py-4 bg-slate-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-slate-600 active:scale-95 transition-all flex items-center gap-2 group border border-slate-500/20">
+                     <FileDown size={16} /> Descargar Plantilla
+                   </button>
+                   <button onClick={downloadImportGuide} className="px-6 py-4 bg-amber-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-amber-400 active:scale-95 transition-all flex items-center gap-2 group border border-amber-400/20">
+                     <Clock size={16} /> Guía PDF
+                   </button>
                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
                    <button onClick={() => fileInputRef.current?.click()} className="px-6 py-4 bg-white text-on-surface rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2 group">
                      <Upload size={16} className="group-hover:-translate-y-1 transition-transform" /> Importar CSV <span className="hidden md:inline">Maestro</span>
@@ -602,14 +719,14 @@ export default function AdminPage() {
                            <input 
                              type="text" 
                              value={editingItem.primerNombre} 
-                             onChange={(e) => setEditingItem({...editingItem, primerNombre: e.target.value.toUpperCase()})}
+                             onChange={(e) => setEditingItem({...editingItem, primerNombre: toTitleCase(e.target.value)})}
                              className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold focus:ring-2 ring-primary"
                              placeholder="Primer Nombre"
                            />
                            <input 
                              type="text" 
                              value={editingItem.primerApellido} 
-                             onChange={(e) => setEditingItem({...editingItem, primerApellido: e.target.value.toUpperCase()})}
+                             onChange={(e) => setEditingItem({...editingItem, primerApellido: toTitleCase(e.target.value)})}
                              className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold focus:ring-2 ring-primary"
                              placeholder="Primer Apellido"
                            />

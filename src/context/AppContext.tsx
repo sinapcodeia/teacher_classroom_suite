@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { 
@@ -12,34 +12,48 @@ import {
 // Convierte cualquier formato de grado del CSV al formato estándar del catálogo.
 // Ej: "6", "SEXTO", "6to" → "6°" | "PRIMARIA", "0", "PRIM" → "PRIMARIA"
 export function normalizeGrade(raw: string | undefined | null): string {
-  if (!raw) return "0°";
+  if (!raw) return "PREESCOLAR";
   const s = raw.toString().trim().toUpperCase();
 
-  // Ya tiene el formato correcto
-  if (s.endsWith("°") || s === "PRIMARIA" || s === "JARDÍN" || s === "PREESCOLAR" || s === "KÍNDER" || s === "TRANSICIÓN") return s;
+  // Mapeo específico de Preescolar/Transición
+  if (s === "0" || s === "CERO" || s === "TRANSICIÓN" || s === "TRANSICION" || s === "PREESCOLAR" || s === "JARDÍN" || s === "JARDIN" || s === "KÍNDER" || s === "KINDER") {
+    return "PREESCOLAR";
+  }
 
-  // Mapeo numérico
+  // Si ya tiene el formato correcto (N°)
+  if (/^\d+°$/.test(s)) return s;
+
+  // Mapeo numérico: Extraer solo el primer número
+  // Esto evita que "5-1" o "6A" contaminen el grado
   const numMatch = s.match(/^(\d+)/);
   if (numMatch) {
     const n = parseInt(numMatch[1]);
-    if (n === 0) return "PRIMARIA";
-    return `${n}°`;
+    if (n === 0) return "PREESCOLAR";
+    if (n >= 1 && n <= 11) return `${n}°`;
   }
 
   // Mapeo textual
   const wordMap: Record<string, string> = {
-    CERO: "PRIMARIA", PRIM: "PRIMARIA", PRIMERO: "1°", SEGUNDO: "2°",
-    TERCERO: "3°", CUARTO: "4°", QUINTO: "5°", SEXTO: "6°",
-    SEPTIMO: "7°", SÉPTIMO: "7°", OCTAVO: "8°", NOVENO: "9°",
+    PRIMERO: "1°", SEGUNDO: "2°", TERCERO: "3°", CUARTO: "4°", QUINTO: "5°", 
+    SEXTO: "6°", SEPTIMO: "7°", SÉPTIMO: "7°", OCTAVO: "8°", NOVENO: "9°",
     DECIMO: "10°", DÉCIMO: "10°", ONCE: "11°", UNDECIMO: "11°", UNDÉCIMO: "11°",
-    TRANSICION: "PRIMARIA", JARDIN: "PRIMARIA", KINDER: "PRIMARIA",
   };
+  
   for (const [key, val] of Object.entries(wordMap)) {
     if (s.includes(key)) return val;
   }
 
-  // Fallback: retorna tal cual en mayúsculas
+  // Fallback
   return s;
+}
+
+// ── FORMATEO DE TEXTO (Title Case) ─────────────────────────────────────────────
+// Convierte "JUAN PEREZ" o "juan perez" → "Juan Perez"
+export function toTitleCase(str: string | undefined | null): string {
+  if (!str) return "";
+  return str.toLowerCase().split(' ').map(word => {
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
 }
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
@@ -104,6 +118,41 @@ export interface Curriculum {
   units: Unit[]; // Serán siempre 3 periodos
 }
 
+export type Grade = {
+  id: string;
+  title: string;
+  score: number;
+  type: 'activity' | 'participation' | 'exam';
+  date: string;
+  periodId?: string;
+}
+
+export type DetailedGrades = {
+  sb: (number | null)[]; // Saber (8 slots)
+  sbh: (number | null)[]; // Saber-Hacer (8 slots)
+  sr: (number | null)[]; // Ser (5 slots)
+  cv: (number | null)[]; // Convivencia (3 slots)
+  aut: number | null;     // Autoevaluación
+};
+
+export const calculateDetailedFinal = (detailed: DetailedGrades) => {
+  const getAvg = (vals: (number | null)[]) => {
+    const valid = vals.filter(v => v !== null) as number[];
+    return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+  };
+
+  const sbAvg = getAvg(detailed.sb);
+  const sbhAvg = getAvg(detailed.sbh);
+  const srAvg = getAvg(detailed.sr);
+  const cvAvg = getAvg(detailed.cv);
+  const aut = detailed.aut || 0;
+
+  // Pesos Institucionales IETABA
+  // Saber (30%), Saber-Hacer (40%), Ser (20%), Convivencia (5%), Auto (5%)
+  const final = (sbAvg * 0.3) + (sbhAvg * 0.4) + (srAvg * 0.2) + (cvAvg * 0.05) + (aut * 0.05);
+  return Number(final.toFixed(1));
+};
+
 interface Subject {
   id: string;
   name: string;
@@ -111,7 +160,7 @@ interface Subject {
   color: string;
 }
 
-interface Student {
+export interface Student {
   id: string;
   nroDocumento: string;
   tipoDocumento: string;
@@ -129,9 +178,16 @@ interface Student {
   present?: boolean;
   acudienteNombre?: string;
   acudienteTelefono?: string;
-  isActive?: boolean;
-  grades?: { id: string, title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }[];
+  isActive: boolean;
+  grades?: Grade[];
+  detailedGrades?: Record<string, Record<string, DetailedGrades>>; // subjectId -> periodId -> grades
   observations?: string;
+  audit?: {
+    createdBy: string;
+    createdAt: string;
+    updatedBy?: string;
+    updatedAt?: string;
+  }
 }
 
 // Legacy format kept for backward-compat on some views
@@ -148,6 +204,8 @@ interface MasterData {
   grades: string[];
   teachers: string[];
   courses: string[]; // Grupos específicos (ej: 8-1, 8-2)
+  activePeriod: string;
+  periodStatus: Record<string, "open" | "closed">;
 }
 
 export interface TeacherProfile {
@@ -208,12 +266,15 @@ interface AppContextType {
   subjects: Subject[];
   setSubjects: (s: Subject[]) => void;
   students: Student[];
+  myStudents: Student[]; // Lista filtrada por gobernanza
   setStudents: (students: Student[]) => void;
   addStudent: (student: Omit<Student, "id">) => void;
-  importStudents: (incoming: Omit<Student, "id">[]) => Promise<void>;
+  importStudents: (incoming: Omit<Student, "id">[]) => Promise<{ novelties: any[], notFound: string[] }>;
   removeStudent: (id: string) => Promise<void>;
   updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
-  addGrade: (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }) => Promise<void>;
+  updateDetailedGrades: (studentId: string, subjectId: string, periodId: string, grades: DetailedGrades) => Promise<void>;
+  updateSingleDetailedGrade: (studentId: string, subjectId: string, periodId: string, category: keyof DetailedGrades, index: number, score: number | null) => Promise<void>;
+  addGrade: (studentId: string, grade: Omit<Grade, "id">) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
   updateMasterItem: (key: keyof MasterData, oldItem: string, newItem: string) => void;
@@ -223,7 +284,15 @@ interface AppContextType {
   deleteSubject: (id: string) => void;
   schedule: ScheduleEntry[];
   setSchedule: (schedule: ScheduleEntry[]) => void;
-
+  togglePeriodStatus: (periodId: string, status: "open" | "closed") => void;
+  setActivePeriod: (periodId: string) => void;
+  governanceStats: {
+    birthdaysToday: Student[];
+    birthdaysMonth: Student[];
+    gender: { m: number; f: number; parity: number };
+    extraedad: Student[];
+    totalActive: number;
+  };
   agendaNotes: AgendaNote[];
   addAgendaNote: (note: Omit<AgendaNote, "id">) => Promise<void>;
   updateAgendaNote: (id: string, updates: Partial<AgendaNote>) => Promise<void>;
@@ -290,35 +359,35 @@ function blocksToEntries(blocks: ScheduleBlock[]): ScheduleEntry[] {
 // ── DEFAULT SCHEDULE (sinapcodeia's real schedule as reference) ──────────────
 // ── DEFAULT SCHEDULE (Official IETABA - Jesus Antonio Rodriguez) ──────────────
 const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
-  { id:"s1",  day:"LUNES",     startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s2",  day:"LUNES",     startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"8°", course:"8-3", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s3",  day:"LUNES",     startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s4",  day:"LUNES",     startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-purple-100 text-purple-900 border-purple-200" },
-  { id:"s5",  day:"LUNES",     startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s1",  day:"LUNES",     startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"8°", course:"3", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s2",  day:"LUNES",     startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"8°", course:"3", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s3",  day:"LUNES",     startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s4",  day:"LUNES",     startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"6°", course:"3", color:"bg-purple-100 text-purple-900 border-purple-200" },
+  { id:"s5",  day:"LUNES",     startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"6°", course:"6", color:"bg-blue-100 text-blue-900 border-blue-200" },
   
-  { id:"s6",  day:"MARTES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s7",  day:"MARTES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-6", color:"bg-blue-100 text-blue-900 border-blue-200" },
-  { id:"s8",  day:"MARTES",    startTime:"09:30", endTime:"10:30", subject:"TECNOLOGÍA",  grade:"9°", course:"9-2", color:"bg-rose-100 text-rose-900 border-rose-200" },
-  { id:"s9",  day:"MARTES",    startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"9°", course:"9-4", color:"bg-rose-100 text-rose-900 border-rose-200" },
-  { id:"s10", day:"MARTES",    startTime:"11:50", endTime:"12:40", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s6",  day:"MARTES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s7",  day:"MARTES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6", color:"bg-blue-100 text-blue-900 border-blue-200" },
+  { id:"s8",  day:"MARTES",    startTime:"09:30", endTime:"10:30", subject:"TECNOLOGÍA",  grade:"9°", course:"2", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s9",  day:"MARTES",    startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"9°", course:"4", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s10", day:"MARTES",    startTime:"11:50", endTime:"12:40", subject:"MATEMÁTICAS", grade:"6°", course:"6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
 
-  { id:"s11", day:"MIÉRCOLES", startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
-  { id:"s12", day:"MIÉRCOLES", startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-4", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
-  { id:"s13", day:"MIÉRCOLES", startTime:"09:30", endTime:"10:30", subject:"TECNOLOGÍA",  grade:"6°", course:"6-3", color:"bg-purple-100 text-purple-900 border-purple-200" },
-  { id:"s14", day:"MIÉRCOLES", startTime:"12:40", endTime:"13:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s11", day:"MIÉRCOLES", startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"4", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s12", day:"MIÉRCOLES", startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"4", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s13", day:"MIÉRCOLES", startTime:"09:30", endTime:"10:30", subject:"TECNOLOGÍA",  grade:"6°", course:"3", color:"bg-purple-100 text-purple-900 border-purple-200" },
+  { id:"s14", day:"MIÉRCOLES", startTime:"12:40", endTime:"13:30", subject:"MATEMÁTICAS", grade:"6°", course:"6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
 
-  { id:"s15", day:"JUEVES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-amber-100 text-amber-900 border-amber-200" },
-  { id:"s15b",day:"JUEVES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"5°", course:"5-1", color:"bg-amber-100 text-amber-900 border-amber-200" },
-  { id:"s16", day:"JUEVES",    startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s17", day:"JUEVES",    startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
-  { id:"s18", day:"JUEVES",    startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"5°", course:"5-2", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s15", day:"JUEVES",    startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"5°", course:"1", color:"bg-amber-100 text-amber-900 border-amber-200" },
+  { id:"s15b",day:"JUEVES",    startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"5°", course:"1", color:"bg-amber-100 text-amber-900 border-amber-200" },
+  { id:"s16", day:"JUEVES",    startTime:"09:30", endTime:"10:30", subject:"MATEMÁTICAS", grade:"6°", course:"6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s17", day:"JUEVES",    startTime:"11:00", endTime:"11:50", subject:"TECNOLOGÍA",  grade:"5°", course:"2", color:"bg-lime-100 text-lime-900 border-lime-200" },
+  { id:"s18", day:"JUEVES",    startTime:"11:50", endTime:"12:40", subject:"TECNOLOGÍA",  grade:"5°", course:"2", color:"bg-lime-100 text-lime-900 border-lime-200" },
 
-  { id:"s19", day:"VIERNES",   startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
-  { id:"s20", day:"VIERNES",   startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"7-3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
-  { id:"s21", day:"VIERNES",   startTime:"09:30", endTime:"10:30", subject:"ÉTICA",       grade:"8°", course:"8-2", color:"bg-orange-100 text-orange-900 border-orange-200" },
-  { id:"s22", day:"VIERNES",   startTime:"11:00", endTime:"11:50", subject:"FÍSICA",      grade:"6°", course:"6-6", color:"bg-rose-100 text-rose-900 border-rose-200" },
-  { id:"s23", day:"VIERNES",   startTime:"11:50", endTime:"12:40", subject:"MATEMÁTICAS", grade:"6°", course:"6-6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
-  { id:"s24", day:"VIERNES",   startTime:"12:40", endTime:"13:30", subject:"FÍSICA",      grade:"7°", course:"7-2", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s19", day:"VIERNES",   startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"7°", course:"3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s20", day:"VIERNES",   startTime:"08:30", endTime:"09:30", subject:"TECNOLOGÍA",  grade:"7°", course:"3", color:"bg-cyan-100 text-cyan-900 border-cyan-200" },
+  { id:"s21", day:"VIERNES",   startTime:"09:30", endTime:"10:30", subject:"ÉTICA",       grade:"8°", course:"2", color:"bg-orange-100 text-orange-900 border-orange-200" },
+  { id:"s22", day:"VIERNES",   startTime:"11:00", endTime:"11:50", subject:"FÍSICA",      grade:"6°", course:"6", color:"bg-rose-100 text-rose-900 border-rose-200" },
+  { id:"s23", day:"VIERNES",   startTime:"11:50", endTime:"12:40", subject:"MATEMÁTICAS", grade:"6°", course:"6", color:"bg-emerald-100 text-emerald-900 border-emerald-200" },
+  { id:"s24", day:"VIERNES",   startTime:"12:40", endTime:"13:30", subject:"FÍSICA",      grade:"7°", course:"2", color:"bg-rose-100 text-rose-900 border-rose-200" },
 ];
 
 // ── PROVIDER ─────────────────────────────────────────────────────────────────
@@ -334,19 +403,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [masterData, setMasterData] = useState<MasterData>({
     subjects: ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
-    grades: ["PRIMARIA", "6°", "7°", "8°", "9°", "10°", "11°"],
+    grades: ["PREESCOLAR", "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"],
     teachers: ["ANTONIO RODRIGUEZ"],
-    courses: ["5-1", "5-2", "6", "6-3", "6-6", "7-2", "7-3", "7-4", "8-2", "8-3", "9-2", "9-4"],
+    courses: ["1", "2", "3", "4", "5", "6"],
+    activePeriod: "p2",
+    periodStatus: { p1: "closed", p2: "open", p3: "closed" }
   });
 
   const [subjects, setSubjects] = useState<Subject[]>([
-    { id: "sub-1", name: "TECNOLOGÍA",  courses: "8-3, 6-3, 6-6, 9-2, 9-4, 7-4, 5-1, 5-2, 7-3", color: "bg-blue-500" },
-    { id: "sub-2", name: "MATEMÁTICAS", courses: "6-6", color: "bg-green-500" },
-    { id: "sub-3", name: "FÍSICA",      courses: "6-6, 7-2", color: "bg-orange-500" },
-    { id: "sub-4", name: "ÉTICA",       courses: "8-2", color: "bg-yellow-500" },
+    { id: "sub-1", name: "TECNOLOGÍA",  courses: "1, 2, 3, 4, 5, 6", color: "bg-blue-500" },
+    { id: "sub-2", name: "MATEMÁTICAS", courses: "6", color: "bg-green-500" },
+    { id: "sub-3", name: "FÍSICA",      courses: "6, 2", color: "bg-orange-500" },
+    { id: "sub-4", name: "ÉTICA",       courses: "2", color: "bg-yellow-500" },
   ]);
 
   const [students, setStudents] = useState<Student[]>([]);
+
+  // ── GOBERNANZA DE DATOS (Governance) ─────────────────────────────────────────
+  const myStudents = React.useMemo(() => {
+    if (!profile || profile.isSuperAdmin || ["RECTOR", "COORDINADOR", "BIENESTAR"].includes(profile.role)) {
+      return students;
+    }
+    return students.filter(s => {
+      const studentRoom = `${normalizeGrade(s.grado)}-${s.curso}`;
+      
+      // Normalizar la lista del docente: convertir "8-3" o "8°-3" a "8°-3"
+      const normalizedTeaching = (profile.teachingCourses || []).map(tc => {
+        const parts = tc.split('-');
+        if (parts.length === 2) {
+          const g = normalizeGrade(parts[0]);
+          return `${g}-${parts[1]}`;
+        }
+        return tc;
+      });
+
+      return normalizedTeaching.includes(studentRoom);
+    });
+  }, [students, profile]);
 
   // Schedule: derived from weeklySchedule in profile, with legacy fallback
   const [schedule, setSchedule] = useState<ScheduleEntry[]>(
@@ -399,7 +492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           // ── AUTO-PATCH: docenciainformatica2025@gmail.com ──────────────────
-          if (firebaseUser.email === "docenciainformatica2025@gmail.com" && (!savedData.weeklySchedule || savedData.weeklySchedule.length === 0)) {
+          if (firebaseUser.email === "docenciainformatica2025@gmail.com") {
             savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
             savedData.isProfileComplete = true;
             savedData.firstName = "JESUS ANTONIO";
@@ -500,6 +593,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
         } catch (err) {
           console.error("Error al obtener perfil:", err);
+          // Fallback: Si Firestore falla pero el auth funciona, permitimos entrar con perfil básico
+          setUser(firebaseUser);
         }
       } else {
         setUser(null);
@@ -510,9 +605,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAuthLoading(false);
     });
 
+    // SAFETY TIMEOUT: Si en 10 segundos no ha respondido el Auth, forzamos salida del loader
+    const safetyTimeout = setTimeout(() => {
+      setAuthLoading(prev => {
+        if (prev) console.warn("Safety Timeout: Auth tardando demasiado. Forzando resolución.");
+        return false;
+      });
+    }, 10000);
+
     return () => {
       unsubscribe();
       unsubs.forEach(unsub => unsub());
+      clearTimeout(safetyTimeout);
     };
   }, []);
 
@@ -523,7 +627,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const merged: TeacherProfile = { ...profile, ...updates };
 
       if (updates.firstName !== undefined || updates.lastName !== undefined) {
-        merged.name = `${merged.firstName} ${merged.lastName}`.trim().toUpperCase() || merged.name;
+        merged.name = toTitleCase(`${merged.firstName} ${merged.lastName}`) || merged.name;
       }
 
       // isProfileComplete = tiene nombre Y (tiene grados manuales OR tiene horario configurado)
@@ -636,12 +740,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (savedMasterData) {
       try { 
         const parsed = JSON.parse(savedMasterData);
-        setMasterData({
-          subjects: parsed.subjects || [],
-          grades: parsed.grades || [],
-          teachers: parsed.teachers || [],
-          courses: parsed.courses || []
-        }); 
+        setMasterData(prev => ({
+          ...prev,
+          subjects: parsed.subjects || prev.subjects,
+          grades: parsed.grades || prev.grades,
+          teachers: parsed.teachers || prev.teachers,
+          courses: parsed.courses || prev.courses
+        })); 
       } catch { /* ignore */ }
     }
     if (savedSubjects) try { setSubjects(JSON.parse(savedSubjects)); } catch { /* ignore */ }
@@ -680,10 +785,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (changed) {
+        // Filtrar entradas mixtas previas (ej: "5-1") para mantener limpieza
+        const cleanGrades = Array.from(new Set([...prev.grades, ...newGradesList])).filter(g => !g.includes("-"));
+        const cleanCourses = Array.from(new Set([...prev.courses, ...newCoursesList])).filter(c => !c.includes("-"));
+
         return {
           ...prev,
-          grades: Array.from(new Set([...prev.grades, ...newGradesList])),
-          courses: Array.from(new Set([...prev.courses, ...newCoursesList]))
+          grades: cleanGrades,
+          courses: cleanCourses
         };
       }
       return prev;
@@ -701,8 +810,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateMasterItem = (category: keyof MasterData, oldValue: string, newValue: string) => {
     setMasterData(prev => {
-      const updated = prev[category].map(item => item === oldValue ? newValue : item);
-      return { ...prev, [category]: updated };
+      let finalValue = newValue;
+      if (category === "grades") finalValue = normalizeGrade(newValue);
+      const current = prev[category];
+      if (Array.isArray(current)) {
+        const updated = current.map(item => item === oldValue ? finalValue : item);
+        return { ...prev, [category]: updated };
+      }
+      return prev;
+    });
+  };
+
+  const removeMasterItem = (key: keyof MasterData, itemToDelete: string) => {
+    setMasterData(prev => {
+      const current = prev[key];
+      if (Array.isArray(current)) {
+        return { ...prev, [key]: current.filter(item => item !== itemToDelete) };
+      }
+      return prev;
     });
   };
 
@@ -715,23 +840,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    */
   const updateMasterData = (key: keyof MasterData, listaNueva: string[]) => {
     setMasterData(prev => {
-      // Si la lista nueva está vacía, no hacemos nada (protección contra borrado accidental)
       if (listaNueva.length === 0) return prev;
-      // Fusionar: conservar todos los existentes + agregar los nuevos sin duplicados
-      const fusionada = Array.from(new Set([...prev[key], ...listaNueva]));
-      return { ...prev, [key]: fusionada };
+      
+      let finalLista = listaNueva;
+      if (key === "grades") {
+        finalLista = listaNueva.map(g => normalizeGrade(g));
+      }
+      
+      const current = prev[key];
+      if (Array.isArray(current)) {
+        const fusionada = Array.from(new Set([...current, ...finalLista]));
+        return { ...prev, [key]: fusionada };
+      }
+      return prev;
     });
   };
 
   /** Elimina un elemento de datos maestros SOLO si se confirma explícitamente.
    *  Uso interno para borrados individuales desde la UI.
    */
-  const removeMasterItem = (key: keyof MasterData, item: string) => {
-    setMasterData(prev => ({ ...prev, [key]: prev[key].filter(i => i !== item) }));
+  const togglePeriodStatus = (periodId: string, status: "open" | "closed") => {
+    setMasterData(prev => ({
+      ...prev,
+      periodStatus: { ...prev.periodStatus, [periodId]: status }
+    }));
+  };
+
+  const setActivePeriod = (periodId: string) => {
+    setMasterData(prev => ({ ...prev, activePeriod: periodId }));
   };
 
   const addStudent = (student: Omit<Student, "id">) => {
-    setStudents(prev => [...prev, { ...student, id: `st-${Date.now()}` }]);
+    const withAudit = {
+      ...student,
+      audit: {
+        createdBy: profile.name || "SISTEMA",
+        createdAt: new Date().toISOString()
+      }
+    };
+    setStudents(prev => [...prev, { ...withAudit, id: `st-${Date.now()}` }]);
   };
 
   /** Importa estudiantes a Firestore con estrategia de fusión (merge):
@@ -739,40 +886,98 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    *  - Si es NUEVO: lo crea
    *  - NUNCA elimina registros existentes
    */
-  const importStudents = async (incoming: Omit<Student, "id">[]) => {
-    const LIMITE_LOTE = 400; // Límite de Firestore es 500 por lote
+  const importStudents = async (incoming: any[]) => {
+    const LIMITE_LOTE = 400;
+    const novelties: { student: string, oldRoom: string, newRoom: string }[] = [];
+    const notFound: string[] = [];
 
-    const conIds = incoming.map(s => ({
-      ...s,
-      id: `st-${s.nroDocumento}-${s.curso}`.replace(/\s+/g, "-"),
-      isActive: true,
-    }));
+    const conIds: Student[] = [];
 
-    // Fusionar en estado local primero (preserva campos extra existentes)
+    for (const s of incoming) {
+      const studentId = `st-${s.nroDocumento}`.replace(/\s+/g, "-");
+      const existing = students.find(ex => ex.id === studentId || ex.nroDocumento === s.nroDocumento);
+      
+      if (existing) {
+        // Registrar novedad si cambia de salón
+        if (normalizeGrade(existing.grado) !== normalizeGrade(s.grado) || existing.curso !== s.curso) {
+          const nov = {
+            student: `${existing.primerApellido} ${existing.primerNombre}`,
+            document: existing.nroDocumento,
+            oldRoom: `${existing.grado}-${existing.curso}`,
+            newRoom: `${s.grado}-${s.curso}`
+          };
+          novelties.push(nov);
+
+          // Crear TAREA automática para subsanar/atender el traslado
+          addAgendaNote({
+            date: new Date().toISOString().slice(0, 10),
+            course: s.curso,
+            subject: "GENERAL",
+            type: "TASK",
+            content: `[SUBSANAR] Confirmar traslado de alumno: ${nov.student} desde ${nov.oldRoom} hacia ${nov.newRoom}.`,
+            isCompleted: false
+          });
+        }
+        
+        conIds.push({
+          ...existing,
+          grado: s.grado,
+          curso: s.curso,
+          isActive: true,
+          audit: {
+            createdBy: existing.audit?.createdBy || "SISTEMA",
+            createdAt: existing.audit?.createdAt || new Date().toISOString(),
+            updatedBy: profile.name || "SISTEMA",
+            updatedAt: new Date().toISOString()
+          }
+        });
+      } else if (s.primerNombre) {
+        // Es un estudiante completamente nuevo (tiene nombre)
+        conIds.push({
+          ...s,
+          id: studentId,
+          isActive: true,
+          avgGrade: s.avgGrade || 0,
+          attendance: s.attendance || "100%",
+          audit: {
+            createdBy: profile.name || "SISTEMA",
+            createdAt: new Date().toISOString()
+          }
+        });
+      } else {
+        // No existe y el docente no envió nombre (error de búsqueda)
+        notFound.push(s.nroDocumento);
+        
+        // Crear TAREA automática para reporte de error de documento
+        addAgendaNote({
+          date: new Date().toISOString().slice(0, 10),
+          course: s.curso || "SIN ASIGNAR",
+          subject: "GENERAL",
+          type: "TASK",
+          content: `[ATENDER] Estudiante con Doc. ${s.nroDocumento} no encontrado en Base Maestra durante carga de salón ${s.grado}-${s.curso}.`,
+          isCompleted: false
+        });
+      }
+    }
+
     setStudents(prev => {
       const mapa = new Map(prev.map(s => [s.id, s]));
       for (const nuevo of conIds) {
         const existente = mapa.get(nuevo.id);
-        // Si ya existe, conservar sus campos extra y solo actualizar los del CSV
         mapa.set(nuevo.id, existente ? { ...existente, ...nuevo } : nuevo);
       }
       return Array.from(mapa.values());
     });
 
-    // Escribir en Firestore en lotes con merge:true
-    // merge:true garantiza que los campos NO incluidos en el CSV se conserven en Firestore
     for (let i = 0; i < conIds.length; i += LIMITE_LOTE) {
       const lote = writeBatch(db);
       const porcion = conIds.slice(i, i + LIMITE_LOTE);
       for (const estudiante of porcion) {
-        lote.set(
-          doc(db, "students", estudiante.id),
-          estudiante,
-          { merge: true } // ← CLAVE: nunca sobreescribe campos existentes no incluidos
-        );
+        lote.set(doc(db, "students", estudiante.id), estudiante, { merge: true });
       }
       await lote.commit();
     }
+    return { novelties, notFound };
   };
 
   /** Mark a student as inactive in Firestore */
@@ -785,12 +990,74 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStudents(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
   };
 
-  const addGrade = async (studentId: string, grade: { title: string, score: number, type: 'activity' | 'participation' | 'exam', date: string }) => {
+  const updateDetailedGrades = async (studentId: string, subjectId: string, periodId: string, detailed: DetailedGrades) => {
+    try {
+      const student = students.find(s => s.id === studentId);
+      if (!student) return;
+
+      const subjectGrades = student.detailedGrades?.[subjectId] || {};
+      const newDetailedGrades = {
+        ...(student.detailedGrades || {}),
+        [subjectId]: {
+          ...subjectGrades,
+          [periodId]: detailed
+        }
+      };
+
+      // Al actualizar la planilla, el promedio general del estudiante se sincroniza 
+      // con la nota final calculada de esta materia (u promedio de todas las detalladas)
+      const finalNote = calculateDetailedFinal(detailed);
+      
+      const updates = { 
+        detailedGrades: newDetailedGrades,
+        avgGrade: finalNote // Sincronización inmediata con la consola
+      };
+
+      await updateDoc(doc(db, "students", studentId), updates);
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
+    } catch (err) {
+      console.error("Error al actualizar notas detalladas:", err);
+    }
+  };
+
+  const updateSingleDetailedGrade = async (studentId: string, subjectId: string, periodId: string, category: keyof DetailedGrades, index: number, score: number | null) => {
+    try {
+      const student = students.find(s => s.id === studentId);
+      if (!student) return;
+
+      const currentSubjectGrades = student.detailedGrades?.[subjectId]?.[periodId] || {
+        sb: Array(8).fill(null),
+        sbh: Array(8).fill(null),
+        sr: Array(5).fill(null),
+        cv: Array(3).fill(null),
+        aut: null
+      };
+
+      const newCategoryData = [...(currentSubjectGrades[category] as (number|null)[])];
+      if (category === 'aut') {
+        currentSubjectGrades.aut = score;
+      } else {
+        newCategoryData[index] = score;
+        (currentSubjectGrades[category] as (number|null)[]) = newCategoryData;
+      }
+
+      await updateDetailedGrades(studentId, subjectId, periodId, currentSubjectGrades);
+    } catch (err) {
+      console.error("Error al actualizar nota individual:", err);
+    }
+  };
+
+  const addGrade = async (studentId: string, grade: Omit<Grade, "id">) => {
     try {
       const student = students.find(s => s.id === studentId);
       if (!student) return;
       
-      const newGrade = { ...grade, id: `grade-${Date.now()}` };
+      const newGrade = { 
+        ...grade, 
+        periodId: grade.periodId || masterData.activePeriod || "p1",
+        title: toTitleCase(grade.title),
+        id: `grade-${Date.now()}` 
+      };
       const currentGrades = student.grades || [];
       const newGrades = [...currentGrades, newGrade];
       
@@ -855,7 +1122,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addAgendaNote = async (note: Omit<AgendaNote, "id">) => {
     try {
-      const newNote = { ...note, id: `note-${Date.now()}` };
+      const newNote = { 
+        ...note, 
+        id: `note-${Date.now()}` 
+      };
       await setDoc(doc(db, "agendaNotes", newNote.id), newNote);
       setAgendaNotes(prev => [...prev, newNote as AgendaNote]);
     } catch (err) {
@@ -904,19 +1174,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // --- ESTRATEGIA DE GOBERNANZA: KPIs DE POBLACIÓN Y CUMPLEAÑOS ---
+  const governanceStats = useMemo(() => {
+    // La gobernanza dicta que el docente solo ve sus alumnos, el admin ve todos
+    const targetStudents = profile.isSuperAdmin ? students : myStudents;
+    const active = targetStudents.filter(s => s.isActive !== false);
+    
+    const today = new Date();
+    const todayStr = today.toISOString().slice(5, 10); // MM-DD
+    const monthStr = today.toISOString().slice(5, 7); // MM
+
+    const birthdaysToday = active.filter(s => {
+      if (!s.fechaNacimiento) return false;
+      const bDate = new Date(s.fechaNacimiento);
+      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 10) === todayStr;
+    });
+
+    const birthdaysMonth = active.filter(s => {
+      if (!s.fechaNacimiento) return false;
+      const bDate = new Date(s.fechaNacimiento);
+      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 7) === monthStr;
+    });
+
+    // Análisis de Población (Piramidal)
+    const gender = {
+      m: active.filter(s => s.genero === "M").length,
+      f: active.filter(s => s.genero === "F").length,
+      parity: 0
+    };
+    gender.parity = active.length > 0 ? Math.round((Math.min(gender.m, gender.f) / Math.max(gender.m, gender.f)) * 100) : 0;
+
+    // Extraedad: Análisis de riesgo pedagógico
+    const extraedad = active.filter(s => {
+      if (!s.fechaNacimiento) return false;
+      const age = today.getFullYear() - new Date(s.fechaNacimiento).getFullYear();
+      const gradeNum = parseInt(normalizeGrade(s.grado));
+      if (isNaN(gradeNum)) return false;
+      // Estándar: Grado + 6 o 7 años. Si tiene 2+ años de diferencia es extraedad.
+      return age > (gradeNum + 8);
+    });
+
+    return {
+      birthdaysToday,
+      birthdaysMonth,
+      gender,
+      extraedad,
+      totalActive: active.length
+    };
+  }, [students, myStudents, profile.isSuperAdmin]);
+
   return (
     <AppContext.Provider value={{
       user, authLoading, logout,
       profile, setProfile, updateProfile,
       subjects, setSubjects,
-      students, setStudents, addStudent, importStudents, removeStudent, updateStudent, addGrade, saveDailyAttendance,
-      masterData, updateMasterData, removeMasterItem, updateMasterItem,
+      students, myStudents, setStudents, addStudent, importStudents, removeStudent, updateStudent, updateDetailedGrades, updateSingleDetailedGrade, addGrade, saveDailyAttendance,
+      masterData, updateMasterData, updateMasterItem, removeMasterItem, togglePeriodStatus, setActivePeriod,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
       agendaNotes, addAgendaNote, updateAgendaNote,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
       curriculum, updateTopicStatus,
+      governanceStats
     }}>
       {children}
     </AppContext.Provider>

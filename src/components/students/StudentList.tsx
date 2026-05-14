@@ -2,11 +2,12 @@
 
 import { Search, Filter, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Users } from "lucide-react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 interface StudentListProps {
   selectedId: string;
   onSelect: (id: string) => void;
+  onFilteredCountChange?: (count: number) => void;
 }
 
 type SortField = "name" | "grade" | "avg";
@@ -34,7 +35,7 @@ function avatarPalette(name: string) {
   return AVATAR_PALETTES[code % AVATAR_PALETTES.length];
 }
 
-export default function StudentList({ selectedId, onSelect }: StudentListProps) {
+export default function StudentList({ selectedId, onSelect, onFilteredCountChange }: StudentListProps) {
   const { students, profile } = useApp();
   const [searchTerm, setSearchTerm]     = useState("");
   const [filterGrado, setFilterGrado]   = useState("TODOS");
@@ -95,6 +96,11 @@ export default function StudentList({ selectedId, onSelect }: StudentListProps) 
 
     return list;
   }, [myStudents, searchTerm, filterGrado, filterCurso, sortField, sortDir]);
+
+  // Sincronizar el conteo con el componente padre para evitar inconsistencias visuales
+  useEffect(() => {
+    onFilteredCountChange?.(filteredStudents.length);
+  }, [filteredStudents.length, onFilteredCountChange]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");

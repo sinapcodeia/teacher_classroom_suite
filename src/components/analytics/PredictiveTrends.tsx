@@ -7,10 +7,15 @@ import {
   Cell, PieChart, Pie
 } from "recharts";
 import { TrendingUp, Users, Target, Activity, Calendar } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export default function PredictiveTrends() {
   const { students, profile } = useApp();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ── FILTRADO POR GOBERNANZA (CONTEXTO DOCENTE) ──
   const myStudents = useMemo(() => {
@@ -43,7 +48,7 @@ export default function PredictiveTrends() {
     const months: Record<string, { sum: number, count: number }> = {};
     myStudents.forEach(s => {
       s.grades?.forEach(g => {
-        const month = new Date(g.date).toLocaleDateString('es-CO', { month: 'short' });
+        const month = new Date(g.date).toLocaleDateString('es-ES', { month: 'short' });
         if (!months[month]) months[month] = { sum: 0, count: 0 };
         months[month].sum += g.score;
         months[month].count++;
@@ -60,6 +65,8 @@ export default function PredictiveTrends() {
   }, [myStudents]);
 
   const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
+
+  if (!mounted) return <div className="h-[400px] w-full bg-slate-50 animate-pulse rounded-[2.5rem]" />;
 
   return (
     <section className="mb-10 space-y-6">

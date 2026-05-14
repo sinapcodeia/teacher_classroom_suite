@@ -80,6 +80,26 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
           </div>
           <Loader2 size={22} className="animate-spin" style={{ color: D.primaryLight }} />
           <p style={{ color: D.textFaint, fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase" }}>Verificando sesión...</p>
+          
+          {/* Botón de recuperación por si el internet falla */}
+          <button 
+            onClick={() => window.location.reload()}
+            style={{ 
+              marginTop: 12, 
+              padding: "8px 16px", 
+              background: "rgba(255,255,255,0.05)", 
+              border: `1px solid ${D.border}`, 
+              borderRadius: 12, 
+              color: D.textMuted, 
+              fontSize: 9, 
+              fontWeight: 800, 
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              cursor: "pointer"
+            }}
+          >
+            Reintentar Conexión
+          </button>
         </div>
       </div>
     );

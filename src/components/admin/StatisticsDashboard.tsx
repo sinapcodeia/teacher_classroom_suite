@@ -54,16 +54,16 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
 
     const avgAge = agesList.length ? agesList.reduce((a, b) => a + b, 0) / agesList.length : 0;
 
-    // --- NUEVA LÓGICA DE NIVELES (Primaria 0-5 vs Bachillerato 6-11) ---
+    // --- NIVEL ACADÉMICO (Primaria vs Bachillerato) ---
     const primaria = activeStudents.filter(s => {
       const normalized = normalizeGrade(s.grado);
-      if (normalized === "PRIMARIA" || normalized === "0°") return true;
+      if (normalized === "PREESCOLAR") return true;
       const n = parseInt(normalized);
       return !isNaN(n) && n <= 5;
     });
     const bachillerato = activeStudents.filter(s => {
       const normalized = normalizeGrade(s.grado);
-      if (normalized === "PRIMARIA") return false;
+      if (normalized === "PREESCOLAR") return false;
       const n = parseInt(normalized);
       return !isNaN(n) && n > 5;
     });
@@ -91,8 +91,8 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
     });
 
     const sortedGrades = Object.entries(gradeDetails).sort((a, b) => {
-      if (a[0] === "PRIMARIA") return -1;
-      if (b[0] === "PRIMARIA") return 1;
+      if (a[0] === "PREESCOLAR") return -1;
+      if (b[0] === "PREESCOLAR") return 1;
       const ga = parseInt(a[0]);
       const gb = parseInt(b[0]);
       if (isNaN(ga)) return 1;
@@ -227,7 +227,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
               </div>
               <div>
                 <h3 className="text-2xl font-black uppercase italic tracking-tighter text-on-surface">Sección Primaria</h3>
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Grados 0° a 5°</p>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Grados Preescolar a 5°</p>
               </div>
             </div>
 
