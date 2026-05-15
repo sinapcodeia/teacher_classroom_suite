@@ -60,32 +60,56 @@ export default function GradesReportPage() {
   );
 
   // Fix #1: Mapping function for columns
-  const getGradeValue = (studentGrades: any[] | undefined, colType: string, index: number, subject: string) => {
-    if (!studentGrades) return "";
+  const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId: string) => {
+    const pid = periodId.toLowerCase();
     
-    // Filter by subject prefix [SUBJECT]
-    const subjectGrades = studentGrades.filter(g => g.title?.includes(`[${subject}]`));
+    // 1. Try NEW DetailedGrades Structure (High Precision)
+    if (st.detailedGrades?.[subject]?.[pid]) {
+      const d = st.detailedGrades[subject][pid];
+      if (colType === "SB") return d.sb[index] !== null ? d.sb[index].toFixed(1) : "";
+      if (colType === "SBH") return d.sbh[index] !== null ? d.sbh[index].toFixed(1) : "";
+      if (colType === "SR") return d.sr[index] !== null ? d.sr[index].toFixed(1) : "";
+      if (colType === "CV") return d.cv[index] !== null ? d.cv[index].toFixed(1) : "";
+      if (colType === "AUT") return d.aut !== null ? d.aut.toFixed(1) : "";
+      if (colType === "DEF") {
+        const getAvg = (vals: (number | null)[]) => {
+          const valid = vals.filter(v => v !== null) as number[];
+          return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+        };
+        const sbAvg = getAvg(d.sb);
+        const sbhAvg = getAvg(d.sbh);
+        const srAvg = getAvg(d.sr);
+        const cvAvg = getAvg(d.cv);
+        const aut = d.aut || 0;
+        const final = (sbAvg * 0.3) + (sbhAvg * 0.4) + (srAvg * 0.2) + (cvAvg * 0.05) + (aut * 0.05);
+        return final > 0 ? final.toFixed(1) : "0.0";
+      }
+    }
+
+    // 2. Fallback to Legacy st.grades
+    if (!st.grades) return "";
+    const subjectGrades = st.grades.filter((g: any) => g.title?.includes(`[${subject}]`));
 
     if (colType === "DEF") {
-      const validScores = subjectGrades.filter(g => g.type !== 'participation').map(g => g.score);
-      const baseAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
-      const bonus = subjectGrades.filter(g => g.type === 'participation').reduce((a, b) => a + (b.score * 0.02), 0);
+      const validScores = subjectGrades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
+      const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+      const bonus = subjectGrades.filter((g: any) => g.type === 'participation').reduce((a: number, b: number) => a + (b.score * 0.02), 0);
       const final = Math.min(5.0, baseAvg + bonus);
       return final > 0 ? final.toFixed(1) : "0.0";
     }
     
     let filtered: any[] = [];
     if (colType === "SB") {
-      filtered = subjectGrades.filter(g => g.type === "exam");
+      filtered = subjectGrades.filter((g: any) => g.type === "exam");
     } else if (colType === "SBH") {
-      filtered = subjectGrades.filter(g => g.type === "activity");
+      filtered = subjectGrades.filter((g: any) => g.type === "activity");
     } else if (colType === "SR") {
-      filtered = subjectGrades.filter(g => g.type === "participation");
+      filtered = subjectGrades.filter((g: any) => g.type === "participation");
     } else if (colType === "CV") {
-      const allParticipation = subjectGrades.filter(g => g.type === "participation");
+      const allParticipation = subjectGrades.filter((g: any) => g.type === "participation");
       filtered = allParticipation.slice(5);
     } else if (colType === "AUT") {
-      filtered = subjectGrades.filter(g => g.title?.toUpperCase().includes("AUTO"));
+      filtered = subjectGrades.filter((g: any) => g.title?.toUpperCase().includes("AUTO"));
     }
 
     const grade = filtered[index];
@@ -128,7 +152,7 @@ export default function GradesReportPage() {
     ]);
 
     filteredStudents.forEach(st => {
-      const rowGrades = columns.map(c => getGradeValue(st.grades, c.type, c.idx, selectedSubject));
+      const rowGrades = columns.map(c => getGradeValue(st, c.type, c.idx, selectedSubject, selectedPeriod));
       addRow([
         st.nroDocumento || "",
         `${st.primerApellido} ${st.segundoApellido}`.trim(),
@@ -290,7 +314,7 @@ export default function GradesReportPage() {
                 <td className="border border-black px-1 uppercase leading-tight font-bold">{st.primerApellido} {st.segundoApellido}</td>
                 <td className="border border-black px-1 uppercase leading-tight">{st.primerNombre} {st.segundoNombre}</td>
                 {columns.map((col) => {
-                  const val = getGradeValue(st.grades, col.type, col.idx, selectedSubject);
+                  const val = getGradeValue(st, col.type, col.idx, selectedSubject, selectedPeriod);
                   const scoreValue = parseFloat(val);
                   const isLow = !isNaN(scoreValue) && scoreValue < 3.0;
                   const isDef = col.id === "DEF";
@@ -320,7 +344,7 @@ export default function GradesReportPage() {
               <td colSpan={3} className="border border-black text-right px-2 uppercase italic tracking-widest text-[7px]">Promedio del Grupo</td>
               {columns.map((col) => {
                 const values = filteredStudents
-                  .map(st => getGradeValue(st.grades, col.type, col.idx, selectedSubject))
+                  .map(st => getGradeValue(st, col.type, col.idx, selectedSubject, selectedPeriod))
                   .filter(v => v !== "")
                   .map(v => parseFloat(v));
                 

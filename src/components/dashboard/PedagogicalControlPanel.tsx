@@ -53,7 +53,7 @@ export default function PedagogicalControlPanel() {
       if (!hasAttendance && classStudents.length > 0) {
         list.push({
           type: "ATTENDANCE",
-          title: `Asistencia Pendiente: ${c.group}`,
+          title: `Asistencia Pendiente: Grado ${c.grade} — Curso ${c.group}`,
           subtitle: `${c.subject} · Sesión de hoy`,
           link: `/clase-en-vivo?subject=${c.subject}&curso=${c.group}`,
           icon: ClipboardList,
@@ -69,8 +69,8 @@ export default function PedagogicalControlPanel() {
     pendingTasks.forEach(task => {
       list.push({
         type: "TASK",
-        title: `Tarea por recibir: ${task.course}`,
-        subtitle: task.content,
+        title: `Tarea Pendiente: ${task.course}`,
+        subtitle: `${task.subject} · ${task.content}`,
         link: `/clase-en-vivo?subject=${task.subject}&curso=${task.course}`,
         icon: Bell,
         color: "text-rose-600",

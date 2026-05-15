@@ -716,11 +716,18 @@ export default function Home() {
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black ${isFirst ? 'bg-amber-400 text-amber-900 shadow-sm' : 'bg-slate-200 text-slate-600'}`}>
                               #{idx + 1}
                             </div>
-                            <div>
+                            <div className="flex flex-col">
                               <p className={`text-[11px] font-black uppercase ${isFirst ? 'text-amber-900' : 'text-slate-700'}`}>
                                 {student.primerApellido} {student.primerNombre}
                               </p>
-                              <p className="text-[9px] font-bold text-slate-400 uppercase">Grado {student.curso}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest ${isFirst ? 'bg-amber-200/50 text-amber-900' : 'bg-slate-200/50 text-slate-500'}`}>
+                                  Grado {student.grado}
+                                </span>
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest ${isFirst ? 'bg-amber-200/50 text-amber-900' : 'bg-slate-200/50 text-slate-500'}`}>
+                                  Curso {student.curso}
+                                </span>
+                              </div>
                             </div>
                           </div>
                           <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${isFirst ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
@@ -782,7 +789,7 @@ export default function Home() {
                          <div key={student.id} className="bg-white p-3 rounded-2xl shadow-sm border border-rose-50/50 flex justify-between items-center">
                            <div>
                              <p className="text-[11px] font-black uppercase text-slate-800">{student.primerApellido} {student.primerNombre}</p>
-                             <p className="text-[9px] font-bold text-slate-400">Curso {student.curso}</p>
+                             <p className="text-[9px] font-bold text-slate-400">Grado {student.grado} · Curso {student.curso}</p>
                            </div>
                            <span className="text-xs font-black text-rose-600 bg-rose-100 px-2 py-1 rounded-lg">{fallas} faltas</span>
                          </div>

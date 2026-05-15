@@ -310,7 +310,34 @@ export function printGradesTable(
     { id: "DEF", type: "DEF", idx: 0 }
   ];
 
-  const getGradeValue = (stGrades: any[] | undefined, colType: string, index: number, subject: string) => {
+  const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId?: string) => {
+    const pid = (periodId || "p2").toLowerCase();
+    
+    // 1. Try NEW DetailedGrades Structure (High Precision)
+    if (st.detailedGrades?.[subject]?.[pid]) {
+      const d = st.detailedGrades[subject][pid];
+      if (colType === "SB") return d.sb[index] !== null ? d.sb[index].toFixed(1) : "";
+      if (colType === "SBH") return d.sbh[index] !== null ? d.sbh[index].toFixed(1) : "";
+      if (colType === "SR") return d.sr[index] !== null ? d.sr[index].toFixed(1) : "";
+      if (colType === "CV") return d.cv[index] !== null ? d.cv[index].toFixed(1) : "";
+      if (colType === "AUT") return d.aut !== null ? d.aut.toFixed(1) : "";
+      if (colType === "DEF") {
+        const getAvg = (vals: (number | null)[]) => {
+          const valid = vals.filter(v => v !== null) as number[];
+          return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+        };
+        const sbAvg = getAvg(d.sb);
+        const sbhAvg = getAvg(d.sbh);
+        const srAvg = getAvg(d.sr);
+        const cvAvg = getAvg(d.cv);
+        const aut = d.aut || 0;
+        const final = (sbAvg * 0.3) + (sbhAvg * 0.4) + (srAvg * 0.2) + (cvAvg * 0.05) + (aut * 0.05);
+        return final > 0 ? final.toFixed(1) : "0.0";
+      }
+    }
+
+    // 2. Fallback to Legacy st.grades (History based)
+    const stGrades = st.grades as any[] | undefined;
     if (!stGrades) return "";
     const subjectGrades = stGrades.filter(g => g.title?.includes(`[${subject}]`));
     
@@ -335,7 +362,7 @@ export function printGradesTable(
 
   const rows = students.map((st) => {
     const colCells = columns.map(col => {
-      const val = getGradeValue(st.grades, col.type, col.idx, meta.subject);
+      const val = getGradeValue(st, col.type, col.idx, meta.subject, meta.period);
       const isDef = col.type === "DEF";
       const color = val && parseFloat(val) < 3.0 ? "color:#ba1a1a; font-weight:bold;" : "";
       const bgColor = isDef ? "background:#f8fafc;" : "";
