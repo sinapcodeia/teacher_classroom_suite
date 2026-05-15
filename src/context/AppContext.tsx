@@ -274,8 +274,9 @@ interface AppContextType {
   importStudents: (incoming: Omit<Student, "id">[]) => Promise<{ novelties: any[], notFound: string[] }>;
   removeStudent: (id: string) => Promise<void>;
   updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
-  updateDetailedGrades: (studentId: string, subjectId: string, periodId: string, grades: DetailedGrades) => Promise<void>;
-  updateSingleDetailedGrade: (studentId: string, subjectId: string, periodId: string, category: keyof DetailedGrades, index: number, score: number | null) => Promise<void>;
+   updateDetailedGrades: (studentId: string, subjectId: string, periodId: string, grades: DetailedGrades) => Promise<void>;
+   importDetailedGrades: (subjectId: string, periodId: string, data: { studentId: string, detailed: DetailedGrades }[]) => Promise<void>;
+   updateSingleDetailedGrade: (studentId: string, subjectId: string, periodId: string, category: keyof DetailedGrades, index: number, score: number | null) => Promise<void>;
   addGrade: (studentId: string, grade: Omit<Grade, "id">) => Promise<void>;
   masterData: MasterData;
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
