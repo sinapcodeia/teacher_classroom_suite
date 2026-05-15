@@ -10,25 +10,12 @@ import { TrendingUp, Users, Target, Activity, Calendar } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 
 export default function PredictiveTrends() {
-  const { students, profile } = useApp();
+  const { students, myStudents, profile } = useApp();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // ── FILTRADO POR GOBERNANZA (CONTEXTO DOCENTE) ──
-  const myStudents = useMemo(() => {
-    const isAdmin = profile.isSuperAdmin || profile.role === "RECTOR" || profile.role === "COORDINADOR";
-    if (isAdmin) return students;
-    
-    // Si no es admin, solo vemos nuestros cursos del horario
-    const effectiveCourses = (profile.teachingCourses?.length ?? 0) > 0 
-      ? profile.teachingCourses 
-      : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
-    
-    return students.filter(s => effectiveCourses.includes(s.curso));
-  }, [students, profile]);
 
   // 1. Distribución de Desempeño
   const performanceData = useMemo(() => {
@@ -103,41 +90,48 @@ export default function PredictiveTrends() {
             </div>
           </div>
 
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="month" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
-                />
-                <YAxis 
-                  domain={[0, 5]} 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="avg" 
-                  stroke="#3b82f6" 
-                  strokeWidth={4}
-                  fillOpacity={1} 
-                  fill="url(#colorAvg)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-[300px] w-full flex items-center justify-center">
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData}>
+                  <defs>
+                    <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="month" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                  />
+                  <YAxis 
+                    domain={[0, 5]} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="avg" 
+                    stroke="#3b82f6" 
+                    strokeWidth={4}
+                    fillOpacity={1} 
+                    fill="url(#colorAvg)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center space-y-2 opacity-30">
+                <Activity size={48} className="mx-auto text-slate-400" />
+                <p className="text-[10px] font-black uppercase tracking-widest">Sin datos de calificaciones aún</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -153,27 +147,34 @@ export default function PredictiveTrends() {
             </div>
           </div>
 
-          <div className="h-[220px] w-full mb-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={performanceData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={8}
-                  dataKey="value"
-                >
-                  {performanceData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="h-[220px] w-full mb-6 flex items-center justify-center">
+            {myStudents.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={performanceData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={8}
+                    dataKey="value"
+                  >
+                    {performanceData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center space-y-2 opacity-30">
+                <Users size={48} className="mx-auto text-slate-400" />
+                <p className="text-[10px] font-black uppercase tracking-widest">No hay estudiantes vinculados</p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">

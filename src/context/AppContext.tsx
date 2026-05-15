@@ -195,6 +195,7 @@ interface ScheduleEntry {
   day: string;
   time: string;
   subject: string;
+  grade: string;
   group: string;
   color: string;
 }
@@ -267,6 +268,7 @@ interface AppContextType {
   setSubjects: (s: Subject[]) => void;
   students: Student[];
   myStudents: Student[]; // Lista filtrada por gobernanza
+  studentsLoading: boolean;
   setStudents: (students: Student[]) => void;
   addStudent: (student: Omit<Student, "id">) => void;
   importStudents: (incoming: Omit<Student, "id">[]) => Promise<{ novelties: any[], notFound: string[] }>;
@@ -351,6 +353,7 @@ function blocksToEntries(blocks: ScheduleBlock[]): ScheduleEntry[] {
     day: b.day,
     time: `${b.startTime} - ${b.endTime}`,
     subject: b.subject,
+    grade: b.grade,
     group: b.course,
     color: b.color || BLOCK_COLORS[i % BLOCK_COLORS.length],
   }));
@@ -400,6 +403,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [curriculum, setCurriculum] = useState<Curriculum[]>([]);
   const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
 
   const [masterData, setMasterData] = useState<MasterData>({
     subjects: ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
@@ -425,19 +429,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return students;
     }
     return students.filter(s => {
-      const studentRoom = `${normalizeGrade(s.grado)}-${s.curso}`;
+      const gNormalized = normalizeGrade(s.grado).trim().toUpperCase();
+      const sCurso = (s.curso || "").toString().trim().toUpperCase();
+      const studentRoom = `${gNormalized}-${sCurso}`;
       
-      // Normalizar la lista del docente: convertir "8-3" o "8°-3" a "8°-3"
+      const courseOnly = sCurso.includes('-') ? sCurso.split('-').pop()?.trim() : sCurso;
+      const studentRoomAlt = `${gNormalized}-${courseOnly}`;
+      
       const normalizedTeaching = (profile.teachingCourses || []).map(tc => {
         const parts = tc.split('-');
         if (parts.length === 2) {
-          const g = normalizeGrade(parts[0]);
-          return `${g}-${parts[1]}`;
+          const g = normalizeGrade(parts[0]).trim().toUpperCase();
+          const c = parts[1].trim().toUpperCase();
+          return `${g}-${c}`;
         }
-        return tc;
+        return tc.trim().toUpperCase();
       });
 
-      return normalizedTeaching.includes(studentRoom);
+      const matchesRoom = normalizedTeaching.includes(studentRoom) || normalizedTeaching.includes(studentRoomAlt);
+      
+      // Super Fallback: Si el grado coincide, lo mostramos (Gobernanza Relajada)
+      const teacherGrades = (profile.teachingGrades || []).map(g => normalizeGrade(g).trim().toUpperCase());
+      const matchesGrade = teacherGrades.includes(gNormalized);
+
+      return matchesRoom || matchesGrade;
     });
   }, [students, profile]);
 
@@ -493,16 +508,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           // ── AUTO-PATCH: docenciainformatica2025@gmail.com ──────────────────
           if (firebaseUser.email === "docenciainformatica2025@gmail.com") {
-            savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
-            savedData.isProfileComplete = true;
-            savedData.firstName = "JESUS ANTONIO";
-            savedData.lastName = "RODRIGUEZ";
-            await updateDoc(userDocRef, { 
-              weeklySchedule: DEFAULT_SCHEDULE_BLOCKS,
-              isProfileComplete: true,
-              firstName: "JESUS ANTONIO",
-              lastName: "RODRIGUEZ"
-            });
+            const updates: any = {};
+            
+            if (!savedData.firstName) {
+              savedData.firstName = "JESUS ANTONIO";
+              updates.firstName = "JESUS ANTONIO";
+            }
+            if (!savedData.lastName) {
+              savedData.lastName = "RODRIGUEZ";
+              updates.lastName = "RODRIGUEZ";
+            }
+            
+            if ((savedData.weeklySchedule?.length ?? 0) === 0) {
+              const derivedCourses = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => `${normalizeGrade(b.grade)}-${b.course}`)));
+              const derivedGrades = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => normalizeGrade(b.grade))));
+              
+              savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
+              savedData.teachingCourses = derivedCourses;
+              savedData.teachingGrades = derivedGrades;
+              
+              updates.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
+              updates.teachingCourses = derivedCourses;
+              updates.teachingGrades = derivedGrades;
+            }
+            
+            if (Object.keys(updates).length > 0) {
+              savedData.isProfileComplete = true;
+              updates.isProfileComplete = true;
+              await updateDoc(userDocRef, updates);
+            }
+          }
+
+          // ── FALLBACK DERIVATION ──
+          // Si el perfil tiene horario pero no tiene cursos/grados explícitos, los derivamos para evitar dashboards vacíos
+          const currentSchedule = isSuperAdmin ? [] : (savedData.weeklySchedule || []);
+          let currentCourses = savedData.teachingCourses || [];
+          let currentGrades = savedData.teachingGrades || [];
+          
+          if (currentCourses.length === 0 && currentSchedule.length > 0) {
+            currentCourses = Array.from(new Set(currentSchedule.map((b: any) => `${normalizeGrade(b.grade)}-${b.course}`)));
+          }
+          if (currentGrades.length === 0 && currentSchedule.length > 0) {
+            currentGrades = Array.from(new Set(currentSchedule.map((b: any) => normalizeGrade(b.grade))));
           }
 
           const builtProfile: TeacherProfile = {
@@ -521,11 +568,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             status: (savedData.status as Profile["status"]) || "ACTIVE",
             acceptedTerms: savedData.acceptedTerms || false,
             isSuperAdmin,
-            teachingGrades: savedData.teachingGrades || [],
-            teachingCourses: savedData.teachingCourses || [],
+            teachingGrades: currentGrades,
+            teachingCourses: currentCourses,
             teachingSubjectsList: savedData.teachingSubjectsList || [],
             isProfileComplete: isSuperAdmin ? true : (savedData.isProfileComplete || false),
-            weeklySchedule: isSuperAdmin ? [] : (savedData.weeklySchedule || []),
+            weeklySchedule: currentSchedule,
           };
 
           setProfile(builtProfile);
@@ -536,7 +583,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           // ── REAL-TIME STUDENTS SYNC ────────────────────────
           let unsubscribeStudents: () => void = () => {};
-          const studentsQuery = query(collection(db, "students"), where("isActive", "==", true));
+          const studentsQuery = collection(db, "students");
           unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
             const firestoreStudents = snap.docs.map(d => {
               const data = d.data();
@@ -559,8 +606,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               } as Student;
             });
             setStudents(firestoreStudents);
+            setStudentsLoading(false);
           }, (err) => {
             console.warn("Error en tiempo real (estudiantes):", err);
+            setStudentsLoading(false);
           });
           unsubs.push(unsubscribeStudents);
 
@@ -1236,7 +1285,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
       curriculum, updateTopicStatus,
-      governanceStats
+      governanceStats,
+      studentsLoading
     }}>
       {children}
     </AppContext.Provider>

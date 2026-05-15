@@ -17,11 +17,16 @@ import { useApp, normalizeGrade } from "@/context/AppContext";
 import { useEffect, useState, useMemo } from "react";
 
 export default function LiveClassPage() {
-  const { subjects, masterData, myStudents } = useApp();
+  const { subjects, masterData, myStudents, studentsLoading } = useApp();
+  const [mounted, setMounted] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -63,6 +68,10 @@ export default function LiveClassPage() {
     const courses = new Set(base.map(s => s.curso));
     return Array.from(courses).sort();
   }, [myStudents, selectedGrado]);
+
+  if (!mounted) return null;
+
+  if (!mounted) return null;
 
   return (
     <div className="flex flex-col min-h-screen bg-surface-container-lowest">
@@ -116,7 +125,12 @@ export default function LiveClassPage() {
           </div>
         </div>
 
-        {myStudents.length === 0 && (
+        {studentsLoading ? (
+          <div className="lg:col-span-12 py-32 flex flex-col items-center gap-4">
+             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">Sincronizando Aula...</p>
+          </div>
+        ) : myStudents.length === 0 && (
           <div className="lg:col-span-12 p-12 bg-amber-50 border-2 border-amber-200 rounded-[3rem] text-center space-y-4 animate-fade-in">
             <AlertCircle size={48} className="mx-auto text-amber-600" />
             <h3 className="text-xl font-black text-amber-900 uppercase">No tienes cursos asignados</h3>

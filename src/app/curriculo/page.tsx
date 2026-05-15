@@ -91,21 +91,48 @@ export default function CurriculumPage() {
     fetchHistory();
   }, [selectedGrade, selectedSubject]);
 
-  // ── Verificar si existe tejido para la combinación actual ────────────────
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const activeCurriculum = useMemo(() => {
-    if (!selectedGrade || !selectedSubject) return null;
-    const normStr = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    const gradeNum = selectedGrade.replace(/[^\d]/g, "");
-    const targetSubject = normStr(selectedSubject);
+    if (!curriculum.length || !selectedGrade || !selectedSubject) return null;
     
-    return curriculum.find(c => {
+    const normStr = (s: string) => s
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    
+    const targetSubject = normStr(selectedSubject);
+    const targetGradeNum = selectedGrade.replace(/[^\d]/g, "");
+    
+    const candidates = curriculum.filter(c => {
       const cGradeNum = c.grade.replace(/[^\d]/g, "");
-      const cSubject = normStr(c.subjectId);
-      const matchGrade = gradeNum && cGradeNum === gradeNum;
-      const matchSubject = targetSubject && (cSubject.includes(targetSubject) || targetSubject.includes(cSubject));
-      return matchGrade && matchSubject;
-    }) ?? null;
+      return targetGradeNum && cGradeNum === targetGradeNum;
+    });
+
+    if (candidates.length === 0) return null;
+
+    // Prioridad 1: Exacta
+    const exact = candidates.find(c => normStr(c.subjectId) === targetSubject);
+    if (exact) return exact;
+
+    // Prioridad 2: Empieza con
+    const startsWith = candidates.find(c => normStr(c.subjectId).startsWith(targetSubject));
+    if (startsWith) return startsWith;
+
+    // Prioridad 3: Inversa
+    const reverse = candidates.find(c => targetSubject.startsWith(normStr(c.subjectId)));
+    if (reverse) return reverse;
+
+    return null;
   }, [curriculum, selectedGrade, selectedSubject]);
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   const handleStartAnalysis = async () => {
     setIsAnalyzing(true);

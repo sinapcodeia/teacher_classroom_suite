@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import nextDynamic from "next/dynamic";
@@ -10,13 +10,14 @@ const StudentList = nextDynamic(() => import("@/components/students/StudentList"
 const StudentProfile = nextDynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
 const PerformanceStats = nextDynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
 const ImportSummaryModal = nextDynamic(() => import("@/components/students/ImportSummaryModal"), { ssr: false });
-import { FileDown, FileText, UserPlus, X, CheckCircle } from "lucide-react";
+import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { Users } from "lucide-react";
+import { printInstitutionalStudentReport } from "@/lib/printService";
 
 export default function StudentsPage() {
   const { myStudents, addStudent, masterData, profile, importStudents } = useApp();
@@ -26,14 +27,16 @@ export default function StudentsPage() {
   const [gradoFilter, setGradoFilter] = useState("TODOS");
   const [cursoFilter, setCursoFilter] = useState("TODOS");
 
-  const [selectedId, setSelectedId] = useState(myStudents[0]?.id || "");
+  const [selectedId, setSelectedId] = useState("");
+  const [mounted, setMounted] = useState(false);
 
-  // Update selectedId if the list changes and current selection is no longer valid
   useEffect(() => {
-    if (selectedId && !myStudents.find(s => s.id === selectedId)) {
-      setSelectedId(myStudents[0]?.id || "");
+    setMounted(true);
+    if (myStudents.length > 0 && !selectedId) {
+      setSelectedId(myStudents[0].id);
     }
-  }, [myStudents, profile]);
+  }, [myStudents]);
+
   const [showModal, setShowModal] = useState(false);
   const [showImportResults, setShowImportResults] = useState(false);
   const [importStats, setImportStats] = useState({
@@ -73,6 +76,21 @@ export default function StudentsPage() {
     }
   };
 
+  // Filtrado para el reporte dinámico
+  const filteredReportStudents = useMemo(() => {
+    return myStudents.filter(s => {
+      const matchGrado = gradoFilter === "TODOS" || normalizeGrade(s.grado) === gradoFilter;
+      const matchCurso = cursoFilter === "TODOS" || s.curso === cursoFilter;
+      return matchGrado && matchCurso;
+    });
+  }, [myStudents, gradoFilter, cursoFilter]);
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
+
   return (
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
       <div className="flex flex-col min-h-screen bg-background text-on-surface">
@@ -92,10 +110,10 @@ export default function StudentsPage() {
               <FileText size={18} className="text-primary-container" /> Asistencia Oficial
             </Link>
             <button 
-              onClick={() => exportToPDF("Reporte Institucional de Estudiantes", myStudents)}
+              onClick={() => printInstitutionalStudentReport(filteredReportStudents, profile.name)}
               className="flex items-center gap-2 px-5 py-3 bg-white border-2 border-outline-variant rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all"
             >
-              <FileText size={18} className="text-error" /> Exportar PDF
+              <FileText size={18} className="text-error" /> Exportar PDF Professional
             </button>
             <button 
               onClick={() => setShowModal(true)}
@@ -198,13 +216,20 @@ export default function StudentsPage() {
           stats={importStats} 
         />
 
-        <PerformanceStats />
+        <PerformanceStats 
+          grado={gradoFilter} 
+          curso={cursoFilter} 
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7">
             <StudentList 
               selectedId={selectedId} 
               onSelect={setSelectedId} 
+              gradoFilter={gradoFilter}
+              setGradoFilter={setGradoFilter}
+              cursoFilter={cursoFilter}
+              setCursoFilter={setCursoFilter}
               onFilteredCountChange={(count) => {
                 if (count === 0) setSelectedId("");
               }}

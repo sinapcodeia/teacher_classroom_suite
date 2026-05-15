@@ -3,17 +3,23 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
-import { Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet } from "lucide-react";
+import { Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, Loader2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { printGradesTable } from "@/lib/printService";
 
 export default function GradesReportPage() {
-  const { students, masterData, profile } = useApp();
+  const { students, myStudents, masterData, profile } = useApp();
   
   const [selectedGrade, setSelectedGrade] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [selectedSubject, setSelectedSubject] = useState("TECNOLOGÍA");
+  const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p2");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fix #2: Auto-reset curso when grade changes
   useEffect(() => {
@@ -21,42 +27,37 @@ export default function GradesReportPage() {
   }, [selectedGrade]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter(st => {
-      // Restricción para docentes: solo sus propios cursos
-      if (profile.role === "DOCENTE") {
-        const myCourses = profile.teachingCourses || [];
-        if (!myCourses.includes(st.curso)) return false;
-      }
-
+    return myStudents.filter(st => {
       if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== normalizeGrade(selectedGrade)) return false;
       if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
       if (st.isActive === false) return false;
       return true;
-    }).sort((a, b) => `${a.primerApellido} ${a.segundoApellido}`.localeCompare(`${b.primerApellido} ${b.segundoApellido}`));
-  }, [students, selectedGrade, selectedCurso, profile]);
+    }).sort((a, b) => {
+      const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
+      const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [myStudents, selectedGrade, selectedCurso]);
 
-  // Filtrar opciones de dropdown según permisos
-  const availableGrades = profile.role === "RECTOR" || profile.role === "COORDINADOR" 
-    ? (masterData.grades || []) 
-    : (profile.teachingGrades || []);
+  const availableGrades = useMemo(() => 
+    Array.from(new Set(myStudents.map(s => normalizeGrade(s.grado)))).sort()
+  , [myStudents]);
 
-  // Fix #2: availableCourses depends on selectedGrade
   const availableCourses = useMemo(() => {
-    let baseList = students;
+    let baseList = myStudents;
     if (selectedGrade !== "TODOS") {
       baseList = baseList.filter(s => normalizeGrade(s.grado) === normalizeGrade(selectedGrade));
     }
-    
-    const courses = Array.from(new Set(baseList.map(s => s.curso))).sort();
-    
-    if (profile.role === "DOCENTE") {
-      const myCourses = profile.teachingCourses || [];
-      return courses.filter(c => myCourses.includes(c));
-    }
-    return courses;
-  }, [students, selectedGrade, profile]);
+    return Array.from(new Set(baseList.map(s => s.curso))).sort();
+  }, [myStudents, selectedGrade]);
 
   const availableSubjects = masterData.subjects || ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"];
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   // Fix #1: Mapping function for columns
   const getGradeValue = (studentGrades: any[] | undefined, colType: string, index: number, subject: string) => {
@@ -64,6 +65,14 @@ export default function GradesReportPage() {
     
     // Filter by subject prefix [SUBJECT]
     const subjectGrades = studentGrades.filter(g => g.title?.includes(`[${subject}]`));
+
+    if (colType === "DEF") {
+      const validScores = subjectGrades.filter(g => g.type !== 'participation').map(g => g.score);
+      const baseAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
+      const bonus = subjectGrades.filter(g => g.type === 'participation').reduce((a, b) => a + (b.score * 0.02), 0);
+      const final = Math.min(5.0, baseAvg + bonus);
+      return final > 0 ? final.toFixed(1) : "0.0";
+    }
     
     let filtered: any[] = [];
     if (colType === "SB") {
@@ -73,7 +82,6 @@ export default function GradesReportPage() {
     } else if (colType === "SR") {
       filtered = subjectGrades.filter(g => g.type === "participation");
     } else if (colType === "CV") {
-      // If we have more than 5 participation grades, we start filling CV columns
       const allParticipation = subjectGrades.filter(g => g.type === "participation");
       filtered = allParticipation.slice(5);
     } else if (colType === "AUT") {
@@ -89,11 +97,17 @@ export default function GradesReportPage() {
     ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
     ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
     ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
-    { id: "AUT", type: "AUT", idx: 0 }
+    { id: "AUT", type: "AUT", idx: 0 },
+    { id: "DEF", type: "DEF", idx: 0 }
   ];
 
   const handlePrint = () => {
+    const originalTitle = document.title;
+    const cleanGrade = selectedGrade.replace('°', '');
+    const period = (masterData.activePeriod || "P2").toUpperCase();
+    document.title = `SABANA_${cleanGrade}_${selectedCurso}_${selectedSubject}_${period}`;
     window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
   };
 
   const handleDownloadCSV = () => {
@@ -129,7 +143,8 @@ export default function GradesReportPage() {
       ["SBH1-8", "SABER-HACER (ACTIVIDADES)"],
       ["SR1-5", "SER (PARTICIPACIÓN)"],
       ["CV1-3", "CONVIVIR"],
-      ["AUT", "AUTO-EVALUACION"]
+      ["AUT", "AUTO-EVALUACION"],
+      ["DEF", "DEFINITIVA (CALCULADA CON BONO 2% PARTICIPACION)"]
     ];
 
     convenciones.forEach(conv => {
@@ -193,6 +208,16 @@ export default function GradesReportPage() {
               >
                 {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <div className="hidden md:block w-px h-6 bg-slate-200" />
+              <select 
+                value={selectedPeriod} 
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0 cursor-pointer text-secondary"
+              >
+                <option value="p1">PERIODO 1</option>
+                <option value="p2">PERIODO 2</option>
+                <option value="p3">PERIODO 3</option>
+              </select>
            </div>
 
            <div className="flex gap-2">
@@ -201,7 +226,8 @@ export default function GradesReportPage() {
                  grade: selectedGrade, 
                  course: selectedCurso, 
                  teacher: profile.name, 
-                 subject: selectedSubject 
+                 subject: selectedSubject,
+                 period: selectedPeriod.toUpperCase() 
                })} 
                className="px-6 py-4 bg-secondary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-3"
              >
@@ -251,7 +277,7 @@ export default function GradesReportPage() {
               <td className="border border-black p-0.5">APELLIDO</td>
               <td className="border border-black p-0.5">NOMBRE</td>
               {columns.map((col) => (
-                <td key={col.id} className={`border border-black w-[2.8%] p-0.5 break-all leading-tight ${col.type === 'SB' ? 'bg-blue-50' : col.type === 'SBH' ? 'bg-green-50' : col.type === 'SR' ? 'bg-amber-50' : ''}`}>
+                <td key={col.id} className={`border border-black w-[2.8%] p-0.5 break-all leading-tight ${col.id === 'DEF' ? 'bg-primary text-white' : col.type === 'SB' ? 'bg-blue-50' : col.type === 'SBH' ? 'bg-green-50' : col.type === 'SR' ? 'bg-amber-50' : ''}`}>
                   {col.id}
                 </td>
               ))}
@@ -265,8 +291,11 @@ export default function GradesReportPage() {
                 <td className="border border-black px-1 uppercase leading-tight">{st.primerNombre} {st.segundoNombre}</td>
                 {columns.map((col) => {
                   const val = getGradeValue(st.grades, col.type, col.idx, selectedSubject);
+                  const scoreValue = parseFloat(val);
+                  const isLow = !isNaN(scoreValue) && scoreValue < 3.0;
+                  const isDef = col.id === "DEF";
                   return (
-                    <td key={col.id} className={`border border-black text-center p-0.5 font-bold ${val && Number(val) < 3.0 ? 'text-red-600 bg-red-50' : 'text-on-surface'}`}>
+                    <td key={col.id} className={`border border-black text-center p-0.5 ${isLow ? 'text-red-600 font-bold' : ''} ${isDef ? 'bg-slate-100 font-black' : ''}`}>
                       {val}
                     </td>
                   );

@@ -55,7 +55,7 @@ export default function NextClassAlert() {
                <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-70">Alerta de Clase Activa</span>
                <span className="px-2 py-0.5 bg-secondary text-white text-[8px] font-black rounded-full animate-pulse">EN VIVO</span>
             </div>
-            <h2 className="text-2xl font-black tracking-tighter uppercase italic">{nextClass.subject} — GRADO {nextClass.group}</h2>
+            <h2 className="text-2xl font-black tracking-tighter uppercase italic">{nextClass.subject} — {nextClass.grade} · {nextClass.group}</h2>
             <p className="text-sm font-bold opacity-80 flex items-center gap-2 mt-1">
                <Clock size={16} /> Horario: {nextClass.time}
             </p>
@@ -67,7 +67,7 @@ export default function NextClassAlert() {
           className="px-10 py-5 bg-white text-primary rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 relative z-10"
         >
           <PlayCircle size={20} />
-          Iniciar · {nextClass.subject} {nextClass.group}
+          Iniciar · {nextClass.subject} {nextClass.grade}-{nextClass.group}
           <ArrowRight size={18} />
         </Link>
       </div>

@@ -6,9 +6,17 @@ import { useMemo } from "react";
 export default function UnitProgress({ grade, subject }: { grade: string, subject: string }) {
   const { curriculum } = useApp();
 
-  const activeCurriculum = useMemo(() => 
-    curriculum.find(c => c.grade === grade && c.subjectId === subject), 
-  [curriculum, grade, subject]);
+  const activeCurriculum = useMemo(() => {
+    if (!curriculum.length || !grade || !subject) return null;
+    const normStr = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    const targetSubject = normStr(subject);
+    const targetGradeNum = grade.replace(/[^\d]/g, "");
+    
+    const candidates = curriculum.filter(c => c.grade.replace(/[^\d]/g, "") === targetGradeNum);
+    return candidates.find(c => normStr(c.subjectId) === targetSubject) ||
+           candidates.find(c => normStr(c.subjectId).startsWith(targetSubject)) ||
+           candidates.find(c => targetSubject.startsWith(normStr(c.subjectId))) || null;
+  }, [curriculum, grade, subject]);
 
   const stats = useMemo(() => {
     if (!activeCurriculum) return { percentage: 0, unitsDone: 0, totalUnits: 0, topicsDone: 0, totalTopics: 0 };

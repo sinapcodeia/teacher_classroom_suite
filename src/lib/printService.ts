@@ -27,19 +27,45 @@ function baseStyles(): string {
   return `
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Arial', sans-serif; font-size: 11px; color: #111; padding: 20px 24px; }
-      h1 { font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
-      h2 { font-size: 11px; font-weight: 700; color: #444; margin-top: 2px; }
-      table { width: 100%; border-collapse: collapse; }
-      th { background: #1a56db; color: #fff; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; text-align: left; }
-      td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
-      tr:nth-child(even) td { background: #f8faff; }
-      .sign { margin-top: 40px; display: flex; justify-content: space-around; }
-      .sign-line { text-align: center; width: 180px; }
-      .sign-line hr { border: none; border-top: 1px solid #333; margin-bottom: 6px; }
-      .sign-line p { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #555; }
-      .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #aaa; }
-      @media print { body { padding: 10px; } }
+      body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 40px; background: #fff; }
+      
+      /* Typography & Branding */
+      h1 { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; color: #0f172a; margin-bottom: 4px; }
+      .brand-accent { color: #2563eb; }
+      
+      /* Executive Dashboard Layout */
+      .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 25px 0; }
+      .stat-card { padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; background: #f8fafc; }
+      .stat-card.accent-blue { background: #eff6ff; border-color: #dbeafe; }
+      .stat-card.accent-red { background: #fef2f2; border-color: #fee2e2; }
+      .stat-card.accent-green { background: #f0fdf4; border-color: #dcfce7; }
+      
+      .stat-label { font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; tracking: 0.1em; margin-bottom: 8px; }
+      .stat-value { font-size: 24px; font-weight: 900; color: #0f172a; }
+      .stat-sub { font-size: 10px; font-weight: 600; color: #94a3b8; margin-top: 4px; }
+
+      /* Table Styles */
+      .report-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
+      .report-table th { background: #f1f5f9; color: #475569; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 12px 15px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+      .report-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; font-size: 10px; vertical-align: middle; }
+      .report-table tr:last-child td { border-bottom: none; }
+      
+      /* Badges & Indicators */
+      .badge { padding: 4px 8px; rounded: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+      .badge-blue { background: #dbeafe; color: #1e40af; }
+      .badge-red { background: #fee2e2; color: #991b1b; }
+      .badge-green { background: #dcfce7; color: #166534; }
+      
+      .perf-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; width: 60px; margin-top: 4px; }
+      .perf-fill { height: 100%; border-radius: 3px; }
+
+      .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 9px; }
+      
+      @media print { 
+        body { padding: 20px; }
+        .stats-grid { gap: 10px; }
+        .stat-card { break-inside: avoid; }
+      }
     </style>
   `;
 }
@@ -53,7 +79,7 @@ function nowFullStr(): string {
 
 function standardHeader(
   title: string,
-  meta: { grade?: string; course?: string; teacher: string; subject?: string }
+  meta: { grade?: string; course?: string; teacher: string; subject?: string; period?: string }
 ): string {
   return `
     <style>
@@ -71,8 +97,9 @@ function standardHeader(
       <div class="doc-meta-grid">
         <div class="meta-item"><strong>Docente:</strong> ${meta.teacher.toUpperCase()}</div>
         <div class="meta-item"><strong>Fecha/Hora:</strong> ${nowFullStr()}</div>
-        <div class="meta-item"><strong>Grado/Curso:</strong> ${meta.grade || meta.course || "N/A"}</div>
+        <div class="meta-item"><strong>Grado/Curso:</strong> ${meta.grade || ""}${meta.course ? ` — ${meta.course}` : ""}</div>
         <div class="meta-item"><strong>Materia:</strong> ${meta.subject || "GENERAL"}</div>
+        <div class="meta-item"><strong>Periodo:</strong> ${meta.period || "N/A"}</div>
       </div>
       <h1 class="doc-title-main">${title}</h1>
     </div>
@@ -110,7 +137,7 @@ export function printStudentsByCourse(students: Student[], course: string, teach
     </tr>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>Listado ${course}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>LISTADO_${course.toUpperCase()}</title>${baseStyles()}</head><body>
     ${standardHeader("Listado Oficial de Estudiantes", { course, teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Nombre Completo</th><th>Documento</th><th>Género</th><th>Firma / Visto</th></tr></thead>
@@ -139,7 +166,7 @@ export function printStudentsByGrade(students: Student[], grade: string, teacher
     </tr>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>Grado ${grade}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>CONSOLIDADO_${grade.replace('°', '')}</title>${baseStyles()}</head><body>
     ${standardHeader(`Consolidado Grado ${grade}`, { grade, teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Curso</th><th>Nombre Completo</th><th>Documento</th><th>Género</th></tr></thead>
@@ -170,7 +197,7 @@ export function printAttendanceSheet(
     </tr>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>Asistencia ${course}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>ASISTENCIA_${course.toUpperCase()}_${subject.toUpperCase()}</title>${baseStyles()}</head><body>
     ${standardHeader("Planilla de Control de Asistencia", { course, teacher: teacherName, subject })}
     <table>
       <thead><tr><th>#</th><th>Nombre Completo</th><th>✓ Presente</th><th>✗ Ausente</th><th>Observaciones</th></tr></thead>
@@ -263,7 +290,7 @@ export function printPedagogicalPlan(
     </div>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>${titles[type]}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>PLANEACION_${data.subject.toUpperCase()}_${data.grade.replace('°', '')}</title>${baseStyles()}</head><body>
     ${standardHeader(titles[type], { grade: data.grade, teacher: teacherName, subject: data.subject })}
     ${contentHtml}
     <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA — Bajo Mira y Frontera. ${nowFullStr()}</div>
@@ -272,25 +299,36 @@ export function printPedagogicalPlan(
 
 export function printGradesTable(
   students: any[],
-  meta: { grade: string; course: string; teacher: string; subject: string }
+  meta: { grade: string; course: string; teacher: string; subject: string; period?: string }
 ) {
   const columns = [
     ...Array.from({ length: 8 }, (_, i) => ({ id: `SB${i + 1}`, type: "SB", idx: i })),
     ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
     ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
     ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
-    { id: "AUT", type: "AUT", idx: 0 }
+    { id: "AUT", type: "AUT", idx: 0 },
+    { id: "DEF", type: "DEF", idx: 0 }
   ];
 
   const getGradeValue = (stGrades: any[] | undefined, colType: string, index: number, subject: string) => {
     if (!stGrades) return "";
     const subjectGrades = stGrades.filter(g => g.title?.includes(`[${subject}]`));
+    
+    if (colType === "DEF") {
+      const validScores = subjectGrades.filter(g => g.type !== 'participation').map(g => g.score);
+      const baseAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
+      const bonus = subjectGrades.filter(g => g.type === 'participation').reduce((a, b) => a + (b.score * 0.02), 0);
+      const final = Math.min(5.0, baseAvg + bonus);
+      return final > 0 ? final.toFixed(1) : "0.0";
+    }
+
     let filtered: any[] = [];
     if (colType === "SB") filtered = subjectGrades.filter(g => g.type === "exam");
     else if (colType === "SBH") filtered = subjectGrades.filter(g => g.type === "activity");
     else if (colType === "SR") filtered = subjectGrades.filter(g => g.type === "participation");
     else if (colType === "CV") filtered = subjectGrades.filter(g => g.type === "participation").slice(5);
     else if (colType === "AUT") filtered = subjectGrades.filter(g => g.title?.toUpperCase().includes("AUTO"));
+    
     const grade = filtered[index];
     return grade ? grade.score.toFixed(1) : "";
   };
@@ -298,8 +336,10 @@ export function printGradesTable(
   const rows = students.map((st) => {
     const colCells = columns.map(col => {
       const val = getGradeValue(st.grades, col.type, col.idx, meta.subject);
+      const isDef = col.type === "DEF";
       const color = val && parseFloat(val) < 3.0 ? "color:#ba1a1a; font-weight:bold;" : "";
-      return `<td style="border:1px solid #000; text-align:center; ${color}">${val}</td>`;
+      const bgColor = isDef ? "background:#f8fafc;" : "";
+      return `<td style="border:1px solid #000; text-align:center; ${color} ${bgColor} ${isDef ? 'font-weight:900;' : ''}">${val}</td>`;
     }).join("");
 
     return `
@@ -312,11 +352,12 @@ export function printGradesTable(
     `;
   }).join("");
 
-  const headerCells = columns.map(c => 
-    `<th style="border:1px solid #000; background:#f1f5f9; color:#000; font-size:7px; padding:2px; width:25px;">${c.id}</th>`
-  ).join("");
+  const headerCells = columns.map(c => {
+    const isDef = c.id === "DEF";
+    return `<th style="border:1px solid #000; background:${isDef ? '#1e3a8a' : '#f1f5f9'}; color:${isDef ? '#fff' : '#000'}; font-size:7px; padding:2px; width:${isDef ? '35px' : '25px'};">${c.id}</th>`;
+  }).join("");
 
-  open(`<!DOCTYPE html><html><head><title>Sábana ${meta.subject}</title>${baseStyles()}
+  open(`<!DOCTYPE html><html><head><title>SABANA_${meta.subject.toUpperCase()}_${meta.grade.replace('°', '')}_${meta.course}_${(meta.period || '').toUpperCase()}</title>${baseStyles()}
     <style>
       @page { size: landscape; margin: 0.5cm; }
       table { border: 1px solid #000; table-layout: fixed; }
@@ -340,6 +381,105 @@ export function printGradesTable(
       <div class="sign-line"><hr/><p>Firma Docente</p></div>
       <div class="sign-line"><hr/><p>Vo.Bo. Coordinación</p></div>
     </div>
-    <div class="footer">IETABA · Premium Suite · Generado el ${nowFullStr()}</div>
+    <div class="footer">IETABA · Premium Suite · Generado el ${nowFullStr()} | © 2026 Powered by Sinapcode</div>
+  </body></html>`);
+}
+export function printInstitutionalStudentReport(students: Student[], teacherName: string) {
+  const active = students.filter(s => s.isActive !== false);
+  const avgGrade = active.length > 0 ? (active.reduce((acc, s) => acc + (s.avgGrade || 0), 0) / active.length) : 0;
+  const atRisk = active.filter(s => (s.avgGrade || 0) < 3.0).length;
+  const topPerf = active.filter(s => (s.avgGrade || 0) >= 4.0).length;
+
+  const rows = active
+    .sort((a, b) => a.primerApellido.localeCompare(b.primerApellido))
+    .map((s, i) => {
+      const avg = s.avgGrade || 0;
+      const perfColor = avg >= 4.0 ? "#166534" : avg < 3.0 ? "#991b1b" : "#1e293b";
+      const perfBg = avg >= 4.0 ? "#dcfce7" : avg < 3.0 ? "#fee2e2" : "#f1f5f9";
+      const initials = `${s.primerApellido[0]}${s.primerNombre[0]}`;
+      
+      return `
+        <tr>
+          <td style="width: 40px; text-align: center; color: #94a3b8; font-weight: 800;">${i + 1}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 24px; height: 24px; border-radius: 6px; background: ${perfBg}; color: ${perfColor}; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 900;">${initials}</div>
+              <div>
+                <div style="font-weight: 800; color: #0f172a;">${fullName(s)}</div>
+                <div style="font-size: 8px; color: #64748b; text-transform: uppercase;">${s.tipoDocumento} ${s.nroDocumento}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge badge-blue" style="background:#f1f5f9; color:#475569;">${normalizeGrade(s.grado)} — ${s.curso}</span></td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 900; color: ${perfColor}; min-width: 25px;">${avg.toFixed(1)}</span>
+              <div class="perf-bar"><div class="perf-fill" style="width: ${(avg/5)*100}%; background: ${perfColor};"></div></div>
+            </div>
+          </td>
+          <td style="text-align: center;"><span class="badge ${s.attendance === '100%' ? 'badge-green' : 'badge-blue'}">${s.attendance || '0%'}</span></td>
+        </tr>
+      `;
+    }).join("");
+
+  open(`<!DOCTYPE html><html><head><title>REPORTE_INSTITUCIONAL_${new Date().getFullYear()}</title>${baseStyles()}</head><body>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+      <div>
+        <h1>Reporte Institucional <span class="brand-accent">de Estudiantes</span></h1>
+        <p style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em;">IETABA · Gestión de Matrícula y Rendimiento</p>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 12px; font-weight: 900; color: #0f172a;">IETABA PREMIUM SUITE</div>
+        <div style="font-size: 9px; color: #94a3b8; font-weight: 700;">${nowFullStr()}</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Población Total</div>
+        <div class="stat-value">${active.length}</div>
+        <div class="stat-sub">Estudiantes Activos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Promedio Grupal</div>
+        <div class="stat-value">${avgGrade.toFixed(2)}</div>
+        <div class="stat-sub">Escala 0.0 - 5.0</div>
+      </div>
+      <div class="stat-card accent-green">
+        <div class="stat-label">Nivel Superior</div>
+        <div class="stat-value">${topPerf}</div>
+        <div class="stat-sub">${active.length > 0 ? ((topPerf/active.length)*100).toFixed(0) : 0}% de Excelencia</div>
+      </div>
+      <div class="stat-card accent-red">
+        <div class="stat-label">Riesgo Académico</div>
+        <div class="stat-value">${atRisk}</div>
+        <div class="stat-sub">Casos Detectados</div>
+      </div>
+    </div>
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Estudiante / Documento</th>
+          <th>Grado/Curso</th>
+          <th>Rendimiento</th>
+          <th style="text-align: center;">Asistencia</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="sign" style="margin-top: 60px;">
+      <div class="sign-line"><hr/><p>Firma del Docente</p></div>
+      <div class="sign-line"><hr/><p>Secretaría Académica</p></div>
+      <div class="sign-line"><hr/><p>Rectoría / Coordinación</p></div>
+    </div>
+
+    <div class="footer">
+      <div>© 2026 Powered by Sinapcode · IETABA · Colombia</div>
+      <div>Documento Oficial generado por EduManager Platinum Edition</div>
+      <div>Página 1 de 1</div>
+    </div>
   </body></html>`);
 }

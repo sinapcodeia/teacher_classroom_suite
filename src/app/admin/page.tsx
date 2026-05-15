@@ -42,8 +42,13 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [mounted, setMounted] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isSuperAdmin = profile.isSuperAdmin;
 
@@ -317,6 +322,12 @@ export default function AdminPage() {
   };
 
   const currentList = getCurrentList();
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   return (
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR"]}>

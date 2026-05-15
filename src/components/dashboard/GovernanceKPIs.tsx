@@ -1,15 +1,65 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import { Cake, Users, TrendingUp, AlertTriangle, ChevronRight, UserCheck, Heart } from "lucide-react";
 import { motion } from "framer-motion";
+import { useMemo } from "react";
 
-export default function GovernanceKPIs() {
-  const { governanceStats, profile } = useApp();
+interface GovernanceKPIsProps {
+  grado: string;
+  curso: string;
+}
+
+export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
+  const { students, myStudents, profile } = useApp();
   
-  if (!governanceStats) return null;
+  const stats = useMemo(() => {
+    const targetStudents = profile.isSuperAdmin ? students : myStudents;
+    
+    // Aplicar filtros dinámicos
+    let active = targetStudents.filter(s => s.isActive !== false);
+    if (grado !== "TODOS") {
+      active = active.filter(s => normalizeGrade(s.grado) === grado);
+    }
+    if (curso !== "TODOS") {
+      active = active.filter(s => s.curso === curso);
+    }
 
-  const { birthdaysToday, birthdaysMonth, gender, extraedad, totalActive } = governanceStats;
+    const today = new Date();
+    const todayStr = today.toISOString().slice(5, 10);
+    const monthStr = today.toISOString().slice(5, 7);
+
+    const birthdaysToday = active.filter(s => {
+      if (!s.fechaNacimiento) return false;
+      const bDate = new Date(s.fechaNacimiento);
+      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 10) === todayStr;
+    });
+
+    const birthdaysMonth = active.filter(s => {
+      if (!s.fechaNacimiento) return false;
+      const bDate = new Date(s.fechaNacimiento);
+      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 7) === monthStr;
+    });
+
+    const gender = {
+      m: active.filter(s => s.genero === "M").length,
+      f: active.filter(s => s.genero === "F").length,
+      parity: 0
+    };
+    gender.parity = active.length > 0 ? Math.round((Math.min(gender.m, gender.f) / Math.max(gender.m, gender.f)) * 100) : 0;
+
+    const extraedad = active.filter(s => {
+      if (!s.fechaNacimiento) return false;
+      const age = today.getFullYear() - new Date(s.fechaNacimiento).getFullYear();
+      const gradeNum = parseInt(normalizeGrade(s.grado));
+      if (isNaN(gradeNum)) return false;
+      return age > (gradeNum + 8);
+    });
+
+    return { birthdaysToday, birthdaysMonth, gender, extraedad, totalActive: active.length };
+  }, [students, myStudents, profile.isSuperAdmin, grado, curso]);
+
+  const { birthdaysToday, birthdaysMonth, gender, extraedad, totalActive } = stats;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

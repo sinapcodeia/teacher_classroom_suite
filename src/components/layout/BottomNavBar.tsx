@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutDashboard, Users, Radio, Settings, ShieldCheck, Calendar, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, Radio, Settings, ShieldCheck, Calendar, BookOpen, FileText } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 
@@ -14,6 +14,7 @@ export default function BottomNavBar() {
     { label: "Inicio", icon: LayoutDashboard, path: "/" },
     { label: "Estudiantes", icon: Users, path: "/estudiantes" },
     { label: "Clase", icon: Radio, path: "/clase-en-vivo", hideForSuper: true },
+    { label: "Agenda", icon: FileText, path: "/agenda", hideForSuper: true },
     { label: "Horario", icon: Calendar, path: "/horario", hideForSuper: true },
     { label: "Currículo", icon: BookOpen, path: "/curriculo", hideForSuper: true },
   ].filter(item => !(profile.isSuperAdmin && item.hideForSuper));

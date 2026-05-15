@@ -3,14 +3,20 @@
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
-import { Printer, ArrowLeft, Download, ShieldCheck } from "lucide-react";
+import { Printer, ArrowLeft, Download, ShieldCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 
 import Image from "next/image";
+import { useEffect } from "react";
 
 export default function AttendanceReportPage() {
-  const { students, masterData, profile } = useApp();
+  const { students, myStudents, masterData, profile } = useApp();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('es-ES', { month: 'long' }).toUpperCase());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -24,44 +30,46 @@ export default function AttendanceReportPage() {
 
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
-  const filteredStudents = students.filter(st => {
-    // Si es docente, solo puede ver sus propios estudiantes (basado en sus cursos asignados)
-    if (profile.role === "DOCENTE") {
-      const myCourses = profile.teachingCourses || [];
-      if (!myCourses.includes(st.curso)) return false;
-    }
-
+  const filteredStudents = myStudents.filter(st => {
     if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== normalizeGrade(selectedGrade)) return false;
     if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
     if (st.isActive === false) return false;
     return true;
+  }).sort((a, b) => {
+    const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
+    const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
+    return nameA.localeCompare(nameB);
   });
 
-  // Filtrar opciones de dropdown según permisos
-  const availableGrades = profile.role === "RECTOR" || profile.role === "COORDINADOR" 
-    ? (masterData.grades || []) 
-    : (profile.teachingGrades || []);
+  // Filtrar opciones de dropdown según los estudiantes disponibles para este usuario
+  const availableGrades = Array.from(new Set(myStudents.map(s => normalizeGrade(s.grado)))).sort();
 
-  // Cursos disponibles: filtra por grado seleccionado si hay uno específico
-  const allAvailableCourses = profile.role === "RECTOR" || profile.role === "COORDINADOR"
-    ? Array.from(new Set(students.map(s => s.curso))).filter(Boolean).sort()
-    : (profile.teachingCourses || []);
 
   const availableCourses = selectedGrade !== "TODOS"
     ? Array.from(new Set(
-        students
+        myStudents
           .filter(s => normalizeGrade(s.grado) === normalizeGrade(selectedGrade))
           .map(s => s.curso)
       )).filter(Boolean).sort()
-    : allAvailableCourses;
+    : Array.from(new Set(myStudents.map(s => s.curso))).filter(Boolean).sort();
 
   const handlePrint = () => {
     if (selectedGrade === "TODOS" || selectedCurso === "TODOS") {
       alert("Por favor, selecciona un GRADO y un CURSO específico para generar un reporte productivo y no imprimir toda la institución.");
       return;
     }
+    const originalTitle = document.title;
+    const cleanGrade = selectedGrade.replace('°', '');
+    document.title = `ASISTENCIA_${cleanGrade}_${selectedCurso}_${selectedMonth}_${selectedYear}`;
     window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
   };
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   return (
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
@@ -160,8 +168,15 @@ export default function AttendanceReportPage() {
              <span className="uppercase shrink-0 font-black">CODIGO DANE E.E.:</span>
              <span className="border-b border-on-surface flex-1 pb-1">252079002045</span>
            </div>
-           <div className="col-span-3"></div>
-           <div className="col-span-2 flex items-end gap-2">
+           <div className="col-span-1 flex items-end gap-2">
+             <span className="uppercase shrink-0 font-black">GRADO:</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedGrade}</span>
+           </div>
+           <div className="col-span-1 flex items-end gap-2">
+             <span className="uppercase shrink-0 font-black">CURSO:</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedCurso}</span>
+           </div>
+           <div className="col-span-3 flex items-end gap-2">
              <span className="uppercase shrink-0 font-black">MES:</span>
              <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedMonth}</span>
            </div>
@@ -173,6 +188,10 @@ export default function AttendanceReportPage() {
            <div className="col-span-3 flex items-end gap-2">
              <span className="uppercase shrink-0 font-black">CODIGO DANE SEDE:</span>
              <span className="border-b border-on-surface flex-1 pb-1">252079002045</span>
+           </div>
+           <div className="col-span-2 flex items-end gap-2">
+             <span className="uppercase shrink-0 font-black">AÑO:</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedYear}</span>
            </div>
         </div>
 
@@ -250,14 +269,20 @@ export default function AttendanceReportPage() {
         </div>
 
         {/* Footer Info */}
-        <div className="mt-8 grid grid-cols-2 gap-20 print:mt-12">
-           <div className="border-t border-on-surface pt-2">
-              <p className="text-[10px] font-black uppercase text-center">Firma del Docente</p>
-           </div>
-           <div className="border-t border-on-surface pt-2">
-              <p className="text-[10px] font-black uppercase text-center">Sello de la Institución</p>
-           </div>
-        </div>
+         <div className="mt-16 grid grid-cols-2 gap-20 print:mt-20">
+            <div className="border-t border-on-surface pt-2 text-center">
+               <p className="text-[11px] font-black uppercase mb-1">{profile.name}</p>
+               <p className="text-[9px] font-bold uppercase opacity-60">Firma del Docente</p>
+            </div>
+            <div className="border-t border-on-surface pt-2 text-center">
+               <p className="text-[9px] font-bold uppercase opacity-60">Sello de la Institución</p>
+            </div>
+         </div>
+         <div className="mt-12 text-center border-t border-on-surface/5 pt-4">
+            <p className="text-[8px] text-on-surface-variant/50 font-medium uppercase tracking-widest">
+               IETABA · Premium Suite · Generado el {new Date().toLocaleString()} | © 2026 Powered by Sinapcode
+            </p>
+         </div>
       </div>
 
       <style jsx global>{`

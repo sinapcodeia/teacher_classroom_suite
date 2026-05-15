@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp, ScheduleBlock } from "@/context/AppContext";
 import { printStudentsByCourse, printStudentsByGrade, printAttendanceSheet, printWeeklySchedule } from "@/lib/printService";
-import { User, Calendar, Printer, Save, Plus, Trash2, ChevronRight, AlertTriangle, Sun, CheckCircle2 } from "lucide-react";
+import { User, Calendar, Printer, Save, Plus, Trash2, ChevronRight, AlertTriangle, Sun, CheckCircle2, Loader2 } from "lucide-react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -308,6 +308,11 @@ export default function ConfiguracionPage() {
   const [tab, setTab] = useState<Tab>("perfil");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isOnboarding = !profile.isProfileComplete || !profile.weeklySchedule || profile.weeklySchedule.length === 0;
 
@@ -337,6 +342,12 @@ export default function ConfiguracionPage() {
   const removeBlock = useCallback((id: string) => {
     setBlocks(prev => prev.filter(b => b.id !== id));
   }, []);
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   async function save() {
     setSaving(true);

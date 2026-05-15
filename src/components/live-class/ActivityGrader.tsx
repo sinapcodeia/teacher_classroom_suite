@@ -25,7 +25,7 @@ function scoreColor(n: number) {
 }
 
 export default function ActivityGrader({ course, subject, grade }: ActivityGraderProps) {
-  const { students, addGrade, updateSingleDetailedGrade, masterData } = useApp();
+  const { students, myStudents, addGrade, updateSingleDetailedGrade, masterData } = useApp();
   const [targetCategory, setTargetCategory] = useState<"sb" | "sbh" | "sr" | "cv" | "aut">("sbh");
   const [targetSlot, setTargetSlot] = useState(0);
 
@@ -44,10 +44,18 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const filteredStudents = useMemo(() =>
-    students
-      .filter(s => s.curso === course && s.isActive !== false)
-      .sort((a, b) => a.primerApellido.localeCompare(b.primerApellido)),
-    [students, course]
+    myStudents
+      .filter(s => 
+        s.curso === course && 
+        normalizeGrade(s.grado) === normalizeGrade(grade) && 
+        s.isActive !== false
+      )
+      .sort((a, b) => {
+        const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
+        const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
+        return nameA.localeCompare(nameB);
+      }),
+    [myStudents, course, grade]
   );
 
   const gradedCount = Object.values(grades).filter(v => v !== "").length;

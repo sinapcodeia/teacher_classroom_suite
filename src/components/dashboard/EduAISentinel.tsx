@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import { 
   BrainCircuit, Sparkles, TrendingUp, AlertTriangle, 
   ChevronRight, Zap, Target, ArrowUpRight, Activity
@@ -8,18 +8,36 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useMemo } from "react";
 
-export default function EduAISentinel() {
-  const { students, agendaNotes } = useApp();
+interface EduAISentinelProps {
+  grado?: string;
+  curso?: string;
+}
+
+export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduAISentinelProps) {
+  const { myStudents, agendaNotes } = useApp();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Simulación de lógica de cierre SAPRED o días restantes para propósitos de IA
+  // Simulación de lógica de cierre SAPRED
   const daysLeft = 12; 
 
   const insights = useMemo(() => {
+    // ── Filtrado Dinámico de Población para IA ──
+    let filteredStudents = myStudents;
+    let filteredNotes = agendaNotes;
+
+    if (grado !== "TODOS") {
+      filteredStudents = filteredStudents.filter(s => normalizeGrade(s.grado) === grado);
+      filteredNotes = filteredNotes.filter(n => normalizeGrade(n.course || "") === grado);
+    }
+    if (curso !== "TODOS") {
+      filteredStudents = filteredStudents.filter(s => s.curso === curso);
+      filteredNotes = filteredNotes.filter(n => n.course === curso);
+    }
+
     const list = [];
     
     // Predicción de Deserción
-    const riskCount = students.filter(s => {
+    const riskCount = filteredStudents.filter(s => {
       const abs = Object.values(s.attendanceRecord || {}).filter(v => v === 'absent').length;
       return abs >= 3 && (s.avgGrade || 0) < 3.5;
     }).length;
@@ -39,11 +57,11 @@ export default function EduAISentinel() {
     }
 
     // Tendencia Académica
-    const avg = students.reduce((acc, s) => acc + (s.avgGrade || 0), 0) / (students.length || 1);
+    const avg = filteredStudents.reduce((acc, s) => acc + (s.avgGrade || 0), 0) / (filteredStudents.length || 1);
     list.push({
       id: "trend",
       title: "Optimización de Rendimiento",
-      message: `El promedio institucional se mantiene en ${avg.toFixed(1)}. Los grupos de 10° muestran una aceleración del 15% en la entrega de actividades técnicas.`,
+      message: `El promedio del grupo seleccionado es ${avg.toFixed(1)}. ${grado !== 'TODOS' ? `El Grado ${grado} muestra una trayectoria estable.` : 'Los grupos de 10° muestran una aceleración del 15% en la entrega de actividades técnicas.'}`,
       level: "INFO",
       action: "Analizar tendencias",
       icon: TrendingUp,
@@ -53,7 +71,7 @@ export default function EduAISentinel() {
     });
 
     // Agenda Inteligente
-    const pending = agendaNotes.filter(n => n.type === 'TASK' && !n.isCompleted).length;
+    const pending = filteredNotes.filter(n => n.type === 'TASK' && !n.isCompleted).length;
     if (pending > 0) {
       list.push({
         id: "agenda",
@@ -69,7 +87,7 @@ export default function EduAISentinel() {
     }
 
     return list;
-  }, [students, agendaNotes, daysLeft]);
+  }, [myStudents, agendaNotes, grado, curso, daysLeft]);
 
   return (
     <section className="mb-10 relative">

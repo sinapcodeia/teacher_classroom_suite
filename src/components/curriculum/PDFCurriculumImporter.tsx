@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Check, Sparkles, Loader2, Info } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import { db } from "@/lib/firebase";
 import { setDoc, doc, getDoc } from "firebase/firestore";
 
@@ -52,29 +52,16 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
         return prev + 10;
       });
     }, 300);
-
     // Procesamiento IA: extracción de los 3 periodos según el formato institucional Awá
     setTimeout(() => {
-      // Detección del grado desde el nombre del archivo
-      const fname = (file?.name || "").toLowerCase();
-      let detectedGrade = grade;
-      if (fname.includes("sexto") || fname.includes("6"))      detectedGrade = "6°";
-      else if (fname.includes("septimo") || fname.includes("7")) detectedGrade = "7°";
-      else if (fname.includes("octavo") || fname.includes("8"))  detectedGrade = "8°";
-      else if (fname.includes("noveno") || fname.includes("9") || fname.includes("antonio"))  detectedGrade = "9°";
-      else if (fname.includes("decimo") || fname.includes("10")) detectedGrade = "10°";
-      else if (fname.includes("once") || fname.includes("11"))   detectedGrade = "11°";
-      
-      // ID determinista: una entrada por grado+materia (evita duplicados)
-      const deterministicId = `cur-${detectedGrade}-${subject}`
-        .toLowerCase().replace(/\s+/g, '-').replace(/°/g, '');
-      
-      const subLower = subject.toLowerCase();
+      const normGrade = normalizeGrade(grade);
+      const normSubject = subject.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+      const deterministicId = `cur-${normGrade}-${normSubject}`.replace(/\s+/g, '-').replace(/°/g, '').toLowerCase();
+      const subLower = normSubject.toLowerCase();
       let extractedUnits: any[] = [];
       
       if (subLower.includes("tecnolog") || subLower.includes("informática") || subLower.includes("informatica") || subLower.includes("sistemas")) {
-        const isNoveno = detectedGrade.includes("9") || detectedGrade.includes("Noveno") || detectedGrade.includes("noveno");
-        
+        const isNoveno = normGrade.includes("9");
         if (isNoveno) {
           extractedUnits = [
             {
@@ -438,7 +425,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
 
       setExtractedData({
         id: deterministicId,
-        grade: detectedGrade,
+        grade: grade,
         subjectId: subject,
         units: extractedUnits
       });
@@ -482,9 +469,9 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
         setIsSuccess(false);
         closeModal();
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al guardar currículo:", err);
-      alert("Error al guardar el currículo. Intente de nuevo.");
+      alert(`Error al guardar el currículo: ${err.message || 'Error de conexión'}. Intente de nuevo.`);
     } finally {
       setIsSaving(false);
     }
@@ -625,13 +612,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Contenidos Identificados</span>
                         </div>
                         <div className="flex gap-2">
-                          {extractedData.grade !== grade && (
-                            <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-700 rounded-full">
-                               <Info size={12} />
-                               <span className="text-[8px] font-black uppercase">Cambio de Grado Detectado: {extractedData.grade}</span>
-                            </div>
-                          )}
-                          {curriculum.some(c => c.id === extractedData.id) && (
+                           {curriculum.some(c => c.id === extractedData.id) && (
                             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-700 rounded-full animate-pulse">
                                <Info size={12} />
                                <span className="text-[8px] font-black uppercase">Se actualizará versión existente</span>

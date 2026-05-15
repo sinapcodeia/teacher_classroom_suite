@@ -8,6 +8,10 @@ interface StudentListProps {
   selectedId: string;
   onSelect: (id: string) => void;
   onFilteredCountChange?: (count: number) => void;
+  gradoFilter: string;
+  setGradoFilter: (val: string) => void;
+  cursoFilter: string;
+  setCursoFilter: (val: string) => void;
 }
 
 type SortField = "name" | "grade" | "avg";
@@ -35,28 +39,14 @@ function avatarPalette(name: string) {
   return AVATAR_PALETTES[code % AVATAR_PALETTES.length];
 }
 
-export default function StudentList({ selectedId, onSelect, onFilteredCountChange }: StudentListProps) {
-  const { students, profile } = useApp();
+export default function StudentList({ 
+  selectedId, onSelect, onFilteredCountChange,
+  gradoFilter, setGradoFilter, cursoFilter, setCursoFilter 
+}: StudentListProps) {
+  const { myStudents, profile } = useApp();
   const [searchTerm, setSearchTerm]     = useState("");
-  const [filterGrado, setFilterGrado]   = useState("TODOS");
-  const [filterCurso, setFilterCurso]   = useState("TODOS");
   const [sortField, setSortField]       = useState<SortField>("name");
   const [sortDir, setSortDir]           = useState<SortDir>("asc");
-
-  // ── Governance ──────────────────────────────────────────────────────────────
-  const myStudents = useMemo(() => {
-    const isAdmin =
-      profile.isSuperAdmin ||
-      profile.role === "RECTOR" ||
-      profile.role === "COORDINADOR" ||
-      profile.role === "BIENESTAR";
-    if (isAdmin) return students;
-    const effectiveCourses =
-      (profile.teachingCourses?.length ?? 0) > 0
-        ? profile.teachingCourses
-        : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
-    return students.filter(s => effectiveCourses.includes(s.curso));
-  }, [students, profile]);
 
   // ── Opciones de filtro ───────────────────────────────────────────────────────
   const gradoOptions = useMemo(
@@ -65,11 +55,11 @@ export default function StudentList({ selectedId, onSelect, onFilteredCountChang
   );
 
   const cursoOptions = useMemo(() => {
-    const base = filterGrado === "TODOS"
+    const base = gradoFilter === "TODOS"
       ? myStudents
-      : myStudents.filter(s => normalizeGrade(s.grado) === filterGrado);
+      : myStudents.filter(s => normalizeGrade(s.grado) === gradoFilter);
     return [...new Set(base.map(s => s.curso))].filter(Boolean).sort();
-  }, [myStudents, filterGrado]);
+  }, [myStudents, gradoFilter]);
 
   // ── Filtrado + ordenamiento ──────────────────────────────────────────────────
   const filteredStudents = useMemo(() => {
@@ -77,8 +67,8 @@ export default function StudentList({ selectedId, onSelect, onFilteredCountChang
       if (s.isActive === false) return false;
       const fullName = `${s.primerApellido} ${s.segundoApellido} ${s.primerNombre} ${s.segundoNombre}`.toLowerCase();
       const matchSearch = fullName.includes(searchTerm.toLowerCase()) || s.nroDocumento.includes(searchTerm);
-      const matchGrado  = filterGrado === "TODOS" || normalizeGrade(s.grado) === filterGrado;
-      const matchCurso  = filterCurso === "TODOS" || s.curso === filterCurso;
+      const matchGrado  = gradoFilter === "TODOS" || normalizeGrade(s.grado) === gradoFilter;
+      const matchCurso  = cursoFilter === "TODOS" || s.curso === cursoFilter;
       return matchSearch && matchGrado && matchCurso;
     });
 
@@ -95,7 +85,7 @@ export default function StudentList({ selectedId, onSelect, onFilteredCountChang
     });
 
     return list;
-  }, [myStudents, searchTerm, filterGrado, filterCurso, sortField, sortDir]);
+  }, [myStudents, searchTerm, gradoFilter, cursoFilter, sortField, sortDir]);
 
   // Sincronizar el conteo con el componente padre para evitar inconsistencias visuales
   useEffect(() => {
@@ -116,8 +106,8 @@ export default function StudentList({ selectedId, onSelect, onFilteredCountChang
 
   // Reset curso when grade changes
   function handleGradeChange(g: string) {
-    setFilterGrado(g);
-    setFilterCurso("TODOS");
+    setGradoFilter(g);
+    setCursoFilter("TODOS");
   }
 
   return (
@@ -142,7 +132,7 @@ export default function StudentList({ selectedId, onSelect, onFilteredCountChang
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" size={13} />
               <select
-                value={filterGrado}
+                value={gradoFilter}
                 onChange={e => handleGradeChange(e.target.value)}
                 className="h-11 bg-surface-container-low border-none rounded-xl pl-8 pr-4 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer appearance-none"
               >
@@ -153,8 +143,8 @@ export default function StudentList({ selectedId, onSelect, onFilteredCountChang
 
             {/* Curso */}
             <select
-              value={filterCurso}
-              onChange={e => setFilterCurso(e.target.value)}
+              value={cursoFilter}
+              onChange={e => setCursoFilter(e.target.value)}
               className="h-11 bg-surface-container-low border-none rounded-xl px-4 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer appearance-none"
             >
               <option value="TODOS">Todos los cursos</option>

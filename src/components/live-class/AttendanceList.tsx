@@ -37,6 +37,10 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
       const matchGrado = grade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(grade);
       const matchCurso = course === "TODOS" || s.curso === course;
       return matchGrado && matchCurso;
+    }).sort((a, b) => {
+      const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
+      const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
+      return nameA.localeCompare(nameB);
     });
   }, [myStudents, grade, course]);
 
@@ -437,6 +441,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
              <div className="flex w-full gap-3">
                <button onClick={() => setParticipationModal(null)} className="flex-1 py-3 rounded-xl bg-surface-container text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-high transition-all">Cancelar</button>
                 <button onClick={async () => {
+                  setHasUnsavedChanges(true);
                   await addGrade(participationModal.studentId, {
                     title: partTitle,
                     score: parseFloat(partScore),
@@ -446,7 +451,6 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
                   setParticipationModal(null);
                   setPartTitle("Participación en Clase");
                   setPartScore("5.0");
-                  setHasUnsavedChanges(true);
                 }} className="flex-1 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-500/30">Guardar</button>
              </div>
           </div>

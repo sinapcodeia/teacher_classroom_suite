@@ -3,8 +3,9 @@
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import { useApp } from "@/context/AppContext";
-import { Calendar, Clock, BookOpen, GraduationCap, ArrowLeft, Printer, Download } from "lucide-react";
+import { Calendar, Clock, BookOpen, GraduationCap, ArrowLeft, Printer, Download, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 const TIME_SLOTS = [
@@ -19,6 +20,17 @@ const TIME_SLOTS = [
 
 export default function HorarioPage() {
   const { schedule, profile } = useApp();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-surface-container-lowest font-inter">
@@ -89,13 +101,15 @@ export default function HorarioPage() {
                                <div className="space-y-1">
                                   <div className="flex items-center justify-between">
                                      <BookOpen size={14} className="opacity-40" />
-                                     <span className="text-[8px] font-black uppercase opacity-60">Matrícula {entry.group}</span>
+                                     <span className="text-[8px] font-black uppercase opacity-60">Grupo {entry.group}</span>
                                   </div>
                                   <p className="font-black text-[11px] leading-tight mt-1">{entry.subject}</p>
                                </div>
                                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-black/5">
                                   <GraduationCap size={14} className="opacity-40" />
-                                  <span className="text-[10px] font-black">GRADO {entry.group}</span>
+                                  <span className="text-[10px] font-black uppercase">
+                                    {entry.grade} — {entry.group}
+                                  </span>
                                </div>
                             </Link>
                           ) : (

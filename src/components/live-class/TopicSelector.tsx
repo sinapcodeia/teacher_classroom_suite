@@ -13,7 +13,6 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
   const { curriculum, updateTopicStatus } = useApp();
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
 
-  // Normalización para encontrar el currículo correcto
   const activeCurriculum = useMemo(() => {
     if (!curriculum.length || !subjectId) return null;
     
@@ -24,21 +23,29 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
     const targetSubject = normStr(subjectId);
     const gradeNum = (grade || "").replace(/[^\d]/g, "");
     
-    // Búsqueda de alta precisión: Grado Y Materia coinciden
-    return curriculum.find(c => {
+    const candidates = curriculum.filter(c => {
       const cGradeNum = c.grade.replace(/[^\d]/g, "");
-      const cSubject = normStr(c.subjectId);
-      
-      const matchGrade = gradeNum && cGradeNum === gradeNum;
-      
-      // Coincidencia inteligente: Una materia puede estar contenida en la otra 
-      // (ej: "TECNOLOGIA" en "TECNOLOGIA E INFORMATICA")
-      const matchSubject = targetSubject && (
-        cSubject.includes(targetSubject) || targetSubject.includes(cSubject)
-      );
-      
-      return matchGrade && matchSubject;
-    }) || null; // Retornar NULL si no hay coincidencia exacta para evitar datos falsos
+      return gradeNum && cGradeNum === gradeNum;
+    });
+
+    if (candidates.length === 0) return null;
+
+    // Prioridad 1: Coincidencia exacta normalizada
+    const exactMatch = candidates.find(c => normStr(c.subjectId) === targetSubject);
+    if (exactMatch) return exactMatch;
+
+    // Prioridad 2: El currículo guardado EMPIEZA con el nombre de la materia buscada
+    // (ej: busco "tecnologia", el currículo dice "tecnologiaeinformatica" → válido)
+    const startsWithMatch = candidates.find(c => normStr(c.subjectId).startsWith(targetSubject));
+    if (startsWithMatch) return startsWithMatch;
+
+    // Prioridad 3: La materia buscada EMPIEZA con el nombre del currículo
+    // (ej: currículo dice "tecnologia", yo busco "tecnologia e informatica" → válido)
+    const reverseStartsWithMatch = candidates.find(c => targetSubject.startsWith(normStr(c.subjectId)));
+    if (reverseStartsWithMatch) return reverseStartsWithMatch;
+
+    // Sin coincidencia: no mezclar con otras materias
+    return null;
   }, [curriculum, subjectId, grade]);
 
   // Aplanar todos los temas con su ID de unidad para el selector

@@ -10,7 +10,15 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
 
   // Seleccionar el currículo activo basado en los filtros
   const activeCurriculum = useMemo(() => {
-    return curriculum.find(c => c.grade === grade && c.subjectId === subject);
+    if (!curriculum.length || !grade || !subject) return null;
+    const normStr = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    const targetSubject = normStr(subject);
+    const targetGradeNum = grade.replace(/[^\d]/g, "");
+    
+    const candidates = curriculum.filter(c => c.grade.replace(/[^\d]/g, "") === targetGradeNum);
+    return candidates.find(c => normStr(c.subjectId) === targetSubject) ||
+           candidates.find(c => normStr(c.subjectId).startsWith(targetSubject)) ||
+           candidates.find(c => targetSubject.startsWith(normStr(c.subjectId))) || null;
   }, [curriculum, grade, subject]);
 
   const [loadingProgress, setLoadingProgress] = useState(0);

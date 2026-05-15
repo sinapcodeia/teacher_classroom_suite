@@ -4,20 +4,37 @@ import { TrendingUp, Users, AlertTriangle, Award } from "lucide-react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import { useMemo } from "react";
 
-export default function PerformanceStats() {
+interface PerformanceStatsProps {
+  grado: string;
+  curso: string;
+}
+
+export default function PerformanceStats({ grado, curso }: PerformanceStatsProps) {
   const { students, profile } = useApp();
 
-  // ── Governance: misma lógica que StudentList ─────────────────────────────
+  // ── Governance + Dynamic Filters ─────────────────────────────
   const myStudents = useMemo(() => {
-    if (profile.isSuperAdmin || profile.role === "RECTOR" || profile.role === "COORDINADOR" || profile.role === "BIENESTAR") {
-      return students.filter(s => s.isActive !== false);
+    // 1. Base Governance (Docente vs Admin)
+    let list = students.filter(s => s.isActive !== false);
+    
+    if (!(profile.isSuperAdmin || profile.role === "RECTOR" || profile.role === "COORDINADOR" || profile.role === "BIENESTAR")) {
+      const effectiveCourses =
+        (profile.teachingCourses?.length ?? 0) > 0
+          ? profile.teachingCourses
+          : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
+      list = list.filter(s => effectiveCourses.includes(s.curso));
     }
-    const effectiveCourses =
-      (profile.teachingCourses?.length ?? 0) > 0
-        ? profile.teachingCourses
-        : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
-    return students.filter(s => s.isActive !== false && effectiveCourses.includes(s.curso));
-  }, [students, profile]);
+
+    // 2. Apply Dynamic Filters from UI
+    if (grado !== "TODOS") {
+      list = list.filter(s => normalizeGrade(s.grado) === grado);
+    }
+    if (curso !== "TODOS") {
+      list = list.filter(s => s.curso === curso);
+    }
+
+    return list;
+  }, [students, profile, grado, curso]);
 
   const avgGrade =
     myStudents.length > 0
