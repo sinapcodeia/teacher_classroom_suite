@@ -93,7 +93,7 @@ export default function GradesReportPage() {
     if (colType === "DEF") {
       const validScores = subjectGrades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
       const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
-      const bonus = subjectGrades.filter((g: any) => g.type === 'participation').reduce((a: number, b: number) => a + (b.score * 0.02), 0);
+      const bonus = subjectGrades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
       const final = Math.min(5.0, baseAvg + bonus);
       return final > 0 ? final.toFixed(1) : "0.0";
     }
