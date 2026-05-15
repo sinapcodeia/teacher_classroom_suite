@@ -31,6 +31,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
   const [pendingImportData, setPendingImportData] = useState<any[] | null>(null);
   const [isTransientOpen, setIsTransientOpen] = useState(false);
   
+  const [importProgress, setImportProgress] = useState(0);
   const [importStats, setImportStats] = useState({
     total: 0,
     success: 0,
@@ -138,9 +139,9 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
   const processImport = async (targetPeriod: string) => {
     if (!pendingImportData) return;
     setIsSaving(true);
+    setImportProgress(0);
     
     const rows = pendingImportData;
-
     const stats = {
       total: rows.length,
       success: 0,
@@ -150,7 +151,10 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
       studentResults: [] as any[]
     };
 
+    const importData: { studentId: string, detailed: DetailedGrades }[] = [];
+
     try {
+      // 1. Preparar datos
       for (const row of rows) {
         if (!row.CODIGO) continue;
         const student = filteredStudents.find(s => s.nroDocumento === row.CODIGO);
@@ -174,41 +178,55 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
           aut: parseVal(row["AUT"])
         };
 
-        const currentGrades = student.detailedGrades?.[subject]?.[targetPeriod];
-        const hasChanged = JSON.stringify(currentGrades) !== JSON.stringify(detailed);
+        importData.push({ studentId: student.id, detailed });
         
-        if (hasChanged) {
+        const currentGrades = student.detailedGrades?.[subject]?.[targetPeriod];
+        if (JSON.stringify(currentGrades) !== JSON.stringify(detailed)) {
           stats.modified.push(`${student.primerApellido} ${student.primerNombre}`);
         }
         
-        await updateDetailedGrades(student.id, subject, targetPeriod, detailed);
-        
-        const updatedStudent = {
-          name: `${student.primerApellido} ${student.primerNombre}`,
-          p1: calculateDetailedFinal(student.detailedGrades?.[subject]?.p1 || (targetPeriod === "p1" ? detailed : { sb:[], sbh:[], sr:[], cv:[], aut:null })),
-          p2: calculateDetailedFinal(student.detailedGrades?.[subject]?.p2 || (targetPeriod === "p2" ? detailed : { sb:[], sbh:[], sr:[], cv:[], aut:null })),
-          p3: calculateDetailedFinal(student.detailedGrades?.[subject]?.p3 || (targetPeriod === "p3" ? detailed : { sb:[], sbh:[], sr:[], cv:[], aut:null }))
-        };
-        stats.studentResults.push(updatedStudent);
-
         stats.success++;
       }
       
+      setImportProgress(20); // Iniciando carga
+
+      // 2. Ejecutar importación masiva
+      await importDetailedGrades(subject, targetPeriod, importData);
+      setImportProgress(60); // Procesado en servidor
+
+      // 3. Generar resultados para el resumen
+      stats.studentResults = importData.map(item => {
+        const student = students.find(s => s.id === item.studentId);
+        return {
+          name: student ? `${student.primerApellido} ${student.primerNombre}` : "N/A",
+          p1: calculateDetailedFinal(student?.detailedGrades?.[subject]?.p1 || (targetPeriod === "p1" ? item.detailed : { sb:[], sbh:[], sr:[], cv:[], aut:null })),
+          p2: calculateDetailedFinal(student?.detailedGrades?.[subject]?.p2 || (targetPeriod === "p2" ? item.detailed : { sb:[], sbh:[], sr:[], cv:[], aut:null })),
+          p3: calculateDetailedFinal(student?.detailedGrades?.[subject]?.p3 || (targetPeriod === "p3" ? item.detailed : { sb:[], sbh:[], sr:[], cv:[], aut:null }))
+        };
+      });
+
+      setImportProgress(100);
       setImportStats(stats);
       setSelectedPeriod(targetPeriod);
-      setShowSummary(true);
       
-      // AUTO-CLOSE LOGIC: Si estaba abierto por corrección, cerrar automáticamente
-      if (isTransientOpen) {
-        togglePeriodStatus(targetPeriod, "closed");
-        setIsTransientOpen(false);
-      }
+      // Esperar un momento para que se vea el 100%
+      setTimeout(() => {
+        setShowConfirmModal(false);
+        setShowSummary(true);
+        setIsSaving(false);
+        setPendingImportData(null);
+        
+        // AUTO-CLOSE LOGIC
+        if (isTransientOpen) {
+          togglePeriodStatus(targetPeriod, "closed");
+          setIsTransientOpen(false);
+        }
+      }, 500);
+
     } catch (err) {
-      console.error("Error en importación:", err);
-      alert("Hubo un error al procesar el archivo.");
-    } finally {
+      console.error("Error en importación masiva:", err);
+      alert("Error al sincronizar datos.");
       setIsSaving(false);
-      setPendingImportData(null);
     }
   };
 
@@ -420,47 +438,69 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
             </div>
 
             <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                Detectamos una planilla de notas completa. Selecciona el periodo institucional donde deseas consolidar esta información:
-              </p>
-              <div className="grid grid-cols-1 gap-2">
-                {PERIODS.map(p => {
-                  const isClosed = masterData.periodStatus[p.id] === "closed";
-                  const isSuggested = masterData.activePeriod === p.id;
-                  const isUnlocked = isTransientOpen && selectedPeriod === p.id;
-                  
-                  return (
-                    <button
-                      key={p.id}
-                      disabled={isClosed && !isUnlocked}
-                      onClick={() => processImport(p.id)}
-                      className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all group ${
-                        isSuggested 
-                          ? "border-blue-500 bg-blue-50/50" 
-                          : "border-outline-variant bg-white hover:border-slate-400"
-                      } ${isClosed && !isUnlocked ? 'opacity-50 grayscale' : 'active:scale-95'}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${isSuggested ? 'bg-blue-500' : isUnlocked ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                        <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">{p.label}</span>
-                      </div>
-                      {isSuggested && <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded-lg">RECOMENDADO</span>}
-                      {isClosed && !isUnlocked && <span className="text-[8px] font-black text-rose-600 uppercase bg-rose-100 px-2 py-1 rounded-lg">CERRADO</span>}
-                      {isUnlocked && <span className="text-[8px] font-black text-amber-600 uppercase bg-amber-100 px-2 py-1 rounded-lg">DESBLOQUEADO</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              {isSaving ? (
+                <div className="py-10 space-y-6 text-center">
+                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-blue-600 mb-2">
+                      <span>Sincronizando...</span>
+                      <span>{importProgress}%</span>
+                   </div>
+                   <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
+                      <div 
+                        className="h-full bg-blue-500 transition-all duration-500 ease-out shadow-[0_0_15px_rgba(59,130,246,0.5)]" 
+                        style={{ width: `${importProgress}%` }}
+                      />
+                   </div>
+                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">
+                      Por favor no cierres esta ventana
+                   </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                    Detectamos una planilla de notas completa. Selecciona el periodo institucional donde deseas consolidar esta información:
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {PERIODS.map(p => {
+                      const isClosed = masterData.periodStatus[p.id] === "closed";
+                      const isSuggested = masterData.activePeriod === p.id;
+                      const isUnlocked = isTransientOpen && selectedPeriod === p.id;
+                      
+                      return (
+                        <button
+                          key={p.id}
+                          disabled={isClosed && !isUnlocked}
+                          onClick={() => processImport(p.id)}
+                          className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all group ${
+                            isSuggested 
+                              ? "border-blue-500 bg-blue-50/50" 
+                              : "border-outline-variant bg-white hover:border-slate-400"
+                          } ${isClosed && !isUnlocked ? 'opacity-50 grayscale' : 'active:scale-95'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${isSuggested ? 'bg-blue-500' : isUnlocked ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">{p.label}</span>
+                          </div>
+                          {isSuggested && <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded-lg">RECOMENDADO</span>}
+                          {isClosed && !isUnlocked && <span className="text-[8px] font-black text-rose-600 uppercase bg-rose-100 px-2 py-1 rounded-lg">CERRADO</span>}
+                          {isUnlocked && <span className="text-[8px] font-black text-amber-600 uppercase bg-amber-100 px-2 py-1 rounded-lg">DESBLOQUEADO</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="flex gap-3">
-              <button 
-                onClick={() => { setShowConfirmModal(false); setPendingImportData(null); }}
-                className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
-              >
-                Cancelar
-              </button>
-            </div>
+            {!isSaving && (
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => { setShowConfirmModal(false); setPendingImportData(null); }}
+                  className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

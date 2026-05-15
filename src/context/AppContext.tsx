@@ -1053,19 +1053,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      // Al actualizar la planilla, el promedio general del estudiante se sincroniza 
-      // con la nota final calculada de esta materia (u promedio de todas las detalladas)
       const finalNote = calculateDetailedFinal(detailed);
       
       const updates = { 
         detailedGrades: newDetailedGrades,
-        avgGrade: finalNote // Sincronización inmediata con la consola
+        avgGrade: finalNote 
       };
 
       await updateDoc(doc(db, "students", studentId), updates);
       setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
     } catch (err) {
       console.error("Error al actualizar notas detalladas:", err);
+    }
+  };
+
+  /** Bulk update for detailed grades (Import strategy) */
+  const importDetailedGrades = async (subjectId: string, periodId: string, data: { studentId: string, detailed: DetailedGrades }[]) => {
+    try {
+      const LIMITE_LOTE = 500;
+      const allUpdates: { studentId: string, updates: any }[] = [];
+
+      for (const item of data) {
+        const student = students.find(s => s.id === item.studentId);
+        if (!student) continue;
+
+        const subjectGrades = student.detailedGrades?.[subjectId] || {};
+        const newDetailedGrades = {
+          ...(student.detailedGrades || {}),
+          [subjectId]: {
+            ...subjectGrades,
+            [periodId]: item.detailed
+          }
+        };
+
+        const finalNote = calculateDetailedFinal(item.detailed);
+        const updates = { 
+          detailedGrades: newDetailedGrades,
+          avgGrade: finalNote 
+        };
+        allUpdates.push({ studentId: item.studentId, updates });
+      }
+
+      // Execute in batches
+      for (let i = 0; i < allUpdates.length; i += LIMITE_LOTE) {
+        const batch = writeBatch(db);
+        const chunk = allUpdates.slice(i, i + LIMITE_LOTE);
+        for (const up of chunk) {
+          batch.update(doc(db, "students", up.studentId), up.updates);
+        }
+        await batch.commit();
+      }
+
+      // Update local state
+      setStudents(prev => {
+        const mapa = new Map(prev.map(s => [s.id, s]));
+        for (const up of allUpdates) {
+          const s = mapa.get(up.studentId);
+          if (s) mapa.set(up.studentId, { ...s, ...up.updates });
+        }
+        return Array.from(mapa.values());
+      });
+    } catch (err) {
+      console.error("Error en importación masiva de notas:", err);
+      throw err;
     }
   };
 
@@ -1277,7 +1327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user, authLoading, logout,
       profile, setProfile, updateProfile,
       subjects, setSubjects,
-      students, myStudents, setStudents, addStudent, importStudents, removeStudent, updateStudent, updateDetailedGrades, updateSingleDetailedGrade, addGrade, saveDailyAttendance,
+      students, myStudents, setStudents, addStudent, importStudents, removeStudent, updateStudent, updateDetailedGrades, importDetailedGrades, updateSingleDetailedGrade, addGrade, saveDailyAttendance,
       masterData, updateMasterData, updateMasterItem, removeMasterItem, togglePeriodStatus, setActivePeriod,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
