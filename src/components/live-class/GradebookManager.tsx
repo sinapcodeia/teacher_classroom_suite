@@ -246,7 +246,8 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                 >
                   {p.label}
                   {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                  {isClosed && <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                  {isClosed && !isTransientOpen && <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                  {isClosed && isTransientOpen && selectedPeriod === p.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
                 </button>
               );
             })}
@@ -426,23 +427,26 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                 {PERIODS.map(p => {
                   const isClosed = masterData.periodStatus[p.id] === "closed";
                   const isSuggested = masterData.activePeriod === p.id;
+                  const isUnlocked = isTransientOpen && selectedPeriod === p.id;
+                  
                   return (
                     <button
                       key={p.id}
-                      disabled={isClosed}
+                      disabled={isClosed && !isUnlocked}
                       onClick={() => processImport(p.id)}
                       className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all group ${
                         isSuggested 
                           ? "border-blue-500 bg-blue-50/50" 
                           : "border-outline-variant bg-white hover:border-slate-400"
-                      } ${isClosed ? 'opacity-50 grayscale' : 'active:scale-95'}`}
+                      } ${isClosed && !isUnlocked ? 'opacity-50 grayscale' : 'active:scale-95'}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${isSuggested ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                        <div className={`w-3 h-3 rounded-full ${isSuggested ? 'bg-blue-500' : isUnlocked ? 'bg-amber-500' : 'bg-slate-300'}`} />
                         <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">{p.label}</span>
                       </div>
                       {isSuggested && <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded-lg">RECOMENDADO</span>}
-                      {isClosed && <span className="text-[8px] font-black text-rose-600 uppercase bg-rose-100 px-2 py-1 rounded-lg">CERRADO</span>}
+                      {isClosed && !isUnlocked && <span className="text-[8px] font-black text-rose-600 uppercase bg-rose-100 px-2 py-1 rounded-lg">CERRADO</span>}
+                      {isUnlocked && <span className="text-[8px] font-black text-amber-600 uppercase bg-amber-100 px-2 py-1 rounded-lg">DESBLOQUEADO</span>}
                     </button>
                   );
                 })}
