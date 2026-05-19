@@ -481,8 +481,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           if (userDoc.exists()) {
             savedData = userDoc.data() as Partial<TeacherProfile>;
-            // Audit Log: Registrar última conexión
-            await updateDoc(userDocRef, { lastLogin: new Date().toISOString() });
+            // Audit Log: Registrar última conexión (no await para evitar hang offline)
+            updateDoc(userDocRef, { lastLogin: new Date().toISOString() }).catch(e => console.warn("Offline login audit", e));
           } else {
             // Primer inicio de sesión — crear documento institucional para SuperAdmin
             const newDoc = {
@@ -503,7 +503,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(), // Audit Log Inicial
             };
-            await setDoc(userDocRef, newDoc);
+            setDoc(userDocRef, newDoc).catch(e => console.warn("Offline new user setup", e));
             savedData = newDoc as Partial<TeacherProfile>;
           }
 
@@ -536,7 +536,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (Object.keys(updates).length > 0) {
               savedData.isProfileComplete = true;
               updates.isProfileComplete = true;
-              await updateDoc(userDocRef, updates);
+              updateDoc(userDocRef, updates).catch(e => console.warn("Offline patch", e));
             }
           }
 

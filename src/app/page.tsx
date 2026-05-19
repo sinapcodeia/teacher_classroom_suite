@@ -308,7 +308,7 @@ export default function Home() {
           {/* ── HERO HEADER ── */}
           <section className="mt-8 mb-10">
             <div
-              className="relative overflow-hidden rounded-[2.5rem] p-8 md:p-12"
+              className="relative overflow-hidden rounded-[2.5rem] p-6 md:p-12"
               style={{
                 background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%)",
                 boxShadow: "0 32px 80px rgba(29,78,216,0.35)",
@@ -403,7 +403,7 @@ export default function Home() {
                    <select 
                       value={gradoFilter}
                       onChange={(e) => { setGradoFilter(e.target.value); setCursoFilter("TODOS"); }}
-                      className="flex-1 h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                      className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
                    >
                       <option value="TODOS">Todos los Grados</option>
                       {gradoOptions.map(g => <option key={g} value={g}>Grado {g}</option>)}
@@ -412,7 +412,7 @@ export default function Home() {
                    <select 
                       value={cursoFilter}
                       onChange={(e) => setCursoFilter(e.target.value)}
-                      className="flex-1 h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                      className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
                    >
                       <option value="TODOS">Todos los Cursos</option>
                       {cursoOptions.map(c => <option key={c} value={c}>Curso {c}</option>)}
@@ -575,7 +575,7 @@ export default function Home() {
                     </div>
                   ) : todaySchedule.length > 0 ? todaySchedule.map((session, i) => (
                     <Link key={i} href="/clase-en-vivo"
-                      className="flex items-center gap-5 p-4 rounded-2xl group transition-all hover:bg-slate-50">
+                      className="flex items-center gap-3 md:gap-5 p-3 md:p-4 rounded-2xl group transition-all hover:bg-slate-50">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black shrink-0 ${session.color}`}>
                         {session.time.split(":")[0]}h
                       </div>

@@ -96,7 +96,7 @@ export default function StudentsPage() {
       <div className="flex flex-col min-h-screen bg-background text-on-surface">
       <TopAppBar />
       
-      <main className="pt-20 px-6 max-w-[1440px] mx-auto w-full space-y-6 pb-24 md:pb-8">
+      <main className="pt-20 px-4 md:px-6 max-w-[1440px] mx-auto w-full space-y-6 pb-24 md:pb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="animate-in fade-in slide-in-from-left-4 duration-500">
             <h1 className="text-4xl font-black text-on-surface tracking-tighter uppercase italic">Estudiantes</h1>
@@ -105,24 +105,24 @@ export default function StudentsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Link 
               href="/reportes/asistencia"
-              className="flex items-center gap-2 px-6 py-3 bg-on-surface text-white rounded-2xl text-[10px] font-black hover:opacity-90 transition-all shadow-xl active:scale-95 uppercase tracking-widest"
+              className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-6 md:py-3 bg-on-surface text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black hover:opacity-90 transition-all shadow-xl active:scale-95 uppercase tracking-widest min-w-[140px]"
             >
-              <FileText size={18} className="text-primary-container" /> Asistencia Oficial
+              <FileText size={16} className="text-primary-container" /> Asistencia Oficial
             </Link>
             <button 
               onClick={() => printInstitutionalStudentReport(filteredReportStudents, profile.name)}
-              className="flex items-center gap-2 px-5 py-3 bg-white border-2 border-outline-variant rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all"
+              className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-5 md:py-3 bg-white border md:border-2 border-outline-variant rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all min-w-[140px]"
             >
-              <FileText size={18} className="text-error" /> Exportar PDF Professional
+              <FileText size={16} className="text-error" /> PDF
             </button>
             <button 
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-6 md:py-3 bg-primary text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95 min-w-[140px]"
             >
-              <UserPlus size={18} /> Nueva Matrícula
+              <UserPlus size={16} /> Nueva Matrícula
             </button>
-            <label className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all cursor-pointer shadow-lg active:scale-95">
-              <FileDown size={18} /> Carga Masiva (CSV)
+            <label className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-6 md:py-3 bg-indigo-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all cursor-pointer shadow-lg active:scale-95 min-w-[140px]">
+              <FileDown size={16} /> Carga Masiva
               <input 
                 type="file" 
                 accept=".csv" 

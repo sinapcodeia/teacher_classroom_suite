@@ -189,8 +189,7 @@ export default function GradesReportPage() {
   return (
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
       <div className="min-h-screen bg-surface-container-lowest p-0 md:p-8 font-inter antialiased">
-      {/* Controls - Hidden on Print */}
-      <div className="max-w-[1200px] mx-auto mb-8 flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden gap-6">
+      <div className="max-w-[1200px] mx-auto mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-stretch md:items-center bg-white p-4 md:p-6 rounded-3xl md:rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden gap-4 md:gap-6">
         <div className="flex items-center gap-4">
           <Link href="/estudiantes" className="p-3 hover:bg-surface-container-low rounded-2xl transition-all">
             <ArrowLeft size={24} className="text-primary" />
@@ -205,8 +204,8 @@ export default function GradesReportPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 items-center justify-center">
-           <div className="flex flex-col md:flex-row gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+        <div className="flex flex-col md:flex-row flex-wrap gap-3 md:gap-4 items-stretch md:items-center justify-center">
+           <div className="w-full md:w-auto flex flex-col md:flex-row gap-2 md:gap-3 bg-slate-50 p-2 md:p-3 rounded-xl md:rounded-2xl border border-slate-200">
               <select 
                 value={selectedGrade} 
                 onChange={(e) => setSelectedGrade(e.target.value)}
@@ -253,11 +252,11 @@ export default function GradesReportPage() {
                  subject: selectedSubject,
                  period: selectedPeriod.toUpperCase() 
                })} 
-               className="px-6 py-4 bg-secondary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-3"
+               className="flex-1 md:flex-none justify-center px-4 py-3 md:px-6 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-2 md:gap-3"
              >
-               <Download size={18} /> PDF
+               <Download size={16} /> PDF
              </button>
-             <button onClick={handleDownloadCSV} className="p-4 bg-green-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-105 transition-all flex items-center gap-2">
+             <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-105 transition-all flex items-center gap-2">
                <FileSpreadsheet size={16} /> Excel
              </button>
            </div>

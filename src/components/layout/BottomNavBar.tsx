@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutDashboard, Users, Radio, Settings, ShieldCheck, Calendar, BookOpen, FileText } from "lucide-react";
+import { LayoutDashboard, Users, Radio, Settings, ShieldCheck, Calendar, BookOpen, FileText, BarChart3 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 
@@ -17,10 +17,11 @@ export default function BottomNavBar() {
     { label: "Agenda", icon: FileText, path: "/agenda", hideForSuper: true },
     { label: "Horario", icon: Calendar, path: "/horario", hideForSuper: true },
     { label: "Currículo", icon: BookOpen, path: "/curriculo", hideForSuper: true },
+    { label: "Reportes", icon: BarChart3, path: "/reportes" },
   ].filter(item => !(profile.isSuperAdmin && item.hideForSuper));
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-outline-variant flex justify-around items-center h-20 px-4 z-50">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-outline-variant flex justify-around items-center h-16 px-2 pb-1 z-50">
       {navItems.map((item) => {
         const isActive = pathname === item.path;
         return (
@@ -31,8 +32,8 @@ export default function BottomNavBar() {
               isActive ? "text-primary scale-110" : "text-on-surface-variant"
             }`}
           >
-            <item.icon size={22} strokeWidth={isActive ? 3 : 2} />
-            <span className={`text-[10px] font-black uppercase tracking-tighter ${isActive ? "opacity-100" : "opacity-60"}`}>
+            <item.icon size={18} strokeWidth={isActive ? 3 : 2} />
+            <span className={`text-[8px] font-black uppercase tracking-tighter ${isActive ? "opacity-100" : "opacity-60"}`}>
               {item.label}
             </span>
           </Link>

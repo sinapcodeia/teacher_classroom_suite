@@ -4,13 +4,15 @@ export const dynamic = 'force-dynamic';
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
-import AttendanceList from "@/components/live-class/AttendanceList";
-import TopicSelector from "@/components/live-class/TopicSelector";
-import SessionNotes from "@/components/live-class/SessionNotes";
-import ActivityGrader from "@/components/live-class/ActivityGrader";
-import ClassInsights from "@/components/live-class/ClassInsights";
-import GradebookManager from "@/components/live-class/GradebookManager";
-import SessionReminders from "@/components/live-class/SessionReminders";
+import nextDynamic from "next/dynamic";
+
+const AttendanceList = nextDynamic(() => import("@/components/live-class/AttendanceList"), { ssr: false });
+const TopicSelector = nextDynamic(() => import("@/components/live-class/TopicSelector"), { ssr: false });
+const SessionNotes = nextDynamic(() => import("@/components/live-class/SessionNotes"), { ssr: false });
+const ActivityGrader = nextDynamic(() => import("@/components/live-class/ActivityGrader"), { ssr: false });
+const ClassInsights = nextDynamic(() => import("@/components/live-class/ClassInsights"), { ssr: false });
+const GradebookManager = nextDynamic(() => import("@/components/live-class/GradebookManager"), { ssr: false });
+const SessionReminders = nextDynamic(() => import("@/components/live-class/SessionReminders"), { ssr: false });
 import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useApp, normalizeGrade } from "@/context/AppContext";
@@ -81,45 +83,45 @@ export default function LiveClassPage() {
         
         {/* Filtros Globales de Aula */}
         <div className="lg:col-span-12 mb-2 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-8 rounded-[3rem] border border-outline-variant shadow-2xl relative overflow-hidden mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 bg-white p-6 md:p-8 rounded-3xl md:rounded-[3rem] border border-outline-variant shadow-2xl relative overflow-hidden mb-6 md:mb-8">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
             
             <div className="space-y-2 relative z-10">
-              <label className="text-[10px] font-black text-primary uppercase tracking-widest ml-2 flex items-center gap-2"><LayoutGrid size={14} /> Docente / Materia</label>
-              <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className="w-full h-14 bg-surface-container-low px-6 rounded-2xl border-2 border-outline-variant text-[11px] font-black uppercase outline-none focus:border-primary transition-all appearance-none cursor-pointer">
+              <label className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><LayoutGrid size={14} /> Docente / Materia</label>
+              <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-primary transition-all appearance-none cursor-pointer">
                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
 
             <div className="space-y-2 relative z-10">
-              <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-2 flex items-center gap-2"><GraduationCap size={14} /> Grado</label>
-              <select value={selectedGrado} onChange={(e) => { setSelectedGrado(e.target.value); setSelectedCurso("TODOS"); }} className="w-full h-14 bg-surface-container-low px-6 rounded-2xl border-2 border-outline-variant text-[11px] font-black uppercase outline-none focus:border-secondary transition-all appearance-none cursor-pointer">
+              <label className="text-[9px] md:text-[10px] font-black text-secondary uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><GraduationCap size={14} /> Grado</label>
+              <select value={selectedGrado} onChange={(e) => { setSelectedGrado(e.target.value); setSelectedCurso("TODOS"); }} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-secondary transition-all appearance-none cursor-pointer">
                 <option value="TODOS">TODOS LOS GRADOS</option>
                 {gradeOptions.map(g => <option key={g} value={g}>GRADO {g}</option>)}
               </select>
             </div>
 
             <div className="space-y-2 relative z-10">
-              <label className="text-[10px] font-black text-orange-500 uppercase tracking-widest ml-2 flex items-center gap-2"><Layers size={14} /> Curso</label>
-              <select value={selectedCurso} onChange={(e) => setSelectedCurso(e.target.value)} className="w-full h-14 bg-surface-container-low px-6 rounded-2xl border-2 border-outline-variant text-[11px] font-black uppercase outline-none focus:border-orange-500 transition-all appearance-none cursor-pointer">
+              <label className="text-[9px] md:text-[10px] font-black text-orange-500 uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><Layers size={14} /> Curso</label>
+              <select value={selectedCurso} onChange={(e) => setSelectedCurso(e.target.value)} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-orange-500 transition-all appearance-none cursor-pointer">
                 <option value="TODOS">TODOS LOS CURSOS</option>
                 {cursoOptions.map(c => <option key={c} value={c}>CURSO {c}</option>)}
               </select>
             </div>
           </div>
 
-          <div className="flex justify-between items-center mb-6">
-            <Link href="/horario" className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-all group px-5 py-3 bg-white rounded-2xl border border-outline-variant/30 shadow-lg">
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 gap-3">
+            <Link href="/horario" className="flex items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all group px-4 py-3 md:px-5 bg-white rounded-xl md:rounded-2xl border border-outline-variant/30 shadow-sm md:shadow-lg">
               <LayoutDashboard size={18} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Panel de Horario</span>
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Panel de Horario</span>
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-stretch md:items-center gap-3">
               <button 
                 onClick={() => setViewMode(v => v === "live" ? "gradebook" : "live")}
-                className={`flex items-center gap-3 px-8 py-3 rounded-2xl font-black text-[10px] tracking-widest transition-all shadow-xl ${viewMode === "gradebook" ? "bg-primary text-white" : "bg-white text-on-surface-variant border border-outline-variant hover:bg-slate-50"}`}
+                className={`flex-1 flex items-center justify-center gap-2 md:gap-3 px-4 py-3 md:px-8 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] tracking-widest transition-all shadow-sm md:shadow-xl ${viewMode === "gradebook" ? "bg-primary text-white" : "bg-white text-on-surface-variant border border-outline-variant hover:bg-slate-50"}`}
               >
                 <FileSpreadsheet size={18} />
-                {viewMode === "live" ? "VER PLANILLA COMPLETA" : "VOLVER A CLASE EN VIVO"}
+                {viewMode === "live" ? "PLANILLA" : "EN VIVO"}
               </button>
             </div>
           </div>
