@@ -75,62 +75,64 @@ export default function AttendanceReportPage() {
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
       <div className="min-h-screen bg-surface-container-lowest p-0 md:p-8 font-inter antialiased">
       {/* Controls - Hidden on Print */}
-      <div className="max-w-[1200px] mx-auto mb-8 flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden">
-        <div className="flex items-center gap-4">
-          <Link href="/estudiantes" className="p-3 hover:bg-surface-container-low rounded-2xl transition-all">
+      <div className="max-w-[1200px] mx-auto mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-4 md:p-6 rounded-3xl md:rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden">
+        <div className="flex items-start md:items-center gap-4 w-full md:w-auto">
+          <Link href="/estudiantes" className="p-3 hover:bg-surface-container-low rounded-2xl transition-all shrink-0">
             <ArrowLeft size={24} className="text-primary" />
           </Link>
-          <div>
-            <h1 className="text-2xl font-black tracking-tighter uppercase italic text-primary">Generador de Reportes</h1>
-            <div className="flex gap-4 items-center mt-2">
-              <Link href="/reportes/asistencia" className="text-[10px] font-black bg-primary text-white px-3 py-1 rounded-full uppercase tracking-widest pointer-events-none">Lista de Asistencia</Link>
-              <Link href="/reportes/calificaciones" className="text-[10px] font-black text-on-surface-variant hover:text-primary transition-all uppercase tracking-widest">Sábana de Notas</Link>
+          <div className="flex-1">
+            <h1 className="text-xl md:text-2xl font-black tracking-tighter uppercase italic text-primary leading-tight">Generador de Reportes</h1>
+            <div className="flex flex-wrap gap-2 md:gap-4 items-center mt-2">
+              <Link href="/reportes/asistencia" className="text-[9px] md:text-[10px] font-black bg-primary text-white px-3 py-1.5 rounded-full uppercase tracking-widest pointer-events-none">Lista de Asistencia</Link>
+              <Link href="/reportes/calificaciones" className="text-[9px] md:text-[10px] font-black text-on-surface-variant hover:text-primary transition-all uppercase tracking-widest">Sábana de Notas</Link>
             </div>
           </div>
         </div>
-        <div className="flex gap-4 items-center">
+        <div className="flex flex-col xl:flex-row gap-4 items-center w-full md:w-auto">
            {/* Filtros Dinámicos */}
-           <div className="flex gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+           <div className="flex flex-wrap items-center justify-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full xl:w-auto">
               <select 
                 value={selectedMonth} 
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+                className="bg-transparent border-none font-black text-[9px] md:text-[10px] uppercase tracking-wider focus:ring-0 max-w-[100px]"
               >
                 {months.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <select 
                 value={selectedYear} 
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+                className="bg-transparent border-none font-black text-[9px] md:text-[10px] uppercase tracking-wider focus:ring-0"
               >
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
-              <div className="w-px h-6 bg-slate-200" />
+              <div className="hidden md:block w-px h-6 bg-slate-200" />
               <select 
                 value={selectedGrade} 
                 onChange={(e) => { setSelectedGrade(e.target.value); setSelectedCurso("TODOS"); }}
-                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+                className="bg-transparent border-none font-black text-[9px] md:text-[10px] uppercase tracking-wider focus:ring-0 max-w-[120px] md:max-w-none"
               >
                 <option value="TODOS">TODOS LOS GRADOS</option>
                 {availableGrades.map(g => <option key={g} value={g}>GRADO {g}</option>)}
               </select>
-              <div className="w-px h-6 bg-slate-200" />
+              <div className="hidden md:block w-px h-6 bg-slate-200" />
               <select 
                 value={selectedCurso} 
                 onChange={(e) => setSelectedCurso(e.target.value)}
-                className="bg-transparent border-none font-black text-[10px] uppercase tracking-wider focus:ring-0"
+                className="bg-transparent border-none font-black text-[9px] md:text-[10px] uppercase tracking-wider focus:ring-0 max-w-[120px] md:max-w-none"
               >
                 <option value="TODOS">TODOS LOS CURSOS</option>
                 {availableCourses.map(c => <option key={c} value={c}>CURSO {c}</option>)}
               </select>
            </div>
 
-           <button onClick={handlePrint} className="px-6 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all flex items-center gap-3">
-             <Printer size={18} /> Imprimir
-           </button>
-           <button onClick={handlePrint} className="px-6 py-4 bg-secondary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-3">
-             <Download size={18} /> PDF
-           </button>
+           <div className="flex gap-2 w-full xl:w-auto">
+             <button onClick={handlePrint} className="flex-1 xl:flex-none justify-center px-4 md:px-6 py-3 md:py-4 bg-primary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center gap-2 md:gap-3">
+               <Printer size={16} /> Imprimir
+             </button>
+             <button onClick={handlePrint} className="flex-1 xl:flex-none justify-center px-4 md:px-6 py-3 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2 md:gap-3">
+               <Download size={16} /> PDF
+             </button>
+           </div>
         </div>
       </div>
 

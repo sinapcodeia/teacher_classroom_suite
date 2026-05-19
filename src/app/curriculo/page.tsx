@@ -547,11 +547,11 @@ BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Casos)
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 w-full md:w-auto mt-4 md:mt-0">
             {!isLoading && <PDFCurriculumImporter grade={selectedGrade} subject={selectedSubject} />}
             <CSVImporter />
-            <button className="flex items-center gap-2 px-8 py-3 bg-on-surface text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all">
-              <Plus size={18} />
+            <button className="flex-1 md:flex-none justify-center items-center gap-2 px-4 md:px-8 py-3 md:py-4 bg-on-surface text-white rounded-xl md:rounded-2xl text-[9px] md:text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all flex">
+              <Plus size={16} />
               Nuevo Tema
             </button>
           </div>

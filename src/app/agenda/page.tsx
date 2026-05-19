@@ -105,12 +105,12 @@ export default function AgendaPage() {
                   className="w-full h-14 pl-12 pr-6 bg-surface-container-low rounded-2xl border-none text-xs font-bold focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
-              <div className="flex gap-2 w-full md:w-auto">
+              <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
                 {["ALL", "GENERAL", "NO_CLASS", "TASK"].map(type => (
                   <button 
                     key={type}
                     onClick={() => setFilterType(type)}
-                    className={`flex-1 md:flex-none px-5 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filterType === type ? 'bg-primary text-white shadow-lg' : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container'}`}
+                    className={`flex-1 min-w-[80px] md:flex-none px-3 md:px-5 py-3 rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${filterType === type ? 'bg-primary text-white shadow-lg' : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container'}`}
                   >
                     {type === 'ALL' ? 'Todos' : type === 'NO_CLASS' ? 'Excepciones' : type}
                   </button>

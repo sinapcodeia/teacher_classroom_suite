@@ -507,10 +507,10 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
       />
       <button 
         onClick={handleMainButtonClick}
-        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95"
+        className="flex-1 md:flex-none justify-center items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-primary text-white rounded-xl md:rounded-2xl text-[9px] md:text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 flex"
       >
-        <FileText size={18} />
-        Cargar Tejidos (PDF)
+        <FileText size={16} />
+        Cargar (PDF)
       </button>
     </>
   );

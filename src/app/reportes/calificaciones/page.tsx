@@ -204,8 +204,8 @@ export default function GradesReportPage() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row flex-wrap gap-3 md:gap-4 items-stretch md:items-center justify-center">
-           <div className="w-full md:w-auto flex flex-col md:flex-row gap-2 md:gap-3 bg-slate-50 p-2 md:p-3 rounded-xl md:rounded-2xl border border-slate-200">
+        <div className="flex flex-col md:flex-row flex-wrap gap-3 md:gap-4 items-stretch md:items-center justify-center w-full md:w-auto">
+           <div className="w-full xl:w-auto flex flex-wrap items-center justify-center gap-2 md:gap-3 bg-slate-50 p-2 md:p-3 rounded-xl md:rounded-2xl border border-slate-200">
               <select 
                 value={selectedGrade} 
                 onChange={(e) => setSelectedGrade(e.target.value)}
@@ -243,7 +243,7 @@ export default function GradesReportPage() {
               </select>
            </div>
 
-           <div className="flex gap-2">
+           <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
              <button 
                onClick={() => printGradesTable(filteredStudents, { 
                  grade: selectedGrade, 
@@ -252,11 +252,11 @@ export default function GradesReportPage() {
                  subject: selectedSubject,
                  period: selectedPeriod.toUpperCase() 
                })} 
-               className="flex-1 md:flex-none justify-center px-4 py-3 md:px-6 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-2 md:gap-3"
+               className="flex-1 md:flex-none justify-center px-4 py-3 md:px-6 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2 md:gap-3"
              >
                <Download size={16} /> PDF
              </button>
-             <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-105 transition-all flex items-center gap-2">
+             <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
                <FileSpreadsheet size={16} /> Excel
              </button>
            </div>

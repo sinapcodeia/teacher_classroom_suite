@@ -61,8 +61,8 @@ export default function HorarioPage() {
         </div>
 
         {/* Schedule Grid */}
-        <div className="bg-white border border-outline-variant rounded-[3rem] shadow-2xl overflow-hidden overflow-x-auto">
-          <table className="w-full border-collapse min-w-[700px] md:min-w-[1000px]">
+        <div className="bg-white border border-outline-variant rounded-2xl md:rounded-[3rem] shadow-2xl overflow-x-auto w-full max-w-full">
+          <table className="w-full border-collapse min-w-[600px] md:min-w-[1000px]">
             <thead>
               <tr className="bg-surface-container text-on-surface-variant text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em]">
                 <th className="px-4 md:px-8 py-4 md:py-6 border-r border-outline-variant/30 text-left w-32 md:w-48">HORA / DÍA</th>
@@ -96,7 +96,7 @@ export default function HorarioPage() {
                           {entry ? (
                             <Link 
                               href={`/clase-en-vivo?subject=${encodeURIComponent(entry.subject)}&curso=${encodeURIComponent(entry.group)}`}
-                              className={`h-full p-2 md:p-4 rounded-xl md:rounded-2xl border md:border-2 shadow-sm flex flex-col justify-between transition-all hover:shadow-lg hover:-translate-y-1 block cursor-pointer ${entry.color}`}
+                              className={`h-full p-2 md:p-4 rounded-xl border border-black/5 shadow-sm flex flex-col justify-between transition-all hover:shadow-lg block cursor-pointer ${entry.color}`}
                             >
                                <div className="space-y-1">
                                   <div className="flex items-center justify-between">

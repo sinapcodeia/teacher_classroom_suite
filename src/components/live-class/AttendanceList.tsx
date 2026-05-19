@@ -166,11 +166,11 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
   return (
     <div className="space-y-6">
       <div className="bg-white border border-outline-variant rounded-[3rem] overflow-hidden shadow-2xl no-print">
-        <div className="bg-surface-container-low px-8 py-5 border-b border-outline-variant flex items-center justify-between">
-           <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-on-surface-variant">Panel de Control de Aula</h3>
-           <div className="flex items-center gap-3">
-             <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); setHasUnsavedChanges(true); }} className="px-6 py-3 bg-secondary/10 text-secondary rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={16} /> Todos Presentes</button>
-             <button onClick={() => setShowEndClassModal(true)} className="px-8 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={16} /> {isAlreadySaved ? "Actualizar Clase" : "Finalizar Clase"}</button>
+        <div className="bg-surface-container-low px-4 md:px-8 py-4 md:py-5 border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-on-surface-variant text-center md:text-left">Panel de Control de Aula</h3>
+           <div className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-3">
+             <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); setHasUnsavedChanges(true); }} className="flex-1 md:flex-none justify-center px-3 md:px-6 py-3 bg-secondary/10 text-secondary rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={14} /> Todos Presentes</button>
+             <button onClick={() => setShowEndClassModal(true)} className="flex-1 md:flex-none justify-center px-3 md:px-8 py-3 bg-primary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={14} /> {isAlreadySaved ? "Actualizar" : "Finalizar"}</button>
            </div>
         </div>
 

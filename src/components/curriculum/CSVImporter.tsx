@@ -105,9 +105,9 @@ export default function CSVImporter() {
   if (!show) return (
     <button 
       onClick={() => setShow(true)}
-      className="flex items-center gap-2 px-4 py-2 border border-outline rounded-xl text-sm font-bold text-primary hover:bg-surface-container transition-colors"
+      className="flex-1 md:flex-none justify-center items-center gap-2 px-4 md:px-6 py-3 md:py-4 border-2 border-outline-variant rounded-xl md:rounded-2xl text-[9px] md:text-xs font-black text-primary uppercase tracking-widest hover:bg-primary/5 transition-all flex"
     >
-      <Upload size={18} />
+      <Upload size={16} />
       Importar CSV
     </button>
   );
