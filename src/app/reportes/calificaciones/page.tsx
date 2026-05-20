@@ -264,8 +264,8 @@ export default function GradesReportPage() {
       </div>
 
       {/* Formato Oficial Planilla Excel */}
-      <div className="bg-white mx-auto w-full max-w-[1400px] p-6 shadow-2xl print:shadow-none print:p-0 overflow-x-auto text-[8px] md:text-[9px] font-sans">
-        <table className="w-full border-collapse border border-black table-fixed">
+      <div className="bg-white mx-auto w-full max-w-[1400px] p-4 md:p-6 shadow-2xl print:shadow-none print:p-0 overflow-x-auto text-[8px] md:text-[9px] font-sans">
+        <table className="w-full border-collapse border border-black table-fixed min-w-[800px] md:min-w-0">
           <tbody>
             {/* Header Rows */}
             <tr>

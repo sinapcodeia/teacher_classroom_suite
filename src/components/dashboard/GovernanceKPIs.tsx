@@ -2,7 +2,6 @@
 
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import { Cake, Users, TrendingUp, AlertTriangle, ChevronRight, UserCheck, Heart } from "lucide-react";
-import { motion } from "framer-motion";
 import { useMemo } from "react";
 
 interface GovernanceKPIsProps {
@@ -26,19 +25,22 @@ export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
     }
 
     const today = new Date();
-    const todayStr = today.toISOString().slice(5, 10);
-    const monthStr = today.toISOString().slice(5, 7);
+    const padZ = (n: number) => String(n).padStart(2, '0');
+    const todayMD = `${padZ(today.getMonth() + 1)}-${padZ(today.getDate())}`;
+    const monthM  = padZ(today.getMonth() + 1);
 
     const birthdaysToday = active.filter(s => {
       if (!s.fechaNacimiento) return false;
-      const bDate = new Date(s.fechaNacimiento);
-      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 10) === todayStr;
+      const bDate = new Date(String(s.fechaNacimiento).slice(0, 10) + "T12:00:00");
+      if (isNaN(bDate.getTime())) return false;
+      return `${padZ(bDate.getMonth() + 1)}-${padZ(bDate.getDate())}` === todayMD;
     });
 
     const birthdaysMonth = active.filter(s => {
       if (!s.fechaNacimiento) return false;
-      const bDate = new Date(s.fechaNacimiento);
-      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 7) === monthStr;
+      const bDate = new Date(String(s.fechaNacimiento).slice(0, 10) + "T12:00:00");
+      if (isNaN(bDate.getTime())) return false;
+      return padZ(bDate.getMonth() + 1) === monthM;
     });
 
     const gender = {
@@ -64,11 +66,7 @@ export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {/* CARD: CUMPLEAÑOS (Engagement) */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden"
-      >
+      <div className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden animate-fade-in-up">
         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
           <Cake size={80} />
         </div>
@@ -78,30 +76,36 @@ export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Pedagogía del Afecto</span>
         </div>
-        <div className="space-y-1">
-          <h3 className="text-2xl font-black tracking-tighter text-on-surface">
-            {birthdaysToday.length} <span className="text-xs font-bold text-on-surface-variant/40">HOY</span>
-          </h3>
-          <p className="text-[11px] font-bold text-on-surface-variant">
+        <div className="space-y-1 relative z-10">
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-black tracking-tight text-on-surface">
+              {birthdaysToday.length}
+            </h3>
+            <span className="text-xs font-bold text-on-surface-variant/40">HOY</span>
+          </div>
+          <p className="text-[11px] font-bold text-on-surface-variant leading-snug">
             {birthdaysMonth.length} cumpleañeros este mes
           </p>
         </div>
         {birthdaysToday.length > 0 && (
-          <div className="mt-4 p-3 bg-rose-50 rounded-2xl border border-rose-100 animate-pulse">
-            <p className="text-[10px] font-black text-rose-700 uppercase leading-tight">
-              🎉 {birthdaysToday.map(s => s.primerNombre).join(", ")}
-            </p>
+          <div className="mt-4 space-y-2 relative z-10">
+            {birthdaysToday.map(s => (
+              <div key={s.id} className="p-2.5 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-between">
+                <p className="text-[10px] font-black text-rose-700 uppercase leading-tight truncate pr-2 flex-1">
+                  🎉 {s.primerNombre} {s.primerApellido}
+                </p>
+                <div className="flex gap-1 shrink-0">
+                   <span className="text-[8px] font-black bg-rose-200/50 text-rose-800 px-1.5 py-0.5 rounded-md uppercase">G: {normalizeGrade(s.grado)}</span>
+                   <span className="text-[8px] font-black bg-rose-200/50 text-rose-800 px-1.5 py-0.5 rounded-md uppercase">C: {s.curso}</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* CARD: GÉNERO (Población) */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden"
-      >
+      <div className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden animate-fade-in-up" style={{ animationDelay: '100ms' }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
             <Users size={20} />
@@ -125,15 +129,10 @@ export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
           <div style={{ width: `${(gender.m / totalActive) * 100}%` }} className="bg-blue-500 h-full" />
           <div style={{ width: `${(gender.f / totalActive) * 100}%` }} className="bg-rose-500 h-full" />
         </div>
-      </motion.div>
+      </div>
 
       {/* CARD: EXTRAEDAD (Riesgo) */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden"
-      >
+      <div className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden animate-fade-in-up" style={{ animationDelay: '200ms' }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
             <TrendingUp size={20} />
@@ -152,15 +151,10 @@ export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
             <span className="text-[10px] font-black uppercase">Intervención Recomendada</span>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* CARD: TOTAL (Gobernanza) */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-on-surface p-6 rounded-[2.5rem] shadow-2xl group relative overflow-hidden"
-      >
+      <div className="bg-on-surface p-6 rounded-[2.5rem] shadow-2xl group relative overflow-hidden animate-fade-in-up" style={{ animationDelay: '300ms' }}>
         <div className="absolute -right-4 -bottom-4 p-4 opacity-10 scale-150 rotate-12">
           <UserCheck size={80} className="text-white" />
         </div>
@@ -178,7 +172,7 @@ export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
           <Heart size={14} fill="currentColor" />
           <span className="text-[10px] font-black uppercase">Datos Protegidos 100%</span>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

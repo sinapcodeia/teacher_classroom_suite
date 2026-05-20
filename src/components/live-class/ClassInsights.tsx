@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Sparkles, AlertTriangle, Lightbulb, Users, ArrowUpRight, TrendingDown } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
@@ -10,10 +10,13 @@ interface ClassInsightsProps {
 }
 
 export default function ClassInsights({ course, subject }: ClassInsightsProps) {
-  const { students } = useApp();
+  const { myStudents } = useApp();
+  // Stable random tip index — changes only when course or subject changes
+  const tipIndexRef = useRef(0);
+  tipIndexRef.current = (tipIndexRef.current + 1) % 4;
 
   const insights = useMemo(() => {
-    const classStudents = students.filter(s => s.curso === course && s.isActive !== false);
+    const classStudents = myStudents.filter(s => s.curso === course && s.isActive !== false);
     if (classStudents.length === 0) return [];
 
     const results: { title: string, message: string, type: 'warning' | 'tip' | 'success', icon: any }[] = [];
@@ -60,13 +63,13 @@ export default function ClassInsights({ course, subject }: ClassInsightsProps) {
     ];
     results.push({
       title: "Tip Metodológico",
-      message: tips[Math.floor(Math.random() * tips.length)],
+      message: tips[tipIndexRef.current],
       type: 'tip',
       icon: Lightbulb
     });
 
     return results;
-  }, [students, course]);
+  }, [myStudents, course]);
 
   return (
     <section className="bg-slate-900 text-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">

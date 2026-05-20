@@ -62,7 +62,11 @@ export default function StudentList({
   }, [myStudents, gradoFilter]);
 
   // ── Filtrado + ordenamiento ──────────────────────────────────────────────────
+  const requiresFilter = gradoFilter === "TODOS" && cursoFilter === "TODOS" && searchTerm.trim() === "";
+
   const filteredStudents = useMemo(() => {
+    if (requiresFilter) return [];
+
     const list = myStudents.filter(s => {
       if (s.isActive === false) return false;
       const fullName = `${s.primerApellido} ${s.segundoApellido} ${s.primerNombre} ${s.segundoNombre}`.toLowerCase();
@@ -117,14 +121,22 @@ export default function StudentList({
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="flex-1 min-w-[180px] relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" size={16} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={16} />
             <input
-              className="w-full h-11 pl-10 pr-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-xs font-bold outline-none uppercase placeholder:normal-case placeholder:font-normal"
-              placeholder="Buscar por apellido o documento…"
+              className="w-full h-11 pl-10 pr-10 bg-white border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-xs font-bold outline-none uppercase placeholder:normal-case placeholder:font-normal placeholder:text-on-surface-variant transition-all shadow-sm hover:border-primary/40"
+              placeholder="Buscar estudiante (nombre, apellido, ID)..."
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center bg-surface-container text-on-surface-variant rounded-full hover:bg-rose-100 hover:text-rose-600 transition-colors"
+              >
+                <span className="text-[10px] font-black leading-none">✕</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -187,7 +199,17 @@ export default function StudentList({
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20">
-              {filteredStudents.length === 0 ? (
+              {requiresFilter ? (
+                <tr>
+                  <td colSpan={4} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-on-surface-variant opacity-40">
+                      <Filter size={40} />
+                      <p className="text-xs font-black uppercase tracking-widest">Selecciona un filtro</p>
+                      <p className="text-[10px] font-bold">Por favor, selecciona un grado, curso o ingresa un nombre para buscar.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-on-surface-variant opacity-40">

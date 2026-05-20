@@ -165,7 +165,19 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-outline-variant rounded-[3rem] overflow-hidden shadow-2xl no-print">
+      {grade === "TODOS" || course === "TODOS" ? (
+        <div className="bg-white border border-outline-variant rounded-[3rem] p-16 flex flex-col items-center justify-center text-center shadow-2xl">
+           <div className="w-24 h-24 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center mb-6">
+             <Filter size={48} />
+           </div>
+           <h3 className="text-xl font-black uppercase tracking-tighter italic text-on-surface mb-2">Selecciona un Curso</h3>
+           <p className="text-[11px] font-bold text-on-surface-variant max-w-md mx-auto uppercase tracking-widest leading-relaxed">
+             Para tomar asistencia y registrar notas de clase, debes seleccionar un grado y un curso específico en los filtros superiores.
+           </p>
+        </div>
+      ) : (
+      <>
+        <div className="bg-white border border-outline-variant rounded-[3rem] overflow-hidden shadow-2xl no-print">
         <div className="bg-surface-container-low px-4 md:px-8 py-4 md:py-5 border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-4">
            <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-on-surface-variant text-center md:text-left">Panel de Control de Aula</h3>
            <div className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-3">
@@ -352,7 +364,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
 
              <div className="flex w-full gap-3">
                <button onClick={() => setShowEndClassModal(false)} className="flex-1 py-4 rounded-2xl bg-slate-100 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 transition-all">Volver</button>
-               <button onClick={async () => {
+             <button onClick={async () => {
                  setIsSaving(true);
                  try {
                    const todayStr = new Date().toISOString().slice(0, 10);
@@ -361,6 +373,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
                    const noteData = {
                      date: todayStr,
                      course: course,
+                     grade: grade,
                      subject: subjects.find(s => s.id === subjectId)?.name || "Clase",
                      type: endClassType,
                      content: endClassNote || (endClassType === 'NO_CLASS' ? 'Clase cancelada/no dictada' : 'Gestión de clase completada'),
@@ -457,7 +470,10 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
         </div>
       )}
 
-      <style jsx global>{` @media print { .no-print { display: none !important; } } `}</style>
+      {/* Cierre del condicional de Grade===TODOS */}
+      </>
+      )}
+
     </div>
   );
 }

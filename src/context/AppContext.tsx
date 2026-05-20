@@ -74,6 +74,7 @@ export interface AgendaNote {
   date: string;
   course: string;
   subject: string;
+  grade?: string;
   type: "TASK" | "NO_CLASS" | "GENERAL";
   content: string;
   isCompleted?: boolean;
@@ -360,7 +361,6 @@ function blocksToEntries(blocks: ScheduleBlock[]): ScheduleEntry[] {
   }));
 }
 
-// ── DEFAULT SCHEDULE (sinapcodeia's real schedule as reference) ──────────────
 // ── DEFAULT SCHEDULE (Official IETABA - Jesus Antonio Rodriguez) ──────────────
 const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
   { id:"s1",  day:"LUNES",     startTime:"07:30", endTime:"08:30", subject:"TECNOLOGÍA",  grade:"8°", course:"3", color:"bg-blue-100 text-blue-900 border-blue-200" },
@@ -615,11 +615,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           unsubs.push(unsubscribeStudents);
 
           // ── REAL-TIME AGENDA SYNC (Recent Only) ────────────────────────────
+          // Use YYYY-MM-DD string comparison since dates are stored as strings
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10); // "YYYY-MM-DD"
           const agendaQuery = query(
-            collection(db, "agendaNotes"), 
-            where("date", ">=", thirtyDaysAgo.toISOString())
+            collection(db, "agendaNotes"),
+            where("date", ">=", thirtyDaysAgoStr)
           );
 
           const unsubscribeAgenda = onSnapshot(agendaQuery, (snap) => {
@@ -848,6 +850,100 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return prev;
     });
   }, [students]);
+
+  // ── AUTOREPARADOR PROACTIVO CURRÍCULO GRADO 6° Y TECNOLOGÍA ─────────────────
+  useEffect(() => {
+    if (!curriculum.length || !user) return;
+
+    const corrupto = curriculum.find(c => {
+      const gNorm = normalizeGrade(c.grade);
+      const sNorm = c.subjectId?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+      if (gNorm === "6°" && (sNorm.includes("tecnologia") || sNorm.includes("informatica"))) {
+        // Verificar si tiene temas de matemáticas
+        const hasMath = c.units?.some(u => 
+          u.topics?.some(t => 
+            t.title?.toLowerCase().includes("números") || 
+            t.title?.toLowerCase().includes("numeros") || 
+            t.title?.toLowerCase().includes("racionales") ||
+            t.title?.toLowerCase().includes("enteros")
+          )
+        );
+        return hasMath;
+      }
+      return false;
+    });
+
+    if (corrupto) {
+      console.warn("¡Detectado currículo corrupto de Tecnología Grado 6° con temas de Matemáticas! Reparando en Firestore...");
+      
+      const correctedUnits = [
+        {
+          id: "unit-periodo-1",
+          title: "MAZA T+T – PRIMER PERIODO",
+          order: 1,
+          topics: [
+            {
+              id: "P1-T1",
+              status: "active",
+              tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Artefactos y procesos tecnológicos ancestrales y modernos en el territorio.",
+              title: "Identificar y clasificar herramientas tradicionales de uso comunitario frente a tecnologías mecánicas y digitales.",
+              hijosSaber: "1. Evolución de la herramienta. 2. Técnica vs Tecnología. 3. Artefactos del territorio.",
+              panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
+              nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
+              satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores."
+            }
+          ]
+        },
+        {
+          id: "unit-periodo-2",
+          title: "PAS T+T – SEGUNDO PERIODO",
+          order: 2,
+          topics: [
+            {
+              id: "P2-T1",
+              status: "not_started",
+              tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo responsable de la información, redes y medios de comunicación de Microsoft Excel.",
+              title: "Manejo de herramientas ofimáticas e Introducción a Excel.",
+              hijosSaber: "1. Celdas, filas y columnas. 2. Fórmulas básicas (SUMA, PROMEDIO). 3. Funciones lógicas simples.",
+              panapain: "Aprovechar las hojas de cálculo para organizar la producción de cultivos familiares.",
+              nanpaskas: "Uso ético y estructurado de los computadores en el ámbito escolar y profesional.",
+              satIshkit: "Talleres prácticos de Excel, diseño de tablas de producción local."
+            }
+          ]
+        },
+        {
+          id: "unit-periodo-3",
+          title: "KUTÑA T+T – TERCER PERIODO",
+          order: 3,
+          topics: [
+            {
+              id: "P3-T1",
+              status: "not_started",
+              tuhPutkamna: "Solución de Problemas con Tecnología: Diseño de sistemas sencillos para el cuidado ambiental y productivo.",
+              title: "Proponer soluciones técnicas elementales para las huertas escolares del resguardo.",
+              hijosSaber: "1. Diseño sustentable. 2. Materiales reciclados. 3. Prototipado para el agro.",
+              panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
+              nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental.",
+              satIshkit: "Proyectos de aula, maquetas sustentables."
+            }
+          ]
+        }
+      ];
+
+      const correctedCurriculum = {
+        ...corrupto,
+        units: correctedUnits
+      };
+
+      setDoc(doc(db, "curriculum", corrupto.id), correctedCurriculum)
+        .then(() => {
+          console.log("¡Currículo de Tecnología Grado 6° reparado con éxito en Firestore!");
+        })
+        .catch(err => {
+          console.error("Error al reparar currículo corrupto:", err);
+        });
+    }
+  }, [curriculum, user]);
 
   const updateStudent = async (id: string, updates: Partial<Student>) => {
     try {
@@ -1180,40 +1276,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveDailyAttendance = async (dateStr: string, records: Record<string, string>) => {
     try {
       const LIMITE_LOTE = 500;
-      const updates: { id: string, record: any, student: Student }[] = [];
+      // Build a Map<id, updatedRecord> to avoid O(n²) lookup later
+      const updatesMap = new Map<string, Record<string, string>>();
 
       // 1. Preparar las actualizaciones
       students.forEach(s => {
         const status = records[s.id];
         if (!status) return;
-        
         const updatedRecord = { ...(s.attendanceRecord || {}), [dateStr]: status };
-        updates.push({ 
-          id: s.id, 
-          record: updatedRecord, 
-          student: { ...s, attendanceRecord: updatedRecord } 
-        });
+        updatesMap.set(s.id, updatedRecord);
       });
 
+      if (updatesMap.size === 0) return;
+
       // 2. Ejecutar en lotes de Firestore
-      for (let i = 0; i < updates.length; i += LIMITE_LOTE) {
+      const entries = Array.from(updatesMap.entries());
+      for (let i = 0; i < entries.length; i += LIMITE_LOTE) {
         const batch = writeBatch(db);
-        const chunk = updates.slice(i, i + LIMITE_LOTE);
-        
-        chunk.forEach(item => {
-          const docRef = doc(db, "students", item.id);
-          batch.update(docRef, { attendanceRecord: item.record });
+        entries.slice(i, i + LIMITE_LOTE).forEach(([id, record]) => {
+          batch.update(doc(db, "students", id), { attendanceRecord: record });
         });
-        
         await batch.commit();
       }
 
-      // 3. Actualizar estado local una sola vez
+      // 3. Actualizar estado local en O(n) usando el Map
       setStudents(prev => prev.map(s => {
-        const update = updates.find(u => u.id === s.id);
-        return update ? update.student : s;
+        const newRecord = updatesMap.get(s.id);
+        return newRecord ? { ...s, attendanceRecord: newRecord } : s;
       }));
-      
+
     } catch (err) {
       console.error("Error al guardar asistencia masiva:", err);
       throw err; // Propagar para que la UI pueda manejarlo
@@ -1281,19 +1372,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const active = targetStudents.filter(s => s.isActive !== false);
     
     const today = new Date();
-    const todayStr = today.toISOString().slice(5, 10); // MM-DD
-    const monthStr = today.toISOString().slice(5, 7); // MM
+    // Use local date parts to avoid UTC offset shifting the day in Colombia (UTC-5)
+    const padZ = (n: number) => String(n).padStart(2, '0');
+    const todayMD = `${padZ(today.getMonth() + 1)}-${padZ(today.getDate())}`; // MM-DD local
+    const todayM  = padZ(today.getMonth() + 1); // MM local
 
     const birthdaysToday = active.filter(s => {
       if (!s.fechaNacimiento) return false;
-      const bDate = new Date(s.fechaNacimiento);
-      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 10) === todayStr;
+      // Append T12:00:00 to force local noon, avoiding midnight UTC crossover
+      const bDate = new Date(String(s.fechaNacimiento).slice(0, 10) + "T12:00:00");
+      if (isNaN(bDate.getTime())) return false;
+      const bMD = `${padZ(bDate.getMonth() + 1)}-${padZ(bDate.getDate())}`;
+      return bMD === todayMD;
     });
 
     const birthdaysMonth = active.filter(s => {
       if (!s.fechaNacimiento) return false;
-      const bDate = new Date(s.fechaNacimiento);
-      return !isNaN(bDate.getTime()) && bDate.toISOString().slice(5, 7) === monthStr;
+      const bDate = new Date(String(s.fechaNacimiento).slice(0, 10) + "T12:00:00");
+      if (isNaN(bDate.getTime())) return false;
+      return padZ(bDate.getMonth() + 1) === todayM;
     });
 
     // Análisis de Población (Piramidal)

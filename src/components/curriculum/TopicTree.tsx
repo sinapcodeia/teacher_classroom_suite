@@ -23,14 +23,15 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
 
   const [loadingProgress, setLoadingProgress] = useState(0);
 
+  // Loading progress ticks up until activeCurriculum arrives or reaches 90
   useEffect(() => {
-    if (!activeCurriculum) {
-      setLoadingProgress(0);
-      const timer = setInterval(() => {
-        setLoadingProgress(prev => (prev >= 90 ? 90 : prev + 10));
-      }, 200);
-      return () => clearInterval(timer);
-    }
+    setLoadingProgress(0);
+    if (activeCurriculum) return; // Stop immediately if data is already available
+
+    const timer = setInterval(() => {
+      setLoadingProgress(prev => (prev >= 90 ? 90 : prev + 10));
+    }, 200);
+    return () => clearInterval(timer); // Always cleaned up
   }, [activeCurriculum]);
 
   if (!activeCurriculum) {
@@ -111,9 +112,9 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
                         topic.status === "covered" ? "bg-surface-container-low" : "bg-white"
                       }`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0 pr-2 md:pr-4">
                         <div 
-                          className="cursor-pointer hover:scale-110 transition-transform"
+                          className="cursor-pointer hover:scale-110 transition-transform shrink-0 mt-0.5 md:mt-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             const nextStatus = topic.status === "covered" ? "active" : topic.status === "active" ? "not_started" : "covered";
@@ -126,9 +127,9 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
                             <Circle size={24} className={topic.status === "active" ? "text-primary" : "text-outline"} />
                           )}
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-on-surface">{topic.id} {topic.title}</h4>
-                          <p className={`text-[10px] ${topic.status === "active" ? "text-primary font-bold" : "text-on-surface-variant"}`}>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[13px] md:text-sm font-bold text-on-surface leading-snug line-clamp-3 md:line-clamp-none">{topic.id} {topic.title}</h4>
+                          <p className={`text-[9px] md:text-[10px] mt-1 md:mt-0 ${topic.status === "active" ? "text-primary font-bold" : "text-on-surface-variant"}`}>
                             {topic.status === "covered" ? `Cubierto el ${topic.date || 'recientemente'}` : topic.date || 'Pendiente'}
                           </p>
                         </div>

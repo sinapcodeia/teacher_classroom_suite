@@ -232,3 +232,8 @@
   scrollbar-width: thin;
   scrollbar-color: var(--color-outline-variant) transparent;
 }
+
+/* ── Utilidades de Impresión ─────────────────────────────── */
+@media print {
+  .no-print { display: none !important; }
+}

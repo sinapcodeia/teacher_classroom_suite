@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import UnitProgress from "@/components/curriculum/UnitProgress";
@@ -9,11 +11,11 @@ import CSVImporter from "@/components/curriculum/CSVImporter";
 import PDFCurriculumImporter from "@/components/curriculum/PDFCurriculumImporter";
 import { Plus, Sparkles, FileText, Presentation, BookOpen, UploadCloud } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { Loader2, Download, CheckCircle2, ChevronDown, MessageSquare, Printer, RefreshCw, History, Calendar } from "lucide-react";
 import { printPedagogicalPlan } from "@/lib/printService";
-import { collection, addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function CurriculumPage() {
@@ -91,6 +93,7 @@ export default function CurriculumPage() {
     fetchHistory();
   }, [selectedGrade, selectedSubject]);
 
+  const [isResetting, setIsResetting] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -344,6 +347,177 @@ BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Casos)
     }, 3500);
   };
 
+  const handleResetCurriculum = async () => {
+    if (!selectedGrade || !selectedSubject) return;
+    const confirm = window.confirm(`¿Estás seguro de que deseas regenerar el tejido de aprendizaje para ${selectedSubject} (${selectedGrade})? Se sobreescribirá con la plantilla oficial Awá.`);
+    if (!confirm) return;
+
+    setIsResetting(true);
+    try {
+      const normGrade = normalizeGrade(selectedGrade);
+      const normSubject = selectedSubject.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+      const deterministicId = `cur-${normGrade}-${normSubject}`.replace(/\s+/g, '-').replace(/°/g, '').toLowerCase();
+
+      const subLower = normSubject.toLowerCase();
+      let units: any[] = [];
+
+      if (subLower.includes("tecnolog") || subLower.includes("informática") || subLower.includes("informatica") || subLower.includes("sistemas")) {
+        units = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "covered",
+                tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Artefactos y procesos tecnológicos ancestrales y modernos en el territorio.",
+                title: "Identificar y clasificar herramientas tradicionales de uso comunitario frente a tecnologías mecánicas y digitales.",
+                hijosSaber: "1. Evolución de la herramienta. 2. Técnica vs Tecnología. 3. Artefactos del territorio.",
+                panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
+                nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
+                satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores."
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-2",
+            title: "PAS T+T – SEGUNDO PERIODO",
+            order: 2,
+            topics: [
+              {
+                id: "P2-T1",
+                status: "active",
+                tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo responsable de la información, redes y medios de comunicación de Microsoft Excel.",
+                title: "Manejo de herramientas ofimáticas e Introducción a Excel.",
+                hijosSaber: "1. Celdas, filas y columnas. 2. Fórmulas básicas (SUMA, PROMEDIO). 3. Funciones lógicas simples.",
+                panapain: "Aprovechar las hojas de cálculo para organizar la producción de cultivos familiares.",
+                nanpaskas: "Uso ético y estructurado de los computadores en el ámbito escolar y profesional.",
+                satIshkit: "Talleres prácticos de Excel, diseño de tablas de producción local."
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-3",
+            title: "KUTÑA T+T – TERCER PERIODO",
+            order: 3,
+            topics: [
+              {
+                id: "P3-T1",
+                status: "not_started",
+                tuhPutkamna: "Solución de Problemas con Tecnología: Diseño de sistemas sencillos para el cuidado ambiental y productivo.",
+                title: "Proponer soluciones técnicas elementales para las huertas escolares del resguardo.",
+                hijosSaber: "1. Diseño sustentable. 2. Materiales reciclados. 3. Prototipado para el agro.",
+                panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
+                nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental.",
+                satIshkit: "Proyectos de aula, maquetas sustentables."
+              }
+            ]
+          }
+        ];
+      } else if (subLower.includes("matemáticas") || subLower.includes("matematicas")) {
+        units = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "active",
+                tuhPutkamna: "Numérico variacional: Operaciones con números naturales, fraccionarios, decimales. Situaciones problemas.",
+                title: "Conocer definiciones y propiedades de los conjuntos de números naturales y racionales.",
+                hijosSaber: "1. Operaciones aritméticas elementales. 2. Operaciones con fracciones. 3. Números decimales.",
+                panapain: "Los conjuntos de los números naturales se utilizan en la contabilidad familiar para poder manejar sus recursos económicos.",
+                nanpaskas: "En diferentes culturas, los conjuntos de números naturales reflejan las prácticas y tradiciones de trueque.",
+                satIshkit: "Trabajo individual y colaborativo, lluvia de ideas."
+              },
+              {
+                id: "P1-T2",
+                status: "not_started",
+                tuhPutkamna: "Numérico Variacional: Concepto de número entero. Representación en la recta numérica. Operaciones y problemas.",
+                title: "Identifica las principales propiedades de los números enteros y comprende el algoritmo de las operaciones básicas.",
+                hijosSaber: "1. Recta numérica y números negativos. 2. Suma y resta de enteros. 3. Multiplicación de enteros.",
+                panapain: "Proponer caminos de solución a un problema determinado en el contexto del comercio y trueque local.",
+                nanpaskas: "Identificar los números enteros y sus propiedades en un contexto social y económico amplio.",
+                satIshkit: "Mesa redonda, exposiciones temáticas."
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-2",
+            title: "PAS T+T – SEGUNDO PERIODO",
+            order: 2,
+            topics: [
+              {
+                id: "P2-T1",
+                status: "not_started",
+                tuhPutkamna: "Geométrico Métrico: Elementos de geometría, Definiciones, Segmentos, Ángulos y Polígonos en el diseño de artesanías.",
+                title: "Reconoce los principales elementos de la geometría y los identifica en construcciones y tejidos propios.",
+                hijosSaber: "1. Definición de punto, recta y plano. 2. Medición y dibujo de ángulos. 3. Clasificación de polígonos.",
+                panapain: "La geometría está viva en la arquitectura tradicional de las casas y en el trazado de las chagras comunitarias.",
+                nanpaskas: "Reconoce la universalidad de las formas geométricas combinadas con la particularidad artística local.",
+                satIshkit: "Talleres de tejido y geometría en espiral."
+              }
+            ]
+          },
+          {
+            id: "unit-periodo-3",
+            title: "KUTÑA T+T – TERCER PERIODO",
+            order: 3,
+            topics: [
+              {
+                id: "P3-T1",
+                status: "not_started",
+                tuhPutkamna: "Métrico y Aleatorio: Unidades de medida propias y convencionales. Recolección de datos y estadística descriptiva.",
+                title: "Aplica conversiones de unidades y organiza datos estadísticos de encuestas sobre producción agrícola local.",
+                hijosSaber: "1. Sistemas de medidas. 2. Tablas de frecuencias. 3. Diagramas de barras.",
+                panapain: "Las estadísticas propias ayudan a planificar la soberanía alimentaria familiar.",
+                nanpaskas: "Interpreta información estadística de medios de comunicación contrastándola con la realidad territorial.",
+                satIshkit: "Censos escolares, gráficos en papel milimetrado."
+              }
+            ]
+          }
+        ];
+      } else {
+        units = [
+          {
+            id: "unit-periodo-1",
+            title: "MAZA T+T – PRIMER PERIODO",
+            order: 1,
+            topics: [
+              {
+                id: "P1-T1",
+                status: "active",
+                tuhPutkamna: `Fundamentos y Contexto de ${selectedSubject}: Apropiación de conceptos clave orientados a la realidad del territorio.`,
+                title: `Identificar los principios teóricos y prácticos fundamentales de ${selectedSubject} en la vida diaria.`,
+                hijosSaber: "Conceptos clave del primer periodo Awá.",
+                panapain: "Articular los contenidos con las vivencias cotidianas de las familias Awá.",
+                nanpaskas: "Contrastar enfoques globales con la visión armónica del territorio.",
+                satIshkit: "Trabajo colaborativo, mesas de diálogo."
+              }
+            ]
+          }
+        ];
+      }
+
+      const curriculumData = {
+        id: deterministicId,
+        grade: selectedGrade,
+        subjectId: selectedSubject,
+        units
+      };
+
+      await setDoc(doc(db, "curriculum", deterministicId), curriculumData);
+      alert("¡Tejido de aprendizaje regenerado con éxito con la plantilla oficial!");
+    } catch (err) {
+      console.error("Error al resetear currículo:", err);
+      alert("Ocurrió un error al intentar resetear el currículo.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const handlePrintModule = (plan: any, type: 'full' | 'lesson' | 'workshop' | 'activity' | 'exam') => {
     printPedagogicalPlan({
       ...plan,
@@ -549,7 +723,15 @@ BLOQUE III: COMPETENCIA PROPOSITIVA (Resolución de Casos)
 
           <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 w-full md:w-auto mt-4 md:mt-0">
             {!isLoading && <PDFCurriculumImporter grade={selectedGrade} subject={selectedSubject} />}
-            <CSVImporter />
+            <CSVImporter grade={selectedGrade} subject={selectedSubject} />
+            <button 
+              onClick={handleResetCurriculum}
+              disabled={isResetting}
+              className="flex-1 md:flex-none justify-center items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all flex disabled:opacity-50"
+            >
+              {isResetting ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+              Restaurar Tejido IA
+            </button>
             <button className="flex-1 md:flex-none justify-center items-center gap-2 px-4 md:px-8 py-3 md:py-4 bg-on-surface text-white rounded-xl md:rounded-2xl text-[9px] md:text-xs font-black uppercase tracking-widest hover:shadow-2xl transition-all flex">
               <Plus size={16} />
               Nuevo Tema

@@ -5,7 +5,6 @@ import {
   BrainCircuit, Sparkles, TrendingUp, AlertTriangle, 
   ChevronRight, Zap, Target, ArrowUpRight, Activity
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useState, useMemo } from "react";
 
 interface EduAISentinelProps {
@@ -91,8 +90,7 @@ export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduA
 
   return (
     <section className="mb-10 relative">
-      <motion.div 
-        layout
+      <div 
         className="bg-slate-950 rounded-[2.5rem] p-1 border border-white/10 shadow-2xl overflow-hidden"
       >
         {/* Background Aura */}
@@ -106,10 +104,8 @@ export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduA
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/40">
                   <BrainCircuit size={28} className="text-white" />
                 </div>
-                <motion.div 
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-950" 
+                <div 
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse" 
                 />
               </div>
               <div>
@@ -131,14 +127,11 @@ export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduA
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <AnimatePresence>
               {insights.map((insight, idx) => (
-                <motion.div
+                <div
                   key={insight.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  className={`p-6 rounded-3xl border ${insight.border} ${insight.bg} group relative overflow-hidden`}
+                  className={`p-6 rounded-3xl border ${insight.border} ${insight.bg} group relative overflow-hidden animate-fade-in-up`}
+                  style={{ animationDelay: `${idx * 100}ms` }}
                 >
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <insight.icon size={48} />
@@ -159,16 +152,13 @@ export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduA
                     {insight.action}
                     <ArrowUpRight size={14} className="text-slate-500 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
                   </button>
-                </motion.div>
+                </div>
               ))}
-            </AnimatePresence>
           </div>
 
           {isExpanded && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="mt-8 pt-8 border-t border-white/5 grid grid-cols-1 lg:grid-cols-2 gap-10"
+            <div 
+              className="mt-8 pt-8 border-t border-white/5 grid grid-cols-1 lg:grid-cols-2 gap-10 animate-fade-in-up"
             >
               {/* More advanced metrics here later */}
               <div className="space-y-4">
@@ -185,10 +175,10 @@ export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduA
                     <p className="text-xs font-bold text-slate-400">Motor de IA trabajando en segundo plano...</p>
                  </div>
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

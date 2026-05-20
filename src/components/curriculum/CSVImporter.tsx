@@ -7,7 +7,12 @@ import { useApp } from "@/context/AppContext";
 import { db } from "@/lib/firebase";
 import { setDoc, doc, getDoc } from "firebase/firestore";
 
-export default function CSVImporter() {
+interface CSVImporterProps {
+  grade: string;
+  subject: string;
+}
+
+export default function CSVImporter({ grade, subject }: CSVImporterProps) {
   const [show, setShow] = useState(false);
   const [data, setData] = useState<any[]>([]);
   const { curriculum } = useApp();
@@ -55,9 +60,15 @@ export default function CSVImporter() {
       });
 
       const firstRow = data[0];
-      const detectedGrade = firstRow.Grado || firstRow.grado || "6°";
-      const detectedSubject = firstRow.Materia || firstRow.materia || "TECNOLOGÍA";
-      
+      const detectedGrade = (firstRow.Grado || firstRow.grado || grade || "").trim();
+      const detectedSubject = (firstRow.Materia || firstRow.materia || subject || "").trim();
+
+      if (!detectedGrade || !detectedSubject) {
+        alert("Error: No se pudo detectar el Grado o la Materia. Asegúrate de seleccionar ambos filtros antes de importar.");
+        setIsSaving(false);
+        return;
+      }
+
       const deterministicId = `cur-${detectedGrade}-${detectedSubject}`
         .toLowerCase().replace(/\s+/g, '-').replace(/°/g, '');
 

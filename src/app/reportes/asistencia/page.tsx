@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
@@ -161,39 +163,39 @@ export default function AttendanceReportPage() {
         </div>
 
         {/* Form Fields */}
-        <div className="grid grid-cols-12 gap-y-4 mb-8 text-[11px] font-bold">
-           <div className="col-span-4 flex items-end gap-2">
+        <div className="flex flex-col md:grid md:grid-cols-12 gap-4 mb-8 text-[10px] md:text-[11px] font-bold w-full overflow-hidden">
+           <div className="md:col-span-4 flex items-end gap-2 whitespace-nowrap overflow-hidden">
              <span className="uppercase shrink-0 font-black">ESTABLECIMIENTO EDUCATIVO:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase">{profile.institution} - IETABA</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase truncate">{profile.institution} - IETABA</span>
            </div>
-           <div className="col-span-3 flex items-end gap-2">
+           <div className="md:col-span-3 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">CODIGO DANE E.E.:</span>
              <span className="border-b border-on-surface flex-1 pb-1">252079002045</span>
            </div>
-           <div className="col-span-1 flex items-end gap-2">
+           <div className="md:col-span-1 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">GRADO:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedGrade}</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-[11px] md:text-sm font-black truncate">{selectedGrade}</span>
            </div>
-           <div className="col-span-1 flex items-end gap-2">
+           <div className="md:col-span-1 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">CURSO:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedCurso}</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-[11px] md:text-sm font-black truncate">{selectedCurso}</span>
            </div>
-           <div className="col-span-3 flex items-end gap-2">
+           <div className="md:col-span-3 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">MES:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedMonth}</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-[11px] md:text-sm font-black truncate">{selectedMonth}</span>
            </div>
 
-           <div className="col-span-4 flex items-end gap-2">
+           <div className="md:col-span-4 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">NOMBRE DE LA SEDE:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase">SEDE # 01 I.E.T.A.B.A.</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase truncate">SEDE # 01 I.E.T.A.B.A.</span>
            </div>
-           <div className="col-span-3 flex items-end gap-2">
+           <div className="md:col-span-3 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">CODIGO DANE SEDE:</span>
              <span className="border-b border-on-surface flex-1 pb-1">252079002045</span>
            </div>
-           <div className="col-span-2 flex items-end gap-2">
+           <div className="md:col-span-2 flex items-end gap-2 whitespace-nowrap">
              <span className="uppercase shrink-0 font-black">AÑO:</span>
-             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-sm font-black">{selectedYear}</span>
+             <span className="border-b border-on-surface flex-1 pb-1 uppercase text-center text-[11px] md:text-sm font-black">{selectedYear}</span>
            </div>
         </div>
 

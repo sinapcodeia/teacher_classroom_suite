@@ -293,7 +293,7 @@ export function printPedagogicalPlan(
   open(`<!DOCTYPE html><html><head><title>PLANEACION_${data.subject.toUpperCase()}_${data.grade.replace('°', '')}</title>${baseStyles()}</head><body>
     ${standardHeader(titles[type], { grade: data.grade, teacher: teacherName, subject: data.subject })}
     ${contentHtml}
-    <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA — Bajo Mira y Frontera. ${nowFullStr()}</div>
+    <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA. ${nowFullStr()}</div>
   </body></html>`);
 }
 

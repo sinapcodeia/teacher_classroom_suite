@@ -73,8 +73,6 @@ export default function LiveClassPage() {
 
   if (!mounted) return null;
 
-  if (!mounted) return null;
-
   return (
     <div className="flex flex-col min-h-screen bg-surface-container-lowest">
       <TopAppBar />

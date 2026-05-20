@@ -141,7 +141,7 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
                 {historyNotes.map((note) => (
                   <div key={note.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[9px] font-black text-primary uppercase">{new Date(note.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</span>
+                      <span className="text-[9px] font-black text-primary uppercase">{new Date(note.date + "T12:00:00").toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</span>
                       <span className="text-[8px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{note.type}</span>
                     </div>
                     <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">{note.content}</p>

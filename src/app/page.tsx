@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { motion } from "framer-motion";
+
 
 const CriticalAlerts = nextDynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
 const EduAISentinel = nextDynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
@@ -159,7 +159,6 @@ export default function Home() {
     };
   }, [filteredDashboardStudents]);
 
-  // Tareas pendientes
   // Tareas pendientes (filtradas por los cursos que dicta el docente)
   const pendingTasks = useMemo(() => {
     return agendaNotes.filter(n => {
@@ -452,9 +451,11 @@ export default function Home() {
                        <p className="text-[11px] font-black text-on-surface leading-snug uppercase line-clamp-3 group-hover:text-primary transition-colors">
                          {note.content}
                        </p>
-                       <div className="mt-4 pt-4 border-t border-outline-variant/30 flex items-center gap-2">
-                          <span className="text-[8px] font-black text-on-surface-variant opacity-50 uppercase tracking-widest">{note.subject} · {note.course}</span>
-                       </div>
+                        <div className="mt-4 pt-4 border-t border-outline-variant/30 flex items-center gap-2">
+                           <span className="text-[8px] font-black text-on-surface-variant opacity-60 uppercase tracking-widest">
+                             {note.subject} · GRADO: {note.grade || "TODOS"} · CURSO: {note.course || "TODOS"}
+                           </span>
+                        </div>
                     </Link>
                   ))}
                </div>
