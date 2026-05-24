@@ -204,6 +204,74 @@ export default function LoginPage() {
                   </div>
                 )}
 
+                {/* Sandbox / Demo Access Buttons */}
+                {process.env.NODE_ENV === "development" && (
+                  <>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", textAlign: "center", margin: "0 0 4px" }}>
+                        Modo Sandbox / Demostración
+                      </p>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem("demo_role", "docente");
+                            window.location.reload();
+                          }}
+                          style={{
+                            padding: "12px 14px",
+                            background: "rgba(79,140,255,0.12)",
+                            border: "1px solid rgba(79,140,255,0.3)",
+                            borderRadius: 12,
+                            color: "#4f8cff",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(79,140,255,0.2)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(79,140,255,0.12)")}
+                        >
+                          Demo Docente
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem("demo_role", "superadmin");
+                            window.location.reload();
+                          }}
+                          style={{
+                            padding: "12px 14px",
+                            background: "rgba(244,63,94,0.12)",
+                            border: "1px solid rgba(244,63,94,0.3)",
+                            borderRadius: 12,
+                            color: "#fb7185",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(244,63,94,0.2)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(244,63,94,0.12)")}
+                        >
+                          Demo Rector
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Separator */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "16px 0 24px" }}>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, fontWeight: 700, letterSpacing: "0.15em" }}>O ACCESO REAL</span>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                    </div>
+                  </>
+                )}
+
                 {/* Google Button */}
                 <button
                   onClick={handleGoogleLogin}

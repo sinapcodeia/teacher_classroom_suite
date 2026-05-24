@@ -59,4 +59,4 @@ const nextConfig: NextConfig = {
   turbopack: {},
 };
 
-module.exports = withPWA(nextConfig);
+export default withPWA(nextConfig);

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Papa from "papaparse";
 import GradeImportSummaryModal from "./GradeImportSummaryModal";
+import RecoveryPlanModal from "@/components/live-class/RecoveryPlanModal";
 
 interface GradebookManagerProps {
   grade: string;
@@ -24,6 +25,7 @@ const PERIODS = [
 export default function GradebookManager({ grade, course, subject }: GradebookManagerProps) {
   const { myStudents, updateDetailedGrades, importDetailedGrades, profile, masterData, togglePeriodStatus, students } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p1");
+  const [recoveryStudent, setRecoveryStudent] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -382,8 +384,29 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                   <td className="px-2 py-4 text-center text-[10px] font-bold text-rose-600">
                     {grades.aut?.toFixed(1) || "—"}
                   </td>
-                  <td className={`px-6 py-4 text-center text-xs font-black bg-on-surface/5 ${finalScore < 3 ? 'text-red-600' : 'text-on-surface'}`}>
-                    {finalScore.toFixed(1)}
+                  <td className="px-6 py-3 text-center text-xs font-black bg-on-surface/5">
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <span className={finalScore < 3 ? 'text-red-600' : 'text-on-surface'}>
+                        {finalScore.toFixed(1)}
+                      </span>
+                      {finalScore < 3 && (
+                        <button
+                          onClick={() => setRecoveryStudent({
+                            id: student.id,
+                            nroDocumento: student.nroDocumento,
+                            primerApellido: student.primerApellido || "",
+                            segundoApellido: student.segundoApellido || "",
+                            primerNombre: student.primerNombre || "",
+                            segundoNombre: student.segundoNombre || "",
+                            average: finalScore
+                          })}
+                          className="px-2 py-0.5 bg-red-100 hover:bg-red-200 text-red-700 text-[8px] font-black uppercase rounded-md tracking-wider transition-all flex items-center gap-0.5 shadow-sm active:scale-95"
+                          title="Generar Plan de Nivelación"
+                        >
+                          🚑 Nivelar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -510,6 +533,14 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
         isOpen={showSummary} 
         onClose={() => setShowSummary(false)} 
         stats={importStats} 
+      />
+
+      {/* Recovery Strategic Plan Modal */}
+      <RecoveryPlanModal
+        isOpen={!!recoveryStudent}
+        onClose={() => setRecoveryStudent(null)}
+        student={recoveryStudent}
+        subject={subject}
       />
     </div>
   );

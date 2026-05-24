@@ -312,6 +312,7 @@ interface AppContextType {
   // CURRICULUM
   curriculum: Curriculum[];
   updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
+  saveCurriculumLocal: (data: Curriculum) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -465,6 +466,86 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── AUTH LISTENER ──────────────────────────────────────────────────────────
   useEffect(() => {
     let unsubs: Array<() => void> = [];
+
+    // --- MOCK/SANDBOX AUTHENTICATION BYPASS FOR LOCAL DEVELOPMENT ---
+    if (typeof window !== "undefined" && localStorage.getItem("demo_role")) {
+      const demoRole = localStorage.getItem("demo_role");
+      const email = demoRole === "superadmin" ? "sinapcodeia@gmail.com" : "docenciainformatica2025@gmail.com";
+      const isSuperAdmin = demoRole === "superadmin";
+      
+      const mockUser = {
+        uid: "mock-uid-12345",
+        email,
+        displayName: isSuperAdmin ? "SUPER ADMIN DEMO" : "DOCENTE DEMO",
+        photoURL: null,
+      };
+
+      const derivedCourses = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => `${normalizeGrade(b.grade)}-${b.course}`)));
+      const derivedGrades = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => normalizeGrade(b.grade))));
+
+      const builtProfile: TeacherProfile = {
+        ...DEFAULT_PROFILE,
+        name: isSuperAdmin ? "RECTOR DE DEMOSTRACIÓN" : "DOCENTE DE DEMOSTRACIÓN",
+        firstName: isSuperAdmin ? "RECTOR" : "DOCENTE",
+        lastName: "DEMOSTRACIÓN",
+        phone: "3000000000",
+        email,
+        photoURL: "",
+        role: isSuperAdmin ? "RECTOR" : "DOCENTE",
+        status: "ACTIVE",
+        acceptedTerms: true,
+        isSuperAdmin,
+        teachingGrades: isSuperAdmin ? [] : derivedGrades,
+        teachingCourses: isSuperAdmin ? [] : derivedCourses,
+        teachingSubjectsList: isSuperAdmin ? [] : ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
+        isProfileComplete: true,
+        weeklySchedule: isSuperAdmin ? [] : DEFAULT_SCHEDULE_BLOCKS,
+      };
+
+      setUser(mockUser as any);
+      setProfile(builtProfile);
+      setSchedule(blocksToEntries(builtProfile.weeklySchedule));
+
+      const unsubscribeStudents = onSnapshot(collection(db, "students"), (snap) => {
+        const firestoreStudents = snap.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            grado: normalizeGrade(data.grado as string),
+            curso: (data.curso || "").toString().trim().toUpperCase(),
+          } as Student;
+        });
+        setStudents(firestoreStudents);
+        setStudentsLoading(false);
+      }, (err) => {
+        console.warn("Mock Mode: Could not fetch real-time students", err);
+        setStudentsLoading(false);
+      });
+      unsubs.push(unsubscribeStudents);
+
+      const unsubscribeAgenda = onSnapshot(collection(db, "agendaNotes"), (snap) => {
+        const notes = snap.docs.map(d => ({ id: d.id, ...d.data() } as AgendaNote));
+        setAgendaNotes(notes);
+      }, (err) => {
+        console.warn("Mock Mode: Could not fetch real-time agenda", err);
+      });
+      unsubs.push(unsubscribeAgenda);
+
+      const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Curriculum));
+        setCurriculum(items);
+      }, (err) => {
+        console.warn("Mock Mode: Could not fetch real-time curriculum", err);
+      });
+      unsubs.push(unsubscribeCurriculum);
+
+      setAuthLoading(false);
+      return () => {
+        unsubs.forEach(unsub => unsub());
+      };
+    }
+    // --- END MOCK/SANDBOX AUTHENTICATION BYPASS ---
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       // Limpiar suscripciones previas al cambiar de estado de autenticación
@@ -978,7 +1059,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
-  const logout = async () => { await signOut(auth); };
+  const logout = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("demo_role");
+    }
+    await signOut(auth);
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  };
 
   /** Actualiza datos maestros (grados/materias/docentes).
    *  Estrategia: SOLO AGREGA elementos nuevos, nunca elimina los existentes.
@@ -1359,10 +1448,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return u;
       });
 
+      // Optimistic update for fluid local interaction
+      setCurriculum(prev => prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c));
+
       await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
     } catch (err) {
       console.error("Error al actualizar estado del tema:", err);
     }
+  };
+
+  const saveCurriculumLocal = (data: Curriculum) => {
+    setCurriculum(prev => {
+      const idx = prev.findIndex(c => c.id === data.id);
+      if (idx >= 0) {
+        return prev.map(c => c.id === data.id ? data : c);
+      }
+      return [...prev, data];
+    });
   };
 
   // --- ESTRATEGIA DE GOBERNANZA: KPIs DE POBLACIÓN Y CUMPLEAÑOS ---
@@ -1432,7 +1534,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       agendaNotes, addAgendaNote, updateAgendaNote,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
-      curriculum, updateTopicStatus,
+      curriculum, updateTopicStatus, saveCurriculumLocal,
       governanceStats,
       studentsLoading
     }}>

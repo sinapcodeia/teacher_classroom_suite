@@ -245,11 +245,14 @@ export function printPedagogicalPlan(
     workshop: string;
     activity: string;
     exam: string;
+    teacherGuide?: string;
+    piar?: string;
+    lecturaTejido?: string;
     grade: string;
     subject: string;
   },
   teacherName: string,
-  type: "full" | "lesson" | "workshop" | "activity" | "exam" = "full"
+  type: "full" | "lesson" | "workshop" | "activity" | "exam" | "teacherGuide" | "piar" | "lecturaTejido" = "full"
 ) {
   const titles: Record<string, string> = {
     full: "Planeación Pedagógica Integral",
@@ -257,6 +260,9 @@ export function printPedagogicalPlan(
     workshop: "II. Taller de Aplicación",
     activity: "III. Actividad Lúdica — Tejiendo Aprendo",
     exam: "IV. Evaluación de Competencias",
+    teacherGuide: "V. Guía Exclusiva del Docente",
+    piar: "Adaptación Curricular Individual (PIAR)",
+    lecturaTejido: "Guía de Lectura y Transcripción: El Tejido Ancestral"
   };
 
   const moduleColors: Record<string, string> = {
@@ -264,6 +270,9 @@ export function printPedagogicalPlan(
     workshop: "#006c4a",
     activity: "#ca8a04",
     exam: "#ba1a1a",
+    teacherGuide: "#7c3aed",
+    piar: "#d97706",
+    lecturaTejido: "#059669"
   };
 
   const allModules = [
@@ -273,27 +282,105 @@ export function printPedagogicalPlan(
     { id: "exam", title: "IV. EVALUACIÓN DE COMPETENCIAS", body: data.exam },
   ];
 
+  if (data.teacherGuide) {
+    allModules.push({ id: "teacherGuide", title: "V. GUÍA EXCLUSIVA DEL DOCENTE", body: data.teacherGuide });
+  }
+  if (data.piar) {
+    allModules.push({ id: "piar", title: "ADAPTACIÓN CURRICULAR INDIVIDUAL (PIAR)", body: data.piar });
+  }
+  if (data.lecturaTejido) {
+    allModules.push({ id: "lecturaTejido", title: "GUÍA DE LECTURA Y TRANSCRIPCIÓN: EL TEJIDO ANCESTRAL", body: data.lecturaTejido });
+  }
+
   const filtered = type === "full" ? allModules : allModules.filter(m => m.id === type);
 
-  const contentHtml = filtered.map(m => `
-    <div style="margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-      <div style="background: ${moduleColors[m.id]}; color: #fff; padding: 12px 20px; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">
-        ${m.title}
-      </div>
-      <div style="padding: 24px; line-height: 1.8; font-size: 12px; color: #333; background: #fff;">
-        ${m.body.replace(/\n/g, "<br/>")}
-      </div>
-      <div style="background: #f9fafb; padding: 10px 20px; border-top: 1px solid #eee; font-size: 9px; color: #888; display: flex; justify-content: space-between;">
-        <span>Firma Docente: _______________________</span>
-        <span>Visto Bueno Coordinación: __________</span>
-      </div>
-    </div>
-  `).join("");
+  const contentHtml = filtered.map(m => {
+    const isWorkshopModule = m.id === "workshop";
+    const isLecturaTejido = m.id === "lecturaTejido";
+    const bodyStyle = isWorkshopModule
+      ? `padding: 16px; line-height: 1.6; font-size: 10.5px; color: #1e293b; background: #fff; column-count: 2; column-gap: 24px; column-rule: 1px dashed #cbd5e1; text-align: justify;`
+      : isLecturaTejido
+        ? `padding: 30px; line-height: 2.0; font-size: 12.5px; color: #0f172a; background: #fff; text-align: justify; font-family: 'Georgia', serif; border-left: 4px solid #059669;`
+        : `padding: 24px; line-height: 1.8; font-size: 12px; color: #333; background: #fff;`;
 
-  open(`<!DOCTYPE html><html><head><title>PLANEACION_${data.subject.toUpperCase()}_${data.grade.replace('°', '')}</title>${baseStyles()}</head><body>
+    return `
+      <div style="margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+        <div style="background: ${moduleColors[m.id]}; color: #fff; padding: 12px 20px; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">
+          ${m.title}
+        </div>
+        <div style="${bodyStyle}">
+          ${m.body.replace(/\n/g, "<br/>")}
+        </div>
+        <div style="background: #f9fafb; padding: 10px 20px; border-top: 1px solid #eee; font-size: 9px; color: #888; display: flex; justify-content: space-between;">
+          <span>Firma Docente: _______________________</span>
+          <span>Visto Bueno Coordinación: __________</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const customStyles = type === "workshop" || type === "full" || type === "lecturaTejido" || type === "piar" ? `
+    <style>
+      body { padding: 25px !important; }
+      @media print {
+        body { padding: 15px !important; }
+        @page { margin: 0.6cm !important; }
+      }
+    </style>
+  ` : "";
+
+  open(`<!DOCTYPE html><html><head><title>PLANEACION_${data.subject.toUpperCase()}_${data.grade.replace('°', '')}</title>${baseStyles()}${customStyles}</head><body>
     ${standardHeader(titles[type], { grade: data.grade, teacher: teacherName, subject: data.subject })}
     ${contentHtml}
     <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA. ${nowFullStr()}</div>
+  </body></html>`);
+}
+
+export function printRecoveryPlan(
+  data: {
+    studentName: string;
+    documentId: string;
+    subject: string;
+    grade: string;
+    course: string;
+    average: number;
+    planText: string;
+  },
+  teacherName: string
+) {
+  open(`<!DOCTYPE html><html><head><title>PLAN_NIVELACION_${data.studentName.replace(/\s+/g, "_")}</title>${baseStyles()}
+    <style>
+      body { padding: 30px !important; }
+      @media print {
+        body { padding: 15px !important; }
+        @page { margin: 0.8cm !important; }
+      }
+    </style>
+  </head><body>
+    ${standardHeader("Plan Estratégico de Nivelación Escolar", { grade: data.grade, course: data.course, teacher: teacherName, subject: data.subject })}
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 20px; margin-bottom: 25px;">
+      <h3 style="font-size: 13px; font-weight: 900; text-transform: uppercase; color: #1e40af; margin-bottom: 8px;">Ficha Técnica del Estudiante</h3>
+      <p style="font-size: 11px; color: #1e3a8a; line-height: 1.6;">
+        • <strong>Estudiante:</strong> ${data.studentName.toUpperCase()}<br/>
+        • <strong>Documento:</strong> ${data.documentId}<br/>
+        • <strong>Promedio Parcial Obtenido:</strong> <span style="color:#ba1a1a; font-weight:900;">${data.average.toFixed(2)} / 5.0</span> (Nivel de Desempeño Bajo)<br/>
+        • <strong>Objetivo del Plan:</strong> Superar las dificultades académicas y afianzar las competencias del periodo.
+      </p>
+    </div>
+    <div style="border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 30px;">
+      <div style="background: #3b82f6; color: #fff; padding: 12px 20px; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Actividades de Refuerzo y Compromisos Académicos
+      </div>
+      <div style="padding: 24px; line-height: 1.8; font-size: 12px; color: #334155; background: #fff; text-align: justify;">
+        ${data.planText.replace(/\n/g, "<br/>")}
+      </div>
+      <div style="background: #f8fafc; padding: 15px 20px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #64748b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+        <div>_______________________<br/>Firma Estudiante</div>
+        <div>_______________________<br/>Firma Docente</div>
+        <div>_______________________<br/>Acudiente / Familia</div>
+      </div>
+    </div>
+    <div class="footer">Documento oficial de control pedagógico · IETABA · Generado por EduManager Platinum Edition</div>
   </body></html>`);
 }
 
