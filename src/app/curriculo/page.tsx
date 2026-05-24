@@ -22,6 +22,7 @@ import { db } from "@/lib/firebase";
 import RadarCompetencias from "@/components/curriculum/RadarCompetencias";
 import PiarAdaptationModal from "@/components/curriculum/PiarAdaptationModal";
 import LecturasTejido from "@/components/curriculum/LecturasTejido";
+import DidacticLoader from "@/components/layout/DidacticLoader";
 
 export default function CurriculumPage() {
   const { masterData, profile, curriculum, user } = useApp();
@@ -826,11 +827,8 @@ Responde las preguntas 1 a 4 seleccionando la opci√≥n correcta y rellenando el √
 
         {/* Contenido condicional: solo si hay datos y existe tejido */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-32">
-            <div className="text-center space-y-4">
-              <Loader2 size={48} className="animate-spin text-primary mx-auto" />
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Sincronizando perfil institucional...</p>
-            </div>
+          <div className="flex items-center justify-center py-20 w-full">
+            <DidacticLoader />
           </div>
         ) : activeCurriculum ? (
           <>
