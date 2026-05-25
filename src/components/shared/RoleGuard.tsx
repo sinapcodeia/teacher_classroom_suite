@@ -69,6 +69,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     setAccepting(true);
     await acceptTerms();
     setAccepting(false);
+    window.location.href = "/";
   };
 
   if (authLoading) {
