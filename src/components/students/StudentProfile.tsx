@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   User, Calendar, Hash, GraduationCap, MapPin, Star, BookOpen,
   Plus, ClipboardList, Phone, RefreshCw, TrendingUp, AlertTriangle,
-  ChevronRight, Activity,
+  ChevronRight, Activity, Edit, X, Loader2,
 } from "lucide-react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import Link from "next/link";
@@ -56,7 +56,7 @@ function parseAttendanceRecord(record?: Record<string, string>) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StudentProfile({ id }: { id: string }) {
-  const { students, addGrade, profile, updateStudent } = useApp();
+  const { students, addGrade, profile, updateStudent, masterData } = useApp();
   const [activeTab, setActiveTab] = useState<"grades" | "attendance" | "notes">("grades");
   const [showAddGrade, setShowAddGrade] = useState(false);
   const [newGrade, setNewGrade] = useState({
@@ -70,12 +70,44 @@ export default function StudentProfile({ id }: { id: string }) {
   const [obsText, setObsText] = useState("");
   const [isSavingObs, setIsSavingObs] = useState(false);
 
-  // Update local observation state when student changes
+  // States for full student editing
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    primerNombre: "",
+    segundoNombre: "",
+    primerApellido: "",
+    segundoApellido: "",
+    grado: "",
+    curso: "",
+    tipoDocumento: "T.I.",
+    nroDocumento: "",
+    fechaNacimiento: "",
+    genero: "M" as "M" | "F",
+    acudienteNombre: "",
+    acudienteTelefono: ""
+  });
+
+  // Update local observation state and editForm when student changes
   useEffect(() => {
     if (student) {
       setObsText(student.observations || "");
+      setEditForm({
+        primerNombre: student.primerNombre || "",
+        segundoNombre: student.segundoNombre || "",
+        primerApellido: student.primerApellido || "",
+        segundoApellido: student.segundoApellido || "",
+        grado: student.grado || "",
+        curso: student.curso || "",
+        tipoDocumento: student.tipoDocumento || "T.I.",
+        nroDocumento: student.nroDocumento || "",
+        fechaNacimiento: student.fechaNacimiento || "",
+        genero: (student.genero || "M") as "M" | "F",
+        acudienteNombre: student.acudienteNombre || "",
+        acudienteTelefono: student.acudienteTelefono || ""
+      });
     }
-  }, [id, student?.observations]);
+  }, [id, student]);
 
   // ── Governance: determine what role can edit ──────────────────────────────
   const canEdit =
@@ -128,6 +160,42 @@ export default function StudentProfile({ id }: { id: string }) {
     }
   };
 
+  const handleSaveEdit = async () => {
+    if (!student) return;
+    setIsSavingEdit(true);
+    try {
+      const updatedFields = {
+        primerNombre: editForm.primerNombre.trim(),
+        segundoNombre: editForm.segundoNombre.trim(),
+        primerApellido: editForm.primerApellido.trim(),
+        segundoApellido: editForm.segundoApellido.trim(),
+        grado: normalizeGrade(editForm.grado),
+        curso: editForm.curso.trim().toUpperCase(),
+        tipoDocumento: editForm.tipoDocumento,
+        nroDocumento: editForm.nroDocumento.trim(),
+        fechaNacimiento: editForm.fechaNacimiento,
+        genero: editForm.genero,
+        acudienteNombre: editForm.acudienteNombre.trim(),
+        acudienteTelefono: editForm.acudienteTelefono.trim(),
+        audit: {
+          createdBy: student.audit?.createdBy || "SISTEMA",
+          createdAt: student.audit?.createdAt || new Date().toISOString(),
+          updatedBy: profile.name || "SISTEMA",
+          updatedAt: new Date().toISOString()
+        }
+      };
+      
+      await updateStudent(student.id, updatedFields);
+      alert("¡Datos del estudiante actualizados con éxito!");
+      setShowEditModal(false);
+    } catch (err) {
+      console.error("Error al actualizar los datos del estudiante:", err);
+      alert("Ocurrió un error al guardar los cambios en la base de datos.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   return (
     <div className="bg-white border border-outline-variant rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
 
@@ -144,7 +212,19 @@ export default function StudentProfile({ id }: { id: string }) {
           </div>
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-black uppercase leading-tight tracking-tight line-clamp-2">{fullName}</h2>
+            <div className="flex justify-between items-start gap-2">
+              <h2 className="text-lg font-black uppercase leading-tight tracking-tight line-clamp-2">{fullName}</h2>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(true)}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all hover:scale-105 active:scale-95 shrink-0 border border-white/15"
+                  title="Editar Datos del Estudiante"
+                >
+                  <Edit size={14} className="text-white" />
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2 mt-2">
               <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-sm text-[9px] font-black rounded-lg uppercase tracking-widest border border-white/20">
                 GRADO {normalizeGrade(student.grado)}
@@ -447,6 +527,205 @@ export default function StudentProfile({ id }: { id: string }) {
                 Guardar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Student Modal ───────────────────────────────────────────────── */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-on-surface/60 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-10 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300 border border-outline-variant/30 flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-outline-variant/30 pb-6 shrink-0">
+              <div>
+                <h3 className="text-2xl font-black text-on-surface tracking-tighter uppercase italic">Editar Estudiante</h3>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Actualización de Registro y Ficha Académica</p>
+              </div>
+              <button 
+                onClick={() => setShowEditModal(false)} 
+                className="w-10 h-10 flex items-center justify-center bg-surface-container hover:bg-error/10 hover:text-error rounded-full transition-colors"
+              >
+                <X size={20}/>
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <div className="space-y-6 overflow-y-auto pr-2 py-1 flex-1">
+              
+              {/* Names Section */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-2">Nombres y Apellidos</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Primer Nombre</label>
+                    <input 
+                      value={editForm.primerNombre}
+                      onChange={(e) => setEditForm({...editForm, primerNombre: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs uppercase" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Segundo Nombre</label>
+                    <input 
+                      value={editForm.segundoNombre}
+                      onChange={(e) => setEditForm({...editForm, segundoNombre: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs uppercase" 
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Primer Apellido</label>
+                    <input 
+                      value={editForm.primerApellido}
+                      onChange={(e) => setEditForm({...editForm, primerApellido: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs uppercase" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Segundo Apellido</label>
+                    <input 
+                      value={editForm.segundoApellido}
+                      onChange={(e) => setEditForm({...editForm, segundoApellido: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs uppercase" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Academic Enrollment Section */}
+              <div className="space-y-4 pt-2">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-2">Información Académica</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Grado</label>
+                    <select 
+                      value={editForm.grado}
+                      onChange={(e) => setEditForm({...editForm, grado: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs appearance-none uppercase"
+                    >
+                      {masterData.grades.map(g => <option key={g} value={g}>GRADO {g}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Curso / Grupo</label>
+                    <select 
+                      value={editForm.curso}
+                      onChange={(e) => setEditForm({...editForm, curso: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs appearance-none uppercase"
+                    >
+                      {masterData.courses.map(c => <option key={c} value={c}>GRUPO {c}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Identification & Personal Details */}
+              <div className="space-y-4 pt-2">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-2">Datos de Identificación y Ficha</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1 col-span-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Tipo Doc.</label>
+                    <select 
+                      value={editForm.tipoDocumento}
+                      onChange={(e) => setEditForm({...editForm, tipoDocumento: e.target.value})}
+                      className="w-full h-12 px-3 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs appearance-none uppercase"
+                    >
+                      <option value="R.C.">R.C.</option>
+                      <option value="T.I.">T.I.</option>
+                      <option value="C.C.">C.C.</option>
+                      <option value="C.E.">C.E.</option>
+                      <option value="P.E.P.">P.E.P.</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Número de Documento</label>
+                    <input 
+                      value={editForm.nroDocumento}
+                      onChange={(e) => setEditForm({...editForm, nroDocumento: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs" 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Fecha de Nacimiento</label>
+                    <input 
+                      type="date"
+                      value={editForm.fechaNacimiento}
+                      onChange={(e) => setEditForm({...editForm, fechaNacimiento: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Género</label>
+                    <select 
+                      value={editForm.genero}
+                      onChange={(e) => setEditForm({...editForm, genero: e.target.value as "M" | "F"})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs appearance-none uppercase"
+                    >
+                      <option value="M">Masculino</option>
+                      <option value="F">Femenino</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guardian Section */}
+              <div className="space-y-4 pt-2">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-2">Información del Acudiente</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Nombre del Acudiente</label>
+                    <input 
+                      value={editForm.acudienteNombre}
+                      onChange={(e) => setEditForm({...editForm, acudienteNombre: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs uppercase" 
+                      placeholder="PADRE, MADRE O TUTOR"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Teléfono del Acudiente</label>
+                    <input 
+                      value={editForm.acudienteTelefono}
+                      onChange={(e) => setEditForm({...editForm, acudienteTelefono: e.target.value})}
+                      className="w-full h-12 px-4 rounded-xl border-2 border-outline-variant bg-surface-container-lowest outline-none focus:border-primary font-bold text-xs" 
+                      placeholder="TELÉFONO DE CONTACTO"
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-4 border-t border-outline-variant/30 pt-6 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-4 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-200 transition-all active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={isSavingEdit || !editForm.primerNombre || !editForm.primerApellido || !editForm.grado || !editForm.curso}
+                className="flex-1 py-4 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+              >
+                {isSavingEdit ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    Guardando Cambios...
+                  </>
+                ) : (
+                  "Guardar Cambios"
+                )}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

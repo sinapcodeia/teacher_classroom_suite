@@ -53,26 +53,37 @@ export default function StudentsPage() {
     documento: ""
   });
 
-  const handleAddStudent = () => {
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+
+  const handleAddStudent = async () => {
     if (formData.nombre && formData.grado) {
+      setIsAddingStudent(true);
       const names = formData.nombre.trim().split(" ");
-      addStudent({ 
-        primerNombre: names[0] || "",
-        segundoNombre: names.length > 3 ? names[1] : (names.length === 3 ? "" : ""),
-        primerApellido: names.length === 2 ? names[1] : (names.length === 3 ? names[1] : names[2] || ""),
-        segundoApellido: names.length === 3 ? names[2] : (names.length > 3 ? names[3] : ""),
-        nroDocumento: formData.documento || `TMP-${Date.now()}`,
-        tipoDocumento: "T.I.",
-        curso: formData.curso || "1",
-        grado: formData.grado,
-        fechaNacimiento: "",
-        genero: "M",
-        avgGrade: 0, 
-        attendance: "100%",
-        isActive: true
-      });
-      setFormData({ nombre: "", grado: "", curso: "", documento: "" });
-      setShowModal(false);
+      try {
+        await addStudent({ 
+          primerNombre: names[0] || "",
+          segundoNombre: names.length > 3 ? names[1] : (names.length === 3 ? "" : ""),
+          primerApellido: names.length === 2 ? names[1] : (names.length === 3 ? names[1] : names[2] || ""),
+          segundoApellido: names.length === 3 ? names[2] : (names.length > 3 ? names[3] : ""),
+          nroDocumento: formData.documento || `TMP-${Date.now()}`,
+          tipoDocumento: "T.I.",
+          curso: formData.curso || "1",
+          grado: formData.grado,
+          fechaNacimiento: "",
+          genero: "M",
+          avgGrade: 0, 
+          attendance: "100%",
+          isActive: true
+        });
+        setFormData({ nombre: "", grado: "", curso: "", documento: "" });
+        setShowModal(false);
+        alert("¡Estudiante matriculado y guardado en el sistema con éxito!");
+      } catch (err) {
+        console.error("Error al matricular estudiante:", err);
+        alert("Ocurrió un error inesperado al guardar la matrícula en el servidor. Por favor, verifica la conexión.");
+      } finally {
+        setIsAddingStudent(false);
+      }
     }
   };
 
@@ -317,10 +328,17 @@ export default function StudentsPage() {
 
             <button 
               onClick={handleAddStudent}
-              disabled={!formData.nombre || !formData.grado}
-              className="w-full py-5 bg-primary text-white font-black rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+              disabled={!formData.nombre || !formData.grado || isAddingStudent}
+              className="w-full py-5 bg-primary text-white font-black rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-2"
             >
-              Completar Registro Institucional
+              {isAddingStudent ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  Guardando en base de datos...
+                </>
+              ) : (
+                "Completar Registro Institucional"
+              )}
             </button>
           </div>
         </div>

@@ -69,7 +69,7 @@ export default function CSVImporter({ grade, subject }: CSVImporterProps) {
         return;
       }
 
-      const deterministicId = `cur-${detectedGrade}-${detectedSubject}`
+      const deterministicId = `cur-${detectedGrade}-${detectedSubject.normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`
         .toLowerCase().replace(/\s+/g, '-').replace(/°/g, '');
 
       // --- PRESERVAR ESTADOS EXISTENTES ---

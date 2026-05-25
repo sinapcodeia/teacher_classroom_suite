@@ -271,7 +271,7 @@ interface AppContextType {
   myStudents: Student[]; // Lista filtrada por gobernanza
   studentsLoading: boolean;
   setStudents: (students: Student[]) => void;
-  addStudent: (student: Omit<Student, "id">) => void;
+  addStudent: (student: Omit<Student, "id">) => Promise<void>;
   importStudents: (incoming: Omit<Student, "id">[]) => Promise<{ novelties: any[], notFound: string[] }>;
   removeStudent: (id: string) => Promise<void>;
   updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
@@ -938,99 +938,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [students]);
 
-  // ── AUTOREPARADOR PROACTIVO CURRÍCULO GRADO 6° Y TECNOLOGÍA ─────────────────
-  useEffect(() => {
-    if (!curriculum.length || !user) return;
-
-    const corrupto = curriculum.find(c => {
-      const gNorm = normalizeGrade(c.grade);
-      const sNorm = c.subjectId?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
-      if (gNorm === "6°" && (sNorm.includes("tecnologia") || sNorm.includes("informatica"))) {
-        // Verificar si tiene temas de matemáticas
-        const hasMath = c.units?.some(u => 
-          u.topics?.some(t => 
-            t.title?.toLowerCase().includes("números") || 
-            t.title?.toLowerCase().includes("numeros") || 
-            t.title?.toLowerCase().includes("racionales") ||
-            t.title?.toLowerCase().includes("enteros")
-          )
-        );
-        return hasMath;
-      }
-      return false;
-    });
-
-    if (corrupto) {
-      console.warn("¡Detectado currículo corrupto de Tecnología Grado 6° con temas de Matemáticas! Reparando en Firestore...");
-      
-      const correctedUnits = [
-        {
-          id: "unit-periodo-1",
-          title: "MAZA T+T – PRIMER PERIODO",
-          order: 1,
-          topics: [
-            {
-              id: "P1-T1",
-              status: "active",
-              tuhPutkamna: "Naturaleza y Evolución de la Tecnología: Artefactos y procesos tecnológicos ancestrales y modernos en el territorio.",
-              title: "Identificar y clasificar herramientas tradicionales de uso comunitario frente a tecnologías mecánicas y digitales.",
-              hijosSaber: "1. Evolución de la herramienta. 2. Técnica vs Tecnología. 3. Artefactos del territorio.",
-              panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
-              nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
-              satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores."
-            }
-          ]
-        },
-        {
-          id: "unit-periodo-2",
-          title: "PAS T+T – SEGUNDO PERIODO",
-          order: 2,
-          topics: [
-            {
-              id: "P2-T1",
-              status: "not_started",
-              tuhPutkamna: "Apropiación y Uso de la Tecnología: Manejo responsable de la información, redes y medios de comunicación de Microsoft Excel.",
-              title: "Manejo de herramientas ofimáticas e Introducción a Excel.",
-              hijosSaber: "1. Celdas, filas y columnas. 2. Fórmulas básicas (SUMA, PROMEDIO). 3. Funciones lógicas simples.",
-              panapain: "Aprovechar las hojas de cálculo para organizar la producción de cultivos familiares.",
-              nanpaskas: "Uso ético y estructurado de los computadores en el ámbito escolar y profesional.",
-              satIshkit: "Talleres prácticos de Excel, diseño de tablas de producción local."
-            }
-          ]
-        },
-        {
-          id: "unit-periodo-3",
-          title: "KUTÑA T+T – TERCER PERIODO",
-          order: 3,
-          topics: [
-            {
-              id: "P3-T1",
-              status: "not_started",
-              tuhPutkamna: "Solución de Problemas con Tecnología: Diseño de sistemas sencillos para el cuidado ambiental y productivo.",
-              title: "Proponer soluciones técnicas elementales para las huertas escolares del resguardo.",
-              hijosSaber: "1. Diseño sustentable. 2. Materiales reciclados. 3. Prototipado para el agro.",
-              panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
-              nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental.",
-              satIshkit: "Proyectos de aula, maquetas sustentables."
-            }
-          ]
-        }
-      ];
-
-      const correctedCurriculum = {
-        ...corrupto,
-        units: correctedUnits
-      };
-
-      setDoc(doc(db, "curriculum", corrupto.id), correctedCurriculum)
-        .then(() => {
-          console.log("¡Currículo de Tecnología Grado 6° reparado con éxito en Firestore!");
-        })
-        .catch(err => {
-          console.error("Error al reparar currículo corrupto:", err);
-        });
-    }
-  }, [curriculum, user]);
+  // NOTA: El auto-reparador de currículo fue eliminado porque causaba un bucle de
+  // sobreescritura en Firestore (se activaba en cada cambio de estado de curriculum,
+  // borrando los estados covered/active marcados por el docente). Si se requiere
+  // una reparación de datos, debe ejecutarse como operación manual de administración.
 
   const updateStudent = async (id: string, updates: Partial<Student>) => {
     try {
@@ -1111,15 +1022,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMasterData(prev => ({ ...prev, activePeriod: periodId }));
   };
 
-  const addStudent = (student: Omit<Student, "id">) => {
-    const withAudit = {
-      ...student,
-      audit: {
-        createdBy: profile.name || "SISTEMA",
-        createdAt: new Date().toISOString()
-      }
-    };
-    setStudents(prev => [...prev, { ...withAudit, id: `st-${Date.now()}` }]);
+  const addStudent = async (student: Omit<Student, "id">) => {
+    try {
+      const cleanDoc = String(student.nroDocumento || "").trim();
+      const studentId = `st-${cleanDoc || Date.now()}`.replace(/\s+/g, "-");
+      const withAudit: Student = {
+        ...student,
+        id: studentId,
+        grado: normalizeGrade(student.grado),
+        curso: (student.curso || "").toString().trim().toUpperCase(),
+        audit: {
+          createdBy: profile.name || "SISTEMA",
+          createdAt: new Date().toISOString()
+        }
+      } as Student;
+      await setDoc(doc(db, "students", studentId), withAudit);
+      setStudents(prev => {
+        const mapa = new Map(prev.map(s => [s.id, s]));
+        mapa.set(studentId, withAudit);
+        return Array.from(mapa.values());
+      });
+    } catch (err) {
+      console.error("Error al añadir estudiante en Firestore:", err);
+      throw err;
+    }
   };
 
   /** Importa estudiantes a Firestore con estrategia de fusión (merge):
