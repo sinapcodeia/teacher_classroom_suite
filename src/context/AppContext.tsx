@@ -646,7 +646,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               photoURL: firebaseUser.photoURL || "",
               role: (savedData.role as Profile["role"]) || "DOCENTE",
               status: (savedData.status as Profile["status"]) || "ACTIVE",
-              acceptedTerms: savedData.acceptedTerms || false,
+              acceptedTerms: savedData.acceptedTerms || (typeof window !== "undefined" && localStorage.getItem(`edu_terms_accepted_${firebaseUser.uid}`) === "true") || false,
               isSuperAdmin,
               teachingGrades: currentGrades,
               teachingCourses: currentCourses,
@@ -854,11 +854,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const acceptTerms = async () => {
     if (!user) return;
+    // 1. Update local state immediately (no esperar Firestore) para evitar bucle
+    setProfile(prev => ({ ...prev, acceptedTerms: true }));
+    // 2. Persistir localmente como fallback (sobrevive recargas cuando Firestore falla)
     try {
-      // onSnapshot listener will reactively update profile.acceptedTerms — no manual setProfile needed
+      localStorage.setItem(`edu_terms_accepted_${user.uid}`, "true");
+    } catch { /* ignore */ }
+    // 3. Intentar escribir en Firestore (puede fallar por reglas — no es bloqueante)
+    try {
       await updateDoc(doc(db, "users", user.uid), { acceptedTerms: true });
     } catch (err) {
-      console.error("Error al aceptar términos:", err);
+      console.warn("No se pudo persistir acceptedTerms en Firestore (reglas). Usando caché local.", err);
     }
   };
 

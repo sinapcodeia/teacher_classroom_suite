@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── FUNCIONES AUXILIARES ────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwnDocument(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return request.auth.token.email in [
+        'sinapcodeia@gmail.com',
+        'antonio_rburgos@msn.com'
+      ];
+    }
+
+    // ── USUARIOS (/users/{userId}) ─────────────────────────────────────────
+    // TODOS los usuarios autenticados pueden leer y actualizar su propio perfil.
+    // Esto incluye aceptar los términos (acceptedTerms) y actualizar su horario.
+    // Solo el SuperAdmin puede leer perfiles de otros usuarios.
+    match /users/{userId} {
+      // Leer propio perfil — cualquier usuario autenticado
+      allow read: if isAuthenticated() && (isOwnDocument(userId) || isSuperAdmin());
+
+      // Crear propio documento en primer login
+      allow create: if isAuthenticated() && isOwnDocument(userId);
+
+      // Actualizar propio perfil — TODOS los usuarios autenticados pueden
+      // actualizar su propio documento (incluyendo acceptedTerms, horario, etc.)
+      allow update: if isAuthenticated() && (isOwnDocument(userId) || isSuperAdmin());
+
+      // Eliminar solo SuperAdmin
+      allow delete: if isAuthenticated() && isSuperAdmin();
+    }
+
+    // ── ESTUDIANTES (/students/{studentId}) ───────────────────────────────
+    // Todos los docentes autenticados pueden leer estudiantes.
+    // Solo docentes activos y admins pueden crear/editar.
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── NOTAS DE AGENDA (/agendaNotes/{noteId}) ───────────────────────────
+    match /agendaNotes/{noteId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── CURRÍCULO (/curriculum/{curriculumId}) ────────────────────────────
+    match /curriculum/{curriculumId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── RECUPERACIONES (/recoveryPlans/{planId}) ─────────────────────────
+    match /recoveryPlans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── CONVIVENCIA (/convivencia/{id}) ───────────────────────────────────
+    match /convivencia/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── LOGS DE AUDITORÍA (/auditLogs/{logId}) ───────────────────────────
+    // Solo lectura para SuperAdmin, escritura para cualquier usuario autenticado
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated() && isSuperAdmin();
+      allow create: if isAuthenticated();
+    }
+  }
+}
