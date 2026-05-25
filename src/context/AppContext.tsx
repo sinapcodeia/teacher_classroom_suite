@@ -855,8 +855,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const acceptTerms = async () => {
     if (!user) return;
     try {
+      // onSnapshot listener will reactively update profile.acceptedTerms — no manual setProfile needed
       await updateDoc(doc(db, "users", user.uid), { acceptedTerms: true });
-      setProfile(prev => ({ ...prev, acceptedTerms: true }));
     } catch (err) {
       console.error("Error al aceptar términos:", err);
     }

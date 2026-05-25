@@ -87,8 +87,9 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const handleAccept = async () => {
     setAccepting(true);
     await acceptTerms();
+    // onSnapshot detecta el cambio en Firestore y actualiza profile.acceptedTerms
+    // sin necesidad de recarga — esto elimina el bucle por caché stale
     setAccepting(false);
-    window.location.href = "/";
   };
 
   if (authLoading) {
