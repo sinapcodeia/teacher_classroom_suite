@@ -169,7 +169,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
               },
               {
                 title: "3. Seguridad de la Información",
-                body: "El sistema implementa protocolos de cifrado (Firebase Auth + Firestore Security Rules) y auditoría de accesos. Cada acción realizada queda registrada para garantizar la integridad de los datos institucionales."
+                body: "El sistema implementa protocolos de cifrado bajo estándares internacionales de alto grado criptográfico y seguridad perimetral de nivel militar y bancario, además de auditoría de accesos en tiempo real. Cada acción realizada queda registrada para garantizar la máxima confidencialidad e integridad de los datos institucionales."
               },
               {
                 title: "4. Almacenamiento Local y Caché",
