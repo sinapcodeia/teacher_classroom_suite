@@ -59,10 +59,29 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     }
   }, [user, authLoading, profile, pathname, router]);
 
+  // Safeguard: Automatically unlock button if content fits on screen or screen is large
+  useEffect(() => {
+    const checkScrollability = () => {
+      if (scrollRef.current) {
+        const { scrollHeight, clientHeight } = scrollRef.current;
+        if (scrollHeight <= clientHeight + 45) {
+          setHasScrolledToBottom(true);
+        }
+      }
+    };
+    if (user && profile && !profile.acceptedTerms) {
+      const timer = setTimeout(checkScrollability, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [profile.acceptedTerms, user]);
+
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    if (scrollTop + clientHeight >= scrollHeight - 8) setHasScrolledToBottom(true);
+    // Relaxed mobile-friendly threshold (45px safe zone) to prevent rounding stuck states
+    if (scrollTop + clientHeight >= scrollHeight - 45) {
+      setHasScrolledToBottom(true);
+    }
   };
 
   const handleAccept = async () => {
@@ -157,7 +176,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            style={{ padding: "28px 32px", overflowY: "auto", flex: 1 }}
+            style={{ padding: "28px 32px", overflowY: "auto", flex: 1, WebkitOverflowScrolling: "touch" }}
           >
             {[
               {
