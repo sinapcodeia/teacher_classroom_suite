@@ -83,7 +83,7 @@ export default function NotFound() {
       setItems((prev) => {
         const updated: GameItem[] = [];
         
-        for (let item of prev) {
+        for (const item of prev) {
           const nextY = item.y + item.speed;
           
           // Collision check: bottom zone (y >= 85%)

@@ -56,7 +56,7 @@ export default function DidacticLoader({ size = 48, showSubtitle = true }: { siz
         {showSubtitle && (
           <div className="h-12 flex items-center justify-center">
             <p className={`text-[10px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
-              "{DIDACTIC_QUOTES[quoteIndex]}"
+              &ldquo;{DIDACTIC_QUOTES[quoteIndex]}&rdquo;
             </p>
           </div>
         )}
