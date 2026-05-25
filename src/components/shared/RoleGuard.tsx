@@ -161,7 +161,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
             {[
               {
                 title: "1. Finalidad del Tratamiento",
-                body: "Los datos personales recolectados en esta plataforma EduManager tienen como única finalidad la gestión administrativa, académica y de convivencia de la Institución Educativa Técnica Bilingüe IETABA. No serán compartidos con terceros bajo ninguna circunstancia."
+                body: "Los datos personales recolectados en esta plataforma EduManager tienen como única finalidad la gestión administrativa, académica y de convivencia de la Institución Educativa Indígena Técnica Agroambiental Bilingüe Awá \"IETABA\". No serán compartidos con terceros bajo ninguna circunstancia."
               },
               {
                 title: "2. Compromiso del Usuario",
