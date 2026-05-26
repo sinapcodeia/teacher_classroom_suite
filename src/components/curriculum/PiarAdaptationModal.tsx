@@ -18,6 +18,8 @@ interface PiarAdaptationModalProps {
     topic: string;
   } | null;
   onPrint: (adaptedPlan: any, type: string) => void;
+  grade?: string;
+  subject?: string;
 }
 
 const ADAPTATION_TYPES = [
@@ -43,17 +45,61 @@ const ADAPTATION_TYPES = [
   }
 ];
 
-export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint }: PiarAdaptationModalProps) {
-  const { myStudents, profile } = useApp();
+export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint, grade, subject }: PiarAdaptationModalProps) {
+  const { myStudents, profile, curriculum } = useApp();
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [adaptationType, setAdaptationType] = useState("slow");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPiar, setGeneratedPiar] = useState<string | null>(null);
 
+  // Seleccionar el currículo activo basado en los filtros
+  const activeCurriculum = useMemo(() => {
+    if (!curriculum.length || !grade || !subject) return null;
+    const normStr = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    const targetSubject = normStr(subject);
+    const targetGradeNum = grade.replace(/[^\d]/g, "");
+    
+    const candidates = curriculum.filter(c => c.grade.replace(/[^\d]/g, "") === targetGradeNum);
+    return candidates.find(c => normStr(c.subjectId) === targetSubject) ||
+           candidates.find(c => normStr(c.subjectId).startsWith(targetSubject)) ||
+           candidates.find(c => targetSubject.startsWith(normStr(c.subjectId))) || null;
+  }, [curriculum, grade, subject]);
+
+  const activeTopic = useMemo(() => {
+    if (!activeCurriculum) return null;
+    return activeCurriculum.units.flatMap(u => u.topics).find(t => t.status === "active") || 
+           activeCurriculum.units[0]?.topics[0] || null;
+  }, [activeCurriculum]);
+
+  const effectivePlan = useMemo(() => {
+    if (plan) return plan;
+    if (!grade || !subject || !activeTopic) return null;
+    return {
+      summary: `Planeación curricular para el tema: ${activeTopic.title}`,
+      lesson: `Clase detallada de ${subject} sobre ${activeTopic.title}. Tuh Putkamna: ${activeTopic.tuhPutkamna || ''}`,
+      workshop: `Taller de aplicación de ${activeTopic.title}`,
+      activity: `Actividad práctica: ${activeTopic.satIshkit || ''}`,
+      exam: `Evaluación de ${activeTopic.title}`,
+      grade: grade,
+      subject: subject,
+      topic: activeTopic.title,
+    };
+  }, [plan, grade, subject, activeTopic]);
+
   const filteredStudents = useMemo(() => {
-    if (!plan) return [];
-    return myStudents.filter(s => s.isActive !== false);
-  }, [myStudents, plan]);
+    if (!effectivePlan) return [];
+    
+    const planGradeNum = (effectivePlan.grade || grade || "").replace(/[^\d]/g, "");
+    
+    return myStudents.filter(s => {
+      if (s.isActive !== false) return false;
+      const studentGradeNum = s.grado.replace(/[^\d]/g, "");
+      if (planGradeNum) {
+        return studentGradeNum === planGradeNum;
+      }
+      return true;
+    });
+  }, [myStudents, effectivePlan, grade]);
 
   const selectedStudentName = useMemo(() => {
     const student = filteredStudents.find(s => s.id === selectedStudentId);
@@ -62,7 +108,7 @@ export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint }: 
   }, [filteredStudents, selectedStudentId]);
 
   const handleGenerate = () => {
-    if (!plan) return;
+    if (!effectivePlan) return;
     setIsGenerating(true);
     setGeneratedPiar(null);
 
@@ -73,13 +119,13 @@ export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint }: 
       
       let adaptedText = `ADAPTACIÓN CURRICULAR PERSONALIZADA (PIAR)
 Institución: IETABA (Territorio Awá)
-Materia: ${plan.subject} | Grado: ${plan.grade}
+Materia: ${effectivePlan.subject} | Grado: ${effectivePlan.grade}
 Estudiante Asignado: ${studentNameUpper}
 Tipo de Adaptación Aplicada: ${typeInfo?.label}
 ----------------------------------------------------------------------
 
 🎯 OBJETIVO PEDAGÓGICO DE INCLUSIÓN:
-Garantizar la apropiación de la temática [ ${plan.topic.toUpperCase()} ] mediante estrategias adaptadas que eliminen las barreras de aprendizaje, respetando la identidad cultural y vinculando el saber al entorno de Katsa Su (La Gran Tierra).
+Garantizar la apropiación de la temática [ ${effectivePlan.topic.toUpperCase()} ] mediante estrategias adaptadas que eliminen las barreras de aprendizaje, respetando la identidad cultural y vinculando el saber al entorno de Katsa Su (La Gran Tierra).
 
 ======================================================================
 I. DESARROLLO DE CLASE SIMPLIFICADO Y DIDÁCTICO
@@ -89,7 +135,7 @@ I. DESARROLLO DE CLASE SIMPLIFICADO Y DIDÁCTICO
 
       if (adaptationType === "slow") {
         adaptedText += `• ¿Qué estamos aprendiendo hoy?
-  Hoy estudiamos sobre cómo se organiza y funciona el tema de "${plan.topic}".
+  Hoy estudiamos sobre cómo se organiza y funciona el tema de "${effectivePlan.topic}".
 • Idea 1: Todo en la naturaleza tiene un orden y una forma. Los saberes científicos nos ayudan a calcular y entender ese orden de forma sencilla.
 • Idea 2: Cuando medimos, diseñamos o planeamos un cultivo, estamos aplicando la teoría directamente en el campo.
 • Idea 3: El saber es como un camino de piedras: vamos paso a paso, asegurando cada pisada antes de dar la siguiente.
@@ -100,7 +146,7 @@ I. DESARROLLO DE CLASE SIMPLIFICADO Y DIDÁCTICO
 3. Escribe en tu cuaderno una frase corta explicando cómo este saber ayuda a tu vereda.`;
       } else if (adaptationType === "visual") {
         adaptedText += `• GUÍA AERO-DESCRIPTIVA Y TÁCTIL:
-  Para esta temática de "${plan.topic}", nos apoyaremos de objetos que el estudiante pueda tocar, sentir y manipular directamente en su mesa de trabajo.
+  Para esta temática de "${effectivePlan.topic}", nos apoyaremos de objetos que el estudiante pueda tocar, sentir y manipular directamente en su mesa de trabajo.
 • Estrategia 1 (Cestería y Relieves): Utilizaremos tejidos tradicionales de bejuco o canastos shingras para trazar con los dedos la estructura y dirección de las formas estudiadas.
 • Estrategia 2 (Entorno Hídrico): Se realizará una salida de campo guiada al río cercano para escuchar los patrones del agua y asociarlos acústicamente con la frecuencia y estructura del tema de clase.
 
@@ -110,18 +156,18 @@ I. DESARROLLO DE CLASE SIMPLIFICADO Y DIDÁCTICO
 3. Modela con arcilla o barro del territorio la forma representativa del tema estudiado.`;
       } else if (adaptationType === "hearing") {
         adaptedText += `• GUÍA VISUAL Y GESTUAL:
-  Esta planeación de "${plan.topic}" se apoya enteramente en organizadores visuales y esquemas a gran escala en el tablero.
+  Esta planeación de "${effectivePlan.topic}" se apoya enteramente en organizadores visuales y esquemas a gran escala en el tablero.
 • Recurso 1: Mapa ilustrado a todo color del Resguardo Awá, mostrando flechas amarillas de causalidad y engranajes azules de la materia.
 • Recurso 2: Vocabulario gráfico, donde cada término científico se asocia a un dibujo o símbolo tradicional pintado en el salón.
 
 💡 RETO PRÁCTICO ILUSTRADO:
 1. Recorta y pega en tu cuaderno 3 imágenes que muestren actividades agrícolas de tu vereda.
-2. Dibuja una línea roja sobre la imagen donde sientas que se aplica la ley de ${plan.subject}.
+2. Dibuja una línea roja sobre la imagen donde sientas que se aplica la ley de ${effectivePlan.subject}.
 3. Señala al docente con señas tradicionales cómo se relacionan el agua, la tierra y el tema estudiado.`;
       } else {
         // Bilingual
         adaptedText += `• GUÍA BILINGÜE Y DE APRENDIZAJE INTERCULTURAL (AWAPIT - ESPAÑOL):
-  Entendemos que el Awapit es nuestra lengua raíz. Para entender mejor "${plan.topic}", utilizaremos términos duales:
+  Entendemos que el Awapit es nuestra lengua raíz. Para entender mejor "${effectivePlan.topic}", utilizaremos términos duales:
 • Término 1: **Katsa Su** (La Gran Tierra / Nuestro Territorio). Es el espacio sagrado donde todo ocurre.
 • Término 2: **Tuh Putkamna** (Tejido de Saberes). Así llamamos a la unión de las matemáticas, la tecnología y el saber ancestral.
 • Término 3: **Panapain** (Aplicar en el Territorio). Llevar lo que estudiamos en hojas al beneficio real de la comunidad.
@@ -139,7 +185,7 @@ II. TALLER DE EVALUACIÓN ADAPTADA (PREGUNTAS EN CONTEXTO)
 ======================================================================
 Instrucción: Lee detenidamente las preguntas (o escúchalas con ayuda de tu docente) y responde en tu cuaderno de forma sencilla.
 
-1. 📖 Escribe con tus propias palabras qué aprendiste hoy sobre el tema de "${plan.topic}".
+1. 📖 Escribe con tus propias palabras qué aprendiste hoy sobre el tema de "${effectivePlan.topic}".
 2. 🌱 Explica con un dibujo sencillo cómo tu familia o tu cabildo escolar puede usar este conocimiento en la vida diaria.
 3. 🤝 Describe una actividad comunitaria (Minga) donde sientas que este tema ayuda a los compañeros a trabajar en equipo de manera más rápida y limpia.`;
 
@@ -149,9 +195,9 @@ Instrucción: Lee detenidamente las preguntas (o escúchalas con ayuda de tu doc
   };
 
   const handlePrintAdapted = () => {
-    if (!generatedPiar || !plan) return;
+    if (!generatedPiar || !effectivePlan) return;
     onPrint({
-      ...plan,
+      ...effectivePlan,
       piar: generatedPiar
     }, "piar");
   };
@@ -232,7 +278,7 @@ Instrucción: Lee detenidamente las preguntas (o escúchalas con ayuda de tu doc
             {/* Generate Action Button */}
             <button
               onClick={handleGenerate}
-              disabled={isGenerating || !plan}
+              disabled={isGenerating || !effectivePlan}
               className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:shadow-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isGenerating ? (

@@ -54,6 +54,11 @@ export default function StudentsPage() {
   });
 
   const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [modalToast, setModalToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const showModalToast = (msg: string, ok = true) => {
+    setModalToast({ msg, ok });
+    if (ok) setTimeout(() => setModalToast(null), 3000);
+  };
 
   const handleAddStudent = async () => {
     if (formData.nombre && formData.grado) {
@@ -77,10 +82,10 @@ export default function StudentsPage() {
         });
         setFormData({ nombre: "", grado: "", curso: "", documento: "" });
         setShowModal(false);
-        alert("¡Estudiante matriculado y guardado en el sistema con éxito!");
+        setModalToast(null);
       } catch (err) {
         console.error("Error al matricular estudiante:", err);
-        alert("Ocurrió un error inesperado al guardar la matrícula en el servidor. Por favor, verifica la conexión.");
+        showModalToast("Error al guardar. Verifica tu conexión e intenta de nuevo.", false);
       } finally {
         setIsAddingStudent(false);
       }

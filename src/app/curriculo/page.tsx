@@ -1130,6 +1130,8 @@ Responde las preguntas 1 a 4 seleccionando la opciÃ³n correcta y rellenando el Ã
           onClose={() => setIsPiarOpen(false)}
           plan={analysisResult as any}
           onPrint={handlePrintModule}
+          grade={selectedGrade}
+          subject={selectedSubject}
         />
       </main>
 

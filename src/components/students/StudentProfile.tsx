@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   User, Calendar, Hash, GraduationCap, MapPin, Star, BookOpen,
   Plus, ClipboardList, Phone, RefreshCw, TrendingUp, AlertTriangle,
-  ChevronRight, Activity, Edit, X, Loader2,
+  ChevronRight, Activity, Edit, X, Loader2, CheckCircle,
 } from "lucide-react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import Link from "next/link";
@@ -69,6 +69,13 @@ export default function StudentProfile({ id }: { id: string }) {
   // States for observations
   const [obsText, setObsText] = useState("");
   const [isSavingObs, setIsSavingObs] = useState(false);
+
+  // Toast notification system
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   // States for full student editing
   const [showEditModal, setShowEditModal] = useState(false);
@@ -151,10 +158,10 @@ export default function StudentProfile({ id }: { id: string }) {
     setIsSavingObs(true);
     try {
       await updateStudent(student.id, { observations: obsText });
-      alert("Observación guardada exitosamente");
+      showToast("Observación guardada exitosamente");
     } catch (err) {
       console.error(err);
-      alert("Error al guardar la observación");
+      showToast("Error al guardar la observación", "error");
     } finally {
       setIsSavingObs(false);
     }
@@ -186,18 +193,28 @@ export default function StudentProfile({ id }: { id: string }) {
       };
       
       await updateStudent(student.id, updatedFields);
-      alert("¡Datos del estudiante actualizados con éxito!");
+      showToast("¡Datos del estudiante actualizados con éxito!");
       setShowEditModal(false);
     } catch (err) {
       console.error("Error al actualizar los datos del estudiante:", err);
-      alert("Ocurrió un error al guardar los cambios en la base de datos.");
+      showToast("Ocurrió un error al guardar los cambios en la base de datos.", "error");
     } finally {
       setIsSavingEdit(false);
     }
   };
 
   return (
-    <div className="bg-white border border-outline-variant rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
+    <div className="bg-white border border-outline-variant rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col animate-in fade-in slide-in-from-right-4 duration-500 relative">
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-2xl shadow-xl text-white text-[10px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-2 duration-300 ${
+          toast.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+        }`}>
+          {toast.type === "success" ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+          {toast.msg}
+        </div>
+      )}
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className={`relative bg-gradient-to-br ${perf.gradient} p-8 text-white overflow-hidden`}>

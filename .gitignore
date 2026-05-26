@@ -42,3 +42,6 @@ next-env.d.ts
 
 # backups
 backups/
+
+# scripts de depuración y prueba temporal
+scratch/
