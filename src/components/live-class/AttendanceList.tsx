@@ -382,7 +382,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
 
                    if (existingNoteId) {
                      await updateAgendaNote(existingNoteId, noteData);
-                   } else if (endClassNote.trim() !== "" || endClassType !== "GENERAL") {
+                   } else {
                      await addAgendaNote(noteData);
                    }
 

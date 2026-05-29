@@ -300,6 +300,9 @@ interface AppContextType {
   agendaNotes: AgendaNote[];
   addAgendaNote: (note: Omit<AgendaNote, "id">) => Promise<void>;
   updateAgendaNote: (id: string, updates: Partial<AgendaNote>) => Promise<void>;
+  clearAllAgendaNotes: () => Promise<void>;
+  clearPendingTasks: () => Promise<void>;
+  clearAllTasks: () => Promise<void>;
   // USER MANAGEMENT
   allUsers: AppUser[];
   refreshUsers: () => Promise<void>;
@@ -1354,6 +1357,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const clearPendingTasks = async () => {
+    try {
+      const batch = writeBatch(db);
+      const pendingTasks = agendaNotes.filter(n => n.type === "TASK" && !n.isCompleted);
+      pendingTasks.forEach(note => {
+        batch.delete(doc(db, "agendaNotes", note.id));
+      });
+      await batch.commit();
+      setAgendaNotes(prev => prev.filter(n => !(n.type === "TASK" && !n.isCompleted)));
+    } catch (err) {
+      console.error("Error al limpiar tareas pendientes:", err);
+    }
+  };
+
+  const clearAllAgendaNotes = async () => {
+    try {
+      const batch = writeBatch(db);
+      agendaNotes.forEach(note => {
+        batch.delete(doc(db, "agendaNotes", note.id));
+      });
+      await batch.commit();
+      setAgendaNotes([]);
+    } catch (err) {
+      console.error("Error al limpiar agenda completa:", err);
+    }
+  };
+
+  const clearAllTasks = async () => {
+    try {
+      const batch = writeBatch(db);
+      const allTasks = agendaNotes.filter(n => n.type === "TASK");
+      allTasks.forEach(note => {
+        batch.delete(doc(db, "agendaNotes", note.id));
+      });
+      await batch.commit();
+      setAgendaNotes(prev => prev.filter(n => n.type !== "TASK"));
+    } catch (err) {
+      console.error("Error al eliminar todas las tareas:", err);
+    }
+  };
+
   const addSubject = (subject: Omit<Subject, "id">) => {
     setSubjects(prev => [...prev, { ...subject, id: `sub-${Date.now()}` }]);
   };
@@ -1463,7 +1507,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       masterData, updateMasterData, updateMasterItem, removeMasterItem, togglePeriodStatus, setActivePeriod,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
-      agendaNotes, addAgendaNote, updateAgendaNote,
+      agendaNotes, addAgendaNote, updateAgendaNote, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
       curriculum, updateTopicStatus, saveCurriculumLocal,
