@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
@@ -328,12 +328,57 @@ export default function ConfiguracionPage() {
   const [jornada] = useState<Jornada>("MAÑANA");
 
   // Impresión
-  const printCoursesList = profile.isSuperAdmin ? masterData.grades : masterData.courses;
-  const printGradesList  = profile.isSuperAdmin ? masterData.grades : masterData.grades;
-  const printSubjectsList = masterData.subjects;
-  const [printCourse, setPrintCourse] = useState(printCoursesList[0] || "");
-  const [printGrade,  setPrintGrade]  = useState(printGradesList[0]  || "");
-  const [printSubject, setPrintSubject] = useState(printSubjectsList[0] || "");
+  const isDocente = profile.role === "DOCENTE";
+
+  const printCoursesList = useMemo(() => {
+    if (isDocente) {
+      return profile.teachingCourses && profile.teachingCourses.length > 0
+        ? profile.teachingCourses
+        : [...new Set(blocks.map(b => b.course))];
+    }
+    return masterData.courses;
+  }, [isDocente, profile.teachingCourses, blocks, masterData.courses]);
+
+  const printGradesList = useMemo(() => {
+    if (isDocente) {
+      return profile.teachingGrades && profile.teachingGrades.length > 0
+        ? profile.teachingGrades
+        : [...new Set(blocks.map(b => b.grade))];
+    }
+    return masterData.grades;
+  }, [isDocente, profile.teachingGrades, blocks, masterData.grades]);
+
+  const printSubjectsList = useMemo(() => {
+    if (isDocente) {
+      return profile.teachingSubjectsList && profile.teachingSubjectsList.length > 0
+        ? profile.teachingSubjectsList
+        : [...new Set(blocks.map(b => b.subject))];
+    }
+    return masterData.subjects;
+  }, [isDocente, profile.teachingSubjectsList, blocks, masterData.subjects]);
+
+  const [printCourse, setPrintCourse] = useState("");
+  const [printGrade,  setPrintGrade]  = useState("");
+  const [printSubject, setPrintSubject] = useState("");
+
+  // Sync selection values when list updates
+  useEffect(() => {
+    if (printCoursesList.length > 0 && (!printCourse || !printCoursesList.includes(printCourse))) {
+      setPrintCourse(printCoursesList[0]);
+    }
+  }, [printCoursesList, printCourse]);
+
+  useEffect(() => {
+    if (printGradesList.length > 0 && (!printGrade || !printGradesList.includes(printGrade))) {
+      setPrintGrade(printGradesList[0]);
+    }
+  }, [printGradesList, printGrade]);
+
+  useEffect(() => {
+    if (printSubjectsList.length > 0 && (!printSubject || !printSubjectsList.includes(printSubject))) {
+      setPrintSubject(printSubjectsList[0]);
+    }
+  }, [printSubjectsList, printSubject]);
 
   const teacherName = `${firstName} ${lastName}`.trim() || profile.name;
 
@@ -456,40 +501,59 @@ export default function ConfiguracionPage() {
             {tab === "impresion" && (
               <div className="space-y-6">
                 <h2 className="text-sm font-black uppercase tracking-widest text-gray-700">Imprimir Listados</h2>
+
+                {isDocente && printCoursesList.length === 0 && (
+                  <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50/50 text-amber-850 flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-amber-900">Malla Horaria Requerida</p>
+                      <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                        Debes configurar tu horario en la pestaña <strong>&quot;Horario&quot;</strong> para registrar tus cursos asignados antes de poder generar o imprimir planillas académicas.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Por Curso */}
                   <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Listado por Curso</p>
-                    <select value={printCourse} onChange={e => setPrintCourse(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none bg-white">
+                    <select value={printCourse} onChange={e => setPrintCourse(e.target.value)} disabled={printCoursesList.length === 0} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none bg-white disabled:opacity-50">
                       {printCoursesList.map(c => <option key={c}>{c}</option>)}
                     </select>
-                    <button onClick={() => printStudentsByCourse(students as Parameters<typeof printStudentsByCourse>[0], printCourse, teacherName)}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase">
+                    <button 
+                      onClick={() => printStudentsByCourse(students as Parameters<typeof printStudentsByCourse>[0], printCourse, teacherName)}
+                      disabled={printCoursesList.length === 0}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase disabled:opacity-40 disabled:pointer-events-none transition-all">
                       <Printer size={14} /> Imprimir
                     </button>
                   </div>
-                  {/* Por Grado */}
-                  <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Listado por Grado</p>
-                    <select value={printGrade} onChange={e => setPrintGrade(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none bg-white">
-                      {printGradesList.map(g => <option key={g}>{g}</option>)}
-                    </select>
-                    <button onClick={() => printStudentsByGrade(students as Parameters<typeof printStudentsByGrade>[0], printGrade, teacherName)}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600 text-white rounded-xl text-[11px] font-black uppercase">
-                      <Printer size={14} /> Imprimir
-                    </button>
-                  </div>
+                  {/* Por Grado - Solo Administradores */}
+                  {!isDocente && (
+                    <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Listado por Grado</p>
+                      <select value={printGrade} onChange={e => setPrintGrade(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none bg-white">
+                        {printGradesList.map(g => <option key={g}>{g}</option>)}
+                      </select>
+                      <button onClick={() => printStudentsByGrade(students as Parameters<typeof printStudentsByGrade>[0], printGrade, teacherName)}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600 text-white rounded-xl text-[11px] font-black uppercase">
+                        <Printer size={14} /> Imprimir
+                      </button>
+                    </div>
+                  )}
                   {/* Planilla Asistencia */}
                   <div className="p-6 rounded-2xl border border-gray-100 bg-gray-50">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Planilla de Asistencia</p>
-                    <select value={printCourse} onChange={e => setPrintCourse(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2 font-semibold focus:outline-none bg-white">
+                    <select value={printCourse} onChange={e => setPrintCourse(e.target.value)} disabled={printCoursesList.length === 0} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2 font-semibold focus:outline-none bg-white disabled:opacity-50">
                       {printCoursesList.map(c => <option key={c}>{c}</option>)}
                     </select>
-                    <select value={printSubject} onChange={e => setPrintSubject(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none bg-white">
+                    <select value={printSubject} onChange={e => setPrintSubject(e.target.value)} disabled={printSubjectsList.length === 0} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 font-semibold focus:outline-none bg-white disabled:opacity-50">
                       {printSubjectsList.map(s => <option key={s}>{s}</option>)}
                     </select>
-                    <button onClick={() => printAttendanceSheet(students as Parameters<typeof printAttendanceSheet>[0], printCourse, teacherName, printSubject)}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase">
+                    <button 
+                      onClick={() => printAttendanceSheet(students as Parameters<typeof printAttendanceSheet>[0], printCourse, teacherName, printSubject)}
+                      disabled={printCoursesList.length === 0 || printSubjectsList.length === 0}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase disabled:opacity-40 disabled:pointer-events-none transition-all">
                       <Printer size={14} /> Imprimir
                     </button>
                   </div>
