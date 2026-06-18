@@ -17,12 +17,23 @@ import { useState, useMemo, useEffect } from "react";
 type ViewMode = "timeline" | "kanban" | "weekly";
 
 export default function AgendaPage() {
-  const { agendaNotes, addAgendaNote, updateAgendaNote, clearAllAgendaNotes, clearPendingTasks, clearAllTasks, profile, subjects } = useApp();
+  const { 
+    agendaNotes, addAgendaNote, updateAgendaNote, 
+    updateAgendaNotesBatch, deleteAgendaNotesBatch,
+    clearAllAgendaNotes, clearPendingTasks, clearAllTasks, 
+    profile, subjects 
+  } = useApp();
+
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("ALL"); // "ALL", "TODAY", "WEEK", "MONTH"
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>("ALL"); // "ALL" or specific grade
   const [showCompletedTimeline, setShowCompletedTimeline] = useState<boolean>(false);
+
+  // Drag and drop / Batch selection states
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [draggedOverCol, setDraggedOverCol] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -41,6 +52,74 @@ export default function AgendaPage() {
     grade: "",
     subject: "INSTITUCIONAL"
   });
+
+  const handleToggleSelect = (noteId: string) => {
+    setSelectedNoteIds(prev => 
+      prev.includes(noteId) 
+        ? prev.filter(id => id !== noteId) 
+        : [...prev, noteId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const allFilteredIds = filteredNotes.map(n => n.id);
+    const areAllSelected = allFilteredIds.every(id => selectedNoteIds.includes(id));
+    
+    if (areAllSelected) {
+      setSelectedNoteIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedNoteIds(prev => {
+        const newSelection = [...prev];
+        allFilteredIds.forEach(id => {
+          if (!newSelection.includes(id)) newSelection.push(id);
+        });
+        return newSelection;
+      });
+    }
+  };
+
+  const handleBatchUpdateStatus = async (isCompleted: boolean) => {
+    if (selectedNoteIds.length === 0) return;
+    await updateAgendaNotesBatch(selectedNoteIds, { type: "TASK", isCompleted });
+    setSelectedNoteIds([]);
+    setIsSelectMode(false);
+  };
+
+  const handleBatchUpdateType = async (type: "GENERAL" | "NO_CLASS") => {
+    if (selectedNoteIds.length === 0) return;
+    await updateAgendaNotesBatch(selectedNoteIds, { type, isCompleted: false });
+    setSelectedNoteIds([]);
+    setIsSelectMode(false);
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedNoteIds.length === 0) return;
+    if (confirm(`¿Estás seguro de que deseas eliminar las ${selectedNoteIds.length} notas seleccionadas? Esta acción es irreversible.`)) {
+      await deleteAgendaNotesBatch(selectedNoteIds);
+      setSelectedNoteIds([]);
+      setIsSelectMode(false);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetType: string, isCompleted: boolean) => {
+    e.preventDefault();
+    setDraggedOverCol(null);
+    const id = e.dataTransfer.getData("text/plain");
+    if (!id) return;
+    
+    const note = agendaNotes.find(n => n.id === id);
+    if (!note) return;
+    
+    await updateAgendaNote(id, { 
+      type: targetType as any, 
+      isCompleted 
+    });
+  };
 
   // Calculate unique grades present in notes for filtering
   const uniqueGrades = useMemo(() => {
@@ -210,6 +289,19 @@ export default function AgendaPage() {
                 Limpiar Todo
               </button>
             )}
+            <button 
+              onClick={() => {
+                setIsSelectMode(!isSelectMode);
+                setSelectedNoteIds([]);
+              }}
+              className={`px-6 py-4.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 border-2 ${
+                isSelectMode 
+                  ? "bg-slate-800 text-white border-slate-800 shadow-xl" 
+                  : "bg-white/10 text-white border-white/20 hover:bg-white/20 shadow-lg"
+              }`}
+            >
+              <CheckCircle size={14} /> {isSelectMode ? "Cancelar Selección" : "Selección Múltiple"}
+            </button>
             <button 
               onClick={() => setIsAdding(true)}
               className="px-8 py-4.5 bg-white text-blue-700 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 border-2 border-white"
@@ -404,6 +496,16 @@ export default function AgendaPage() {
 
                       {/* Card content container */}
                       <div className="bg-white border border-slate-200/80 p-6 md:p-8 rounded-[2rem] shadow-md hover:shadow-xl hover:border-slate-300 transition-all duration-300 flex flex-col md:flex-row justify-between gap-6 items-start relative overflow-hidden">
+                        {isSelectMode && (
+                          <div className="absolute top-4 right-4 z-20">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedNoteIds.includes(note.id)}
+                              onChange={() => handleToggleSelect(note.id)}
+                              className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </div>
+                        )}
                         
                         {/* Background glows */}
                         <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-10 pointer-events-none ${
@@ -481,8 +583,16 @@ export default function AgendaPage() {
                     {completedTimelineTasks.map((note, idx) => {
                       const noteDate = new Date(note.date + "T12:00:00");
                       return (
-                        <div key={note.id || idx} className="flex justify-between gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm opacity-75 hover:opacity-100 transition-all duration-200">
-                          <div className="space-y-2">
+                        <div key={note.id || idx} className="flex gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm opacity-75 hover:opacity-100 transition-all duration-200 items-start">
+                          {isSelectMode && (
+                            <input 
+                              type="checkbox" 
+                              checked={selectedNoteIds.includes(note.id)}
+                              onChange={() => handleToggleSelect(note.id)}
+                              className="w-4 h-4 mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                            />
+                          )}
+                          <div className="space-y-2 flex-1">
                             <div className="flex flex-wrap gap-2 items-center">
                               <span className="text-[8px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase">
                                 {noteDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
@@ -520,7 +630,17 @@ export default function AgendaPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start animate-in fade-in duration-300">
             
             {/* Column 1: General Bitácoras */}
-            <div className="bg-slate-100/60 p-5 rounded-[2rem] border border-slate-200/80 space-y-4">
+            <div 
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={() => setDraggedOverCol("GENERAL")}
+              onDragLeave={() => setDraggedOverCol(null)}
+              onDrop={(e) => handleDrop(e, "GENERAL", false)}
+              className={`p-5 rounded-[2rem] border transition-all duration-300 space-y-4 ${
+                draggedOverCol === "GENERAL" 
+                  ? "bg-blue-50/50 border-2 border-dashed border-blue-400 scale-[1.01]" 
+                  : "bg-slate-100/60 border-slate-200/80"
+              }`}
+            >
               <div className="flex justify-between items-center px-2">
                 <div className="flex items-center gap-2">
                   <Bookmark size={16} className="text-blue-500" />
@@ -533,7 +653,22 @@ export default function AgendaPage() {
 
               <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
                 {filteredNotes.filter(n => n.type === "GENERAL").map((note, idx) => (
-                  <div key={note.id || idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:scale-101 transition-all duration-300 space-y-3">
+                  <div 
+                    key={note.id || idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, note.id)}
+                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:scale-101 cursor-grab active:cursor-grabbing transition-all duration-300 space-y-3 relative overflow-hidden group"
+                  >
+                    {isSelectMode && (
+                      <div className="absolute top-4 right-4 z-10">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedNoteIds.includes(note.id)}
+                          onChange={() => handleToggleSelect(note.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                         {note.date}
@@ -550,6 +685,30 @@ export default function AgendaPage() {
                         Grado {note.grade} · {note.course}
                       </span>
                     )}
+
+                    {/* Quick Move Fallback Selector */}
+                    <div className="flex items-center gap-1.5 mt-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 justify-between">
+                      <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest ml-1">Mover:</span>
+                      <select
+                        value={note.type === "TASK" ? (note.isCompleted ? "COMPLETED_TASK" : "PENDING_TASK") : note.type}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          if (val === "PENDING_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: false });
+                          } else if (val === "COMPLETED_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: true });
+                          } else {
+                            await updateAgendaNote(note.id, { type: val as any, isCompleted: false });
+                          }
+                        }}
+                        className="bg-white border border-slate-200 text-[8px] font-black uppercase rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-600"
+                      >
+                        <option value="GENERAL">Bitácora</option>
+                        <option value="PENDING_TASK">Pendiente</option>
+                        <option value="COMPLETED_TASK">Ejecutada</option>
+                        <option value="NO_CLASS">Excepción</option>
+                      </select>
+                    </div>
                   </div>
                 ))}
                 {filteredNotes.filter(n => n.type === "GENERAL").length === 0 && (
@@ -559,7 +718,17 @@ export default function AgendaPage() {
             </div>
 
             {/* Column 2: Tareas Pendientes */}
-            <div className="bg-slate-100/60 p-5 rounded-[2rem] border border-slate-200/80 space-y-4">
+            <div 
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={() => setDraggedOverCol("PENDING_TASK")}
+              onDragLeave={() => setDraggedOverCol(null)}
+              onDrop={(e) => handleDrop(e, "TASK", false)}
+              className={`p-5 rounded-[2rem] border transition-all duration-300 space-y-4 ${
+                draggedOverCol === "PENDING_TASK" 
+                  ? "bg-amber-50/50 border-2 border-dashed border-amber-400 scale-[1.01]" 
+                  : "bg-slate-100/60 border-slate-200/80"
+              }`}
+            >
               <div className="flex justify-between items-center px-2">
                 <div className="flex items-center gap-2">
                   <FolderKanban size={16} className="text-amber-500" />
@@ -572,7 +741,22 @@ export default function AgendaPage() {
 
               <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
                 {filteredNotes.filter(n => n.type === "TASK" && !n.isCompleted).map((note, idx) => (
-                  <div key={note.id || idx} className="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm hover:shadow-md hover:scale-101 transition-all duration-300 space-y-3 relative overflow-hidden">
+                  <div 
+                    key={note.id || idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, note.id)}
+                    className="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm hover:shadow-md hover:scale-101 cursor-grab active:cursor-grabbing transition-all duration-300 space-y-3 relative overflow-hidden group"
+                  >
+                    {isSelectMode && (
+                      <div className="absolute top-4 right-4 z-10">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedNoteIds.includes(note.id)}
+                          onChange={() => handleToggleSelect(note.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                         {note.date}
@@ -597,6 +781,30 @@ export default function AgendaPage() {
                         <Circle size={10} /> Completar
                       </button>
                     </div>
+
+                    {/* Quick Move Fallback Selector */}
+                    <div className="flex items-center gap-1.5 mt-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 justify-between">
+                      <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest ml-1">Mover:</span>
+                      <select
+                        value={note.type === "TASK" ? (note.isCompleted ? "COMPLETED_TASK" : "PENDING_TASK") : note.type}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          if (val === "PENDING_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: false });
+                          } else if (val === "COMPLETED_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: true });
+                          } else {
+                            await updateAgendaNote(note.id, { type: val as any, isCompleted: false });
+                          }
+                        }}
+                        className="bg-white border border-slate-200 text-[8px] font-black uppercase rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-600"
+                      >
+                        <option value="GENERAL">Bitácora</option>
+                        <option value="PENDING_TASK">Pendiente</option>
+                        <option value="COMPLETED_TASK">Ejecutada</option>
+                        <option value="NO_CLASS">Excepción</option>
+                      </select>
+                    </div>
                   </div>
                 ))}
                 {filteredNotes.filter(n => n.type === "TASK" && !n.isCompleted).length === 0 && (
@@ -606,7 +814,17 @@ export default function AgendaPage() {
             </div>
 
             {/* Column 3: Tareas Completadas / Ejecutadas */}
-            <div className="bg-slate-100/60 p-5 rounded-[2rem] border border-slate-200/80 space-y-4">
+            <div 
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={() => setDraggedOverCol("COMPLETED_TASK")}
+              onDragLeave={() => setDraggedOverCol(null)}
+              onDrop={(e) => handleDrop(e, "TASK", true)}
+              className={`p-5 rounded-[2rem] border transition-all duration-300 space-y-4 ${
+                draggedOverCol === "COMPLETED_TASK" 
+                  ? "bg-emerald-50/50 border-2 border-dashed border-emerald-400 scale-[1.01]" 
+                  : "bg-slate-100/60 border-slate-200/80"
+              }`}
+            >
               <div className="flex justify-between items-center px-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle size={16} className="text-emerald-500" />
@@ -619,7 +837,22 @@ export default function AgendaPage() {
 
               <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
                 {filteredNotes.filter(n => n.type === "TASK" && n.isCompleted).map((note, idx) => (
-                  <div key={note.id || idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm opacity-75 hover:opacity-100 transition-all duration-300 space-y-3 relative overflow-hidden">
+                  <div 
+                    key={note.id || idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, note.id)}
+                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm opacity-75 hover:opacity-100 cursor-grab active:cursor-grabbing transition-all duration-300 space-y-3 relative overflow-hidden group"
+                  >
+                    {isSelectMode && (
+                      <div className="absolute top-4 right-4 z-10">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedNoteIds.includes(note.id)}
+                          onChange={() => handleToggleSelect(note.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                         {note.date}
@@ -644,6 +877,30 @@ export default function AgendaPage() {
                         <CheckCircle2 size={10} /> Completada
                       </button>
                     </div>
+
+                    {/* Quick Move Fallback Selector */}
+                    <div className="flex items-center gap-1.5 mt-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 justify-between">
+                      <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest ml-1">Mover:</span>
+                      <select
+                        value={note.type === "TASK" ? (note.isCompleted ? "COMPLETED_TASK" : "PENDING_TASK") : note.type}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          if (val === "PENDING_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: false });
+                          } else if (val === "COMPLETED_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: true });
+                          } else {
+                            await updateAgendaNote(note.id, { type: val as any, isCompleted: false });
+                          }
+                        }}
+                        className="bg-white border border-slate-200 text-[8px] font-black uppercase rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-600"
+                      >
+                        <option value="GENERAL">Bitácora</option>
+                        <option value="PENDING_TASK">Pendiente</option>
+                        <option value="COMPLETED_TASK">Ejecutada</option>
+                        <option value="NO_CLASS">Excepción</option>
+                      </select>
+                    </div>
                   </div>
                 ))}
                 {filteredNotes.filter(n => n.type === "TASK" && n.isCompleted).length === 0 && (
@@ -653,7 +910,17 @@ export default function AgendaPage() {
             </div>
 
             {/* Column 4: Excepciones de Jornada */}
-            <div className="bg-slate-100/60 p-5 rounded-[2rem] border border-slate-200/80 space-y-4">
+            <div 
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={() => setDraggedOverCol("NO_CLASS")}
+              onDragLeave={() => setDraggedOverCol(null)}
+              onDrop={(e) => handleDrop(e, "NO_CLASS", false)}
+              className={`p-5 rounded-[2rem] border transition-all duration-300 space-y-4 ${
+                draggedOverCol === "NO_CLASS" 
+                  ? "bg-rose-50/50 border-2 border-dashed border-rose-400 scale-[1.01]" 
+                  : "bg-slate-100/60 border-slate-200/80"
+              }`}
+            >
               <div className="flex justify-between items-center px-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-rose-500" />
@@ -666,7 +933,22 @@ export default function AgendaPage() {
 
               <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
                 {filteredNotes.filter(n => n.type === "NO_CLASS").map((note, idx) => (
-                  <div key={note.id || idx} className="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm hover:shadow-md hover:scale-101 transition-all duration-300 space-y-3">
+                  <div 
+                    key={note.id || idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, note.id)}
+                    className="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm hover:shadow-md hover:scale-101 cursor-grab active:cursor-grabbing transition-all duration-300 space-y-3 relative overflow-hidden group"
+                  >
+                    {isSelectMode && (
+                      <div className="absolute top-4 right-4 z-10">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedNoteIds.includes(note.id)}
+                          onChange={() => handleToggleSelect(note.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                         {note.date}
@@ -683,6 +965,30 @@ export default function AgendaPage() {
                         Grado {note.grade} · {note.course}
                       </span>
                     )}
+
+                    {/* Quick Move Fallback Selector */}
+                    <div className="flex items-center gap-1.5 mt-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 justify-between">
+                      <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest ml-1">Mover:</span>
+                      <select
+                        value={note.type === "TASK" ? (note.isCompleted ? "COMPLETED_TASK" : "PENDING_TASK") : note.type}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          if (val === "PENDING_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: false });
+                          } else if (val === "COMPLETED_TASK") {
+                            await updateAgendaNote(note.id, { type: "TASK", isCompleted: true });
+                          } else {
+                            await updateAgendaNote(note.id, { type: val as any, isCompleted: false });
+                          }
+                        }}
+                        className="bg-white border border-slate-200 text-[8px] font-black uppercase rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-600"
+                      >
+                        <option value="GENERAL">Bitácora</option>
+                        <option value="PENDING_TASK">Pendiente</option>
+                        <option value="COMPLETED_TASK">Ejecutada</option>
+                        <option value="NO_CLASS">Excepción</option>
+                      </select>
+                    </div>
                   </div>
                 ))}
                 {filteredNotes.filter(n => n.type === "NO_CLASS").length === 0 && (
@@ -795,6 +1101,66 @@ export default function AgendaPage() {
                    </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {isSelectMode && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-4xl bg-slate-900/95 backdrop-blur-lg border border-slate-800 rounded-[2rem] p-4 sm:p-5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-8 duration-300 text-white">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-black">{selectedNoteIds.length}</span>
+              <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider">Notas seleccionadas</span>
+              
+              <button 
+                onClick={handleSelectAll}
+                className="ml-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
+              >
+                {filteredNotes.every(n => selectedNoteIds.includes(n.id)) ? "Deseleccionar Todos" : "Seleccionar Todos"}
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 items-center justify-center md:justify-end">
+              <button
+                onClick={() => handleBatchUpdateStatus(true)}
+                disabled={selectedNoteIds.length === 0}
+                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:pointer-events-none rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 size={12} /> Tarea Ejecutada
+              </button>
+              
+              <button
+                onClick={() => handleBatchUpdateStatus(false)}
+                disabled={selectedNoteIds.length === 0}
+                className="px-3.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-40 disabled:pointer-events-none rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Clock size={12} /> Tarea Pendiente
+              </button>
+
+              <button
+                onClick={() => handleBatchUpdateType("GENERAL")}
+                disabled={selectedNoteIds.length === 0}
+                className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 disabled:pointer-events-none rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileText size={12} /> Bitácora
+              </button>
+
+              <button
+                onClick={() => handleBatchUpdateType("NO_CLASS")}
+                disabled={selectedNoteIds.length === 0}
+                className="px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-40 disabled:pointer-events-none rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <AlertTriangle size={12} /> Excepción
+              </button>
+
+              <div className="w-[1px] h-6 bg-slate-800 hidden sm:block" />
+
+              <button
+                onClick={handleBatchDelete}
+                disabled={selectedNoteIds.length === 0}
+                className="px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-40 disabled:pointer-events-none rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { FileText, Save, History, AlertCircle, Clock } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
@@ -14,6 +14,7 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
   const [currentNote, setCurrentNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [lastSavedContent, setLastSavedContent] = useState<string | null>(null);
 
   // Buscar si ya existe una nota para hoy, este curso y esta materia
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -34,14 +35,36 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
       .slice(0, 5);
   }, [agendaNotes, course, subject, todayStr]);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const prevKey = useRef("");
+  const currentKey = `${subject}-${course}-${todayStr}`;
+
+  // Reset dirty lock and load initial note content when class/date changes
   useEffect(() => {
-    if (existingNote) {
-      setCurrentNote(existingNote.content || "");
+    if (prevKey.current !== currentKey) {
+      prevKey.current = currentKey;
+      setIsDirty(false);
+      const dbContent = existingNote?.content || "";
+      setCurrentNote(dbContent);
+      setLastSavedContent(dbContent);
     }
-  }, [existingNote]);
+  }, [currentKey, existingNote, lastSavedContent]);
+
+  // Sync with Firestore content on initial load, only if user hasn't edited (not dirty)
+  useEffect(() => {
+    if (!isDirty && existingNote) {
+      const dbContent = existingNote.content || "";
+      if (dbContent !== currentNote) {
+        setCurrentNote(dbContent);
+        setLastSavedContent(dbContent);
+      }
+    }
+  }, [existingNote, isDirty, currentNote]);
 
   const handleSave = async (content: string) => {
     setCurrentNote(content);
+    setIsDirty(true);
+    setLastSavedContent(content);
     setSaving(true);
     
     try {
@@ -64,15 +87,16 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
     }
   };
 
-  // Debounce para el autoguardado
+  // Debounce for auto-saving
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (currentNote !== (existingNote?.content || "")) {
+      const dbVal = existingNote?.content || "";
+      if (currentNote !== dbVal) {
         handleSave(currentNote);
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [currentNote]);
+  }, [currentNote, existingNote]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -100,7 +124,10 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
         <div className="p-6">
           <textarea 
             value={currentNote}
-            onChange={(e) => setCurrentNote(e.target.value)}
+            onChange={(e) => {
+              setCurrentNote(e.target.value);
+              setIsDirty(true);
+            }}
             className="w-full min-h-[120px] bg-slate-50 border border-outline-variant rounded-2xl p-5 text-xs font-medium focus:ring-2 focus:ring-primary outline-none resize-none mb-4 placeholder:text-slate-400 leading-relaxed shadow-inner" 
             placeholder="Escribe observaciones de la clase, incidentes o recordatorios..."
           ></textarea>

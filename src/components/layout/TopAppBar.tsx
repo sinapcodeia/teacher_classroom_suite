@@ -10,7 +10,7 @@ import { useState, useRef, useEffect } from "react";
 
 
 export default function TopAppBar() {
-  const { profile, user, logout } = useApp();
+  const { profile, user, logout, isOnline } = useApp();
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -129,10 +129,17 @@ export default function TopAppBar() {
       {/* Right Actions */}
       <div className="flex items-center gap-3">
         {/* Cloud Sync Status - High End Feel */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 group">
-           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-           <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Cloud Sync Active</span>
-        </div>
+        {isOnline ? (
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 group">
+             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+             <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">En Línea • Sincronizado</span>
+          </div>
+        ) : (
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-full border border-amber-200 group">
+             <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+             <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Modo Local (Offline)</span>
+          </div>
+        )}
 
         {/* Notifications */}
         <button className="relative p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">

@@ -300,6 +300,8 @@ interface AppContextType {
   agendaNotes: AgendaNote[];
   addAgendaNote: (note: Omit<AgendaNote, "id">) => Promise<void>;
   updateAgendaNote: (id: string, updates: Partial<AgendaNote>) => Promise<void>;
+  updateAgendaNotesBatch: (ids: string[], updates: Partial<AgendaNote>) => Promise<void>;
+  deleteAgendaNotesBatch: (ids: string[]) => Promise<void>;
   clearAllAgendaNotes: () => Promise<void>;
   clearPendingTasks: () => Promise<void>;
   clearAllTasks: () => Promise<void>;
@@ -312,6 +314,7 @@ interface AppContextType {
   resetPassword: (email: string) => Promise<void>;
   acceptTerms: () => Promise<void>;
   saveDailyAttendance: (dateStr: string, records: Record<string, string>) => Promise<void>;
+  isOnline: boolean;
   // CURRICULUM
   curriculum: Curriculum[];
   updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
@@ -403,6 +406,21 @@ const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      };
+    }
+  }, []);
 
   const [agendaNotes, setAgendaNotes] = useState<AgendaNote[]>([]);
   const [curriculum, setCurriculum] = useState<Curriculum[]>([]);
@@ -550,188 +568,196 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     // --- END MOCK/SANDBOX AUTHENTICATION BYPASS ---
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       // Limpiar suscripciones previas al cambiar de estado de autenticación
       unsubs.forEach(unsub => unsub());
       unsubs = [];
 
       if (firebaseUser) {
-        try {
-          const userDocRef = doc(db, "users", firebaseUser.uid);
-          const isSuperAdmin = SUPER_ADMINS.includes(firebaseUser.email || "");
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const isSuperAdmin = SUPER_ADMINS.includes(firebaseUser.email || "");
 
-          // Verificar existencia inicial e iniciar doc si no existe
-          const userDoc = await getDoc(userDocRef);
-          if (!userDoc.exists()) {
-            const newDoc = {
+        // 1. Verificar existencia/actualizar en segundo plano de manera no bloqueante
+        const checkAndCreateUser = async () => {
+          try {
+            const userDoc = await getDoc(userDocRef);
+            if (!userDoc.exists()) {
+              const newDoc = {
+                role: isSuperAdmin ? "RECTOR" : "DOCENTE",
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName,
+                isSuperAdmin,
+                status: isSuperAdmin ? "ACTIVE" : "PENDING",
+                acceptedTerms: false,
+                isProfileComplete: isSuperAdmin ? true : false,
+                firstName: "",
+                lastName: "",
+                phone: "",
+                teachingGrades: [],
+                teachingCourses: [],
+                teachingSubjectsList: [],
+                weeklySchedule: [],
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString(),
+              };
+              await setDoc(userDocRef, newDoc);
+            } else {
+              await updateDoc(userDocRef, { lastLogin: new Date().toISOString() });
+            }
+          } catch (e) {
+            console.warn("Fallo no bloqueante en verificación de perfil (posiblemente offline):", e);
+          }
+        };
+        checkAndCreateUser();
+
+        // 2. Suscribir inmediatamente en tiempo real a todos los canales (carga instantánea desde caché local)
+        const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+          if (!docSnap.exists()) {
+            const tempProfile: TeacherProfile = {
+              ...DEFAULT_PROFILE,
+              name: (firebaseUser.displayName || "USUARIO").toUpperCase(),
+              email: firebaseUser.email || "",
               role: isSuperAdmin ? "RECTOR" : "DOCENTE",
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName,
-              isSuperAdmin,
               status: isSuperAdmin ? "ACTIVE" : "PENDING",
-              acceptedTerms: false,
-              isProfileComplete: isSuperAdmin ? true : false,
-              firstName: "",
-              lastName: "",
-              phone: "",
-              teachingGrades: [],
-              teachingCourses: [],
-              teachingSubjectsList: [],
-              weeklySchedule: [],
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString(),
+              isSuperAdmin,
             };
-            await setDoc(userDocRef, newDoc);
-          } else {
-            updateDoc(userDocRef, { lastLogin: new Date().toISOString() }).catch(e => console.warn("Offline login audit", e));
+            setProfile(tempProfile);
+            return;
+          }
+          const savedData = docSnap.data() as Partial<TeacherProfile>;
+          
+          // ── AUTO-PATCH: docenciainformatica2025@gmail.com ──────────────────
+          if (firebaseUser.email === "docenciainformatica2025@gmail.com") {
+            const updates: any = {};
+            
+            if (!savedData.firstName) {
+              savedData.firstName = "JESUS ANTONIO";
+              updates.firstName = "JESUS ANTONIO";
+            }
+            if (!savedData.lastName) {
+              savedData.lastName = "RODRIGUEZ";
+              updates.lastName = "RODRIGUEZ";
+            }
+            
+            if ((savedData.weeklySchedule?.length ?? 0) === 0) {
+              const derivedCourses = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => `${normalizeGrade(b.grade)}-${b.course}`)));
+              const derivedGrades = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => normalizeGrade(b.grade))));
+              
+              savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
+              savedData.teachingCourses = derivedCourses;
+              savedData.teachingGrades = derivedGrades;
+              
+              updates.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
+              updates.teachingCourses = derivedCourses;
+              updates.teachingGrades = derivedGrades;
+            }
+            
+            if (Object.keys(updates).length > 0) {
+              savedData.isProfileComplete = true;
+              updates.isProfileComplete = true;
+              updateDoc(userDocRef, updates).catch(e => console.warn("Offline patch", e));
+            }
           }
 
-          // Suscribir en tiempo real a los cambios del perfil del usuario (RESUELVE BUCLE DE CACHÉ OFFLINE)
-          const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
-            if (!docSnap.exists()) return;
-            const savedData = docSnap.data() as Partial<TeacherProfile>;
-            
-            // ── AUTO-PATCH: docenciainformatica2025@gmail.com ──────────────────
-            if (firebaseUser.email === "docenciainformatica2025@gmail.com") {
-              const updates: any = {};
-              
-              if (!savedData.firstName) {
-                savedData.firstName = "JESUS ANTONIO";
-                updates.firstName = "JESUS ANTONIO";
-              }
-              if (!savedData.lastName) {
-                savedData.lastName = "RODRIGUEZ";
-                updates.lastName = "RODRIGUEZ";
-              }
-              
-              if ((savedData.weeklySchedule?.length ?? 0) === 0) {
-                const derivedCourses = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => `${normalizeGrade(b.grade)}-${b.course}`)));
-                const derivedGrades = Array.from(new Set(DEFAULT_SCHEDULE_BLOCKS.map(b => normalizeGrade(b.grade))));
-                
-                savedData.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
-                savedData.teachingCourses = derivedCourses;
-                savedData.teachingGrades = derivedGrades;
-                
-                updates.weeklySchedule = DEFAULT_SCHEDULE_BLOCKS;
-                updates.teachingCourses = derivedCourses;
-                updates.teachingGrades = derivedGrades;
-              }
-              
-              if (Object.keys(updates).length > 0) {
-                savedData.isProfileComplete = true;
-                updates.isProfileComplete = true;
-                updateDoc(userDocRef, updates).catch(e => console.warn("Offline patch", e));
-              }
-            }
-
-            const currentSchedule = isSuperAdmin ? [] : (savedData.weeklySchedule || []);
-            let currentCourses = savedData.teachingCourses || [];
-            let currentGrades = savedData.teachingGrades || [];
-            
-            if (currentCourses.length === 0 && currentSchedule.length > 0) {
-              currentCourses = Array.from(new Set(currentSchedule.map((b: any) => `${normalizeGrade(b.grade)}-${b.course}`)));
-            }
-            if (currentGrades.length === 0 && currentSchedule.length > 0) {
-              currentGrades = Array.from(new Set(currentSchedule.map((b: any) => normalizeGrade(b.grade))));
-            }
-
-            const builtProfile: TeacherProfile = {
-              ...DEFAULT_PROFILE,
-              name: (
-                savedData.firstName && savedData.lastName
-                  ? `${savedData.firstName} ${savedData.lastName}`
-                  : firebaseUser.displayName || "USUARIO"
-              ).toUpperCase(),
-              firstName: savedData.firstName || "",
-              lastName: savedData.lastName || "",
-              phone: savedData.phone || "",
-              email: firebaseUser.email || "",
-              photoURL: firebaseUser.photoURL || "",
-              role: (savedData.role as Profile["role"]) || "DOCENTE",
-              status: (savedData.status as Profile["status"]) || "ACTIVE",
-              acceptedTerms: savedData.acceptedTerms || (typeof window !== "undefined" && localStorage.getItem(`edu_terms_accepted_${firebaseUser.uid}`) === "true") || false,
-              isSuperAdmin,
-              teachingGrades: currentGrades,
-              teachingCourses: currentCourses,
-              teachingSubjectsList: savedData.teachingSubjectsList || [],
-              isProfileComplete: isSuperAdmin ? true : (savedData.isProfileComplete || false),
-              weeklySchedule: currentSchedule,
-            };
-
-            setProfile(builtProfile);
-
-            if (builtProfile.weeklySchedule && builtProfile.weeklySchedule.length > 0) {
-              setSchedule(blocksToEntries(builtProfile.weeklySchedule));
-            }
-          });
-          unsubs.push(unsubscribeProfile);
-
-          // ── REAL-TIME STUDENTS SYNC ────────────────────────
-          let unsubscribeStudents: () => void = () => {};
-          const studentsQuery = collection(db, "students");
-          unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
-            const firestoreStudents = snap.docs.map(d => {
-              const data = d.data();
-              
-              // Recalcular dinámicamente el promedio para aplicar reglas nuevas (ej. bonos de participación) a datos históricos
-              let computedAvg = data.avgGrade || 0;
-              if (data.grades && data.grades.length > 0) {
-                const validScores = data.grades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
-                const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
-                const bonus = data.grades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
-                computedAvg = Number(Math.min(5.0, baseAvg + bonus).toFixed(1));
-              }
-
-              return {
-                id: d.id,
-                ...data,
-                avgGrade: computedAvg,
-                grado: normalizeGrade(data.grado as string),
-                curso: (data.curso || "").toString().trim().toUpperCase(),
-              } as Student;
-            });
-            setStudents(firestoreStudents);
-            setStudentsLoading(false);
-          }, (err) => {
-            console.warn("Error en tiempo real (estudiantes):", err);
-            setStudentsLoading(false);
-          });
-          unsubs.push(unsubscribeStudents);
-
-          // ── REAL-TIME AGENDA SYNC (Recent Only) ────────────────────────────
-          // Use YYYY-MM-DD string comparison since dates are stored as strings
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10); // "YYYY-MM-DD"
-          const agendaQuery = query(
-            collection(db, "agendaNotes"),
-            where("date", ">=", thirtyDaysAgoStr)
-          );
-
-          const unsubscribeAgenda = onSnapshot(agendaQuery, (snap) => {
-            const notes = snap.docs.map(d => ({ id: d.id, ...d.data() } as AgendaNote));
-            setAgendaNotes(notes);
-          }, (err) => {
-            console.warn("Error en tiempo real (agenda):", err);
-          });
-          unsubs.push(unsubscribeAgenda);
-
-          // ── REAL-TIME CURRICULUM SYNC ─────────────────────────────────────
-          const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
-            const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Curriculum));
-            setCurriculum(items);
-          }, (err) => {
-            console.warn("Error en tiempo real (currículo):", err);
-          });
-          unsubs.push(unsubscribeCurriculum);
-
-          setUser(firebaseUser);
+          const currentSchedule = isSuperAdmin ? [] : (savedData.weeklySchedule || []);
+          let currentCourses = savedData.teachingCourses || [];
+          let currentGrades = savedData.teachingGrades || [];
           
-        } catch (err) {
-          console.error("Error al obtener perfil:", err);
-          // Fallback: Si Firestore falla pero el auth funciona, permitimos entrar con perfil básico
-          setUser(firebaseUser);
-        }
+          if (currentCourses.length === 0 && currentSchedule.length > 0) {
+            currentCourses = Array.from(new Set(currentSchedule.map((b: any) => `${normalizeGrade(b.grade)}-${b.course}`)));
+          }
+          if (currentGrades.length === 0 && currentSchedule.length > 0) {
+            currentGrades = Array.from(new Set(currentSchedule.map((b: any) => normalizeGrade(b.grade))));
+          }
+
+          const builtProfile: TeacherProfile = {
+            ...DEFAULT_PROFILE,
+            name: (
+              savedData.firstName && savedData.lastName
+                ? `${savedData.firstName} ${savedData.lastName}`
+                : firebaseUser.displayName || "USUARIO"
+            ).toUpperCase(),
+            firstName: savedData.firstName || "",
+            lastName: savedData.lastName || "",
+            phone: savedData.phone || "",
+            email: firebaseUser.email || "",
+            photoURL: firebaseUser.photoURL || "",
+            role: (savedData.role as Profile["role"]) || "DOCENTE",
+            status: (savedData.status as Profile["status"]) || "ACTIVE",
+            acceptedTerms: savedData.acceptedTerms || (typeof window !== "undefined" && localStorage.getItem(`edu_terms_accepted_${firebaseUser.uid}`) === "true") || false,
+            isSuperAdmin,
+            teachingGrades: currentGrades,
+            teachingCourses: currentCourses,
+            teachingSubjectsList: savedData.teachingSubjectsList || [],
+            isProfileComplete: isSuperAdmin ? true : (savedData.isProfileComplete || false),
+            weeklySchedule: currentSchedule,
+          };
+
+          setProfile(builtProfile);
+
+          if (builtProfile.weeklySchedule && builtProfile.weeklySchedule.length > 0) {
+            setSchedule(blocksToEntries(builtProfile.weeklySchedule));
+          }
+        }, (err) => {
+          console.warn("Error en tiempo real (perfil):", err);
+        });
+        unsubs.push(unsubscribeProfile);
+
+        // Estudiantes
+        const studentsQuery = collection(db, "students");
+        const unsubscribeStudents = onSnapshot(studentsQuery, (snap) => {
+          const firestoreStudents = snap.docs.map(d => {
+            const data = d.data();
+            let computedAvg = data.avgGrade || 0;
+            if (data.grades && data.grades.length > 0) {
+              const validScores = data.grades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
+              const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+              const bonus = data.grades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
+              computedAvg = Number(Math.min(5.0, baseAvg + bonus).toFixed(1));
+            }
+
+            return {
+              id: d.id,
+              ...data,
+              avgGrade: computedAvg,
+              grado: normalizeGrade(data.grado as string),
+              curso: (data.curso || "").toString().trim().toUpperCase(),
+            } as Student;
+          });
+          setStudents(firestoreStudents);
+          setStudentsLoading(false);
+        }, (err) => {
+          console.warn("Error en tiempo real (estudiantes):", err);
+          setStudentsLoading(false);
+        });
+        unsubs.push(unsubscribeStudents);
+
+        // Agenda
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
+        const agendaQuery = query(
+          collection(db, "agendaNotes"),
+          where("date", ">=", thirtyDaysAgoStr)
+        );
+        const unsubscribeAgenda = onSnapshot(agendaQuery, (snap) => {
+          const notes = snap.docs.map(d => ({ id: d.id, ...d.data() } as AgendaNote));
+          setAgendaNotes(notes);
+        }, (err) => {
+          console.warn("Error en tiempo real (agenda):", err);
+        });
+        unsubs.push(unsubscribeAgenda);
+
+        // Currículo
+        const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
+          const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Curriculum));
+          setCurriculum(items);
+        }, (err) => {
+          console.warn("Error en tiempo real (currículo):", err);
+        });
+        unsubs.push(unsubscribeCurriculum);
+
+        setUser(firebaseUser);
       } else {
         setUser(null);
         setProfile(DEFAULT_PROFILE);
@@ -1357,6 +1383,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateAgendaNotesBatch = async (ids: string[], updates: Partial<AgendaNote>) => {
+    try {
+      const batch = writeBatch(db);
+      ids.forEach(id => {
+        batch.update(doc(db, "agendaNotes", id), updates);
+      });
+      await batch.commit();
+      setAgendaNotes(prev => prev.map(n => ids.includes(n.id) ? { ...n, ...updates } : n));
+    } catch (err) {
+      console.error("Error al actualizar notas en lote:", err);
+    }
+  };
+
+  const deleteAgendaNotesBatch = async (ids: string[]) => {
+    try {
+      const batch = writeBatch(db);
+      ids.forEach(id => {
+        batch.delete(doc(db, "agendaNotes", id));
+      });
+      await batch.commit();
+      setAgendaNotes(prev => prev.filter(n => !ids.includes(n.id)));
+    } catch (err) {
+      console.error("Error al eliminar notas en lote:", err);
+    }
+  };
+
   const clearPendingTasks = async () => {
     try {
       const batch = writeBatch(db);
@@ -1507,12 +1559,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       masterData, updateMasterData, updateMasterItem, removeMasterItem, togglePeriodStatus, setActivePeriod,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
-      agendaNotes, addAgendaNote, updateAgendaNote, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,
+      agendaNotes, addAgendaNote, updateAgendaNote, updateAgendaNotesBatch, deleteAgendaNotesBatch, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
       curriculum, updateTopicStatus, saveCurriculumLocal,
       governanceStats,
-      studentsLoading
+      studentsLoading,
+      isOnline
     }}>
       {children}
     </AppContext.Provider>

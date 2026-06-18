@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React from "react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import {
   Save, Award, FileText, CheckCircle2, List, User,
@@ -23,6 +24,83 @@ function scoreColor(n: number) {
   if (n >= 3.0) return "text-amber-600 bg-amber-50 border-amber-200";
   return "text-red-600 bg-red-50 border-red-200";
 }
+
+const StudentRow = React.memo(({
+  student,
+  idx,
+  val,
+  hasSaved,
+  hasDuplicate,
+  activityTitle,
+  onGradeChange,
+  onKeyDown,
+  inputRef
+}: {
+  student: any;
+  idx: number;
+  val: string;
+  hasSaved: boolean;
+  hasDuplicate: boolean;
+  activityTitle: string;
+  onGradeChange: (id: string, val: string) => void;
+  onKeyDown: (e: any, idx: number) => void;
+  inputRef: (el: HTMLInputElement | null) => void;
+}) => {
+  const num = parseFloat(val);
+  return (
+    <tr className={`transition-colors ${hasSaved ? "bg-emerald-50/40" : "hover:bg-surface-container-lowest"}`}>
+      <td className="px-6 py-3 text-[10px] font-black text-on-surface-variant">{idx + 1}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-[10px] shrink-0 ${hasSaved ? "bg-emerald-100 text-emerald-700" : "bg-primary/10 text-primary"}`}>
+            {hasSaved ? <CheckCircle2 size={16} /> : `${(student.primerApellido || "")[0] || ""}${(student.primerNombre || "")[0] || ""}`}
+          </div>
+          <div>
+            <p className="text-[11px] font-black uppercase text-on-surface leading-tight">
+              {student.primerApellido || ""} {student.segundoApellido || ""}{student.primerApellido ? "," : ""} {student.primerNombre || ""} {student.segundoNombre || ""}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-[8px] font-bold text-on-surface-variant opacity-50 uppercase">{student.nroDocumento}</p>
+              {hasDuplicate && activityTitle && (
+                <span className="text-[8px] font-black bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                  <AlertTriangle size={9} /> Ya tiene esta nota
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-center">
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-md">{normalizeGrade(student.grado)}</span>
+          <span className="text-[8px] font-bold text-on-surface-variant opacity-50">{student.curso}</span>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-center">
+        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${scoreColor(student.avgGrade || 0)}`}>
+          {(student.avgGrade || 0).toFixed(1)}
+        </span>
+      </td>
+      <td className="px-6 py-3 text-center">
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="decimal"
+          placeholder="—"
+          value={val}
+          onChange={e => onGradeChange(student.id, e.target.value)}
+          onKeyDown={e => onKeyDown(e, idx)}
+          className={`w-20 h-11 border-2 rounded-xl text-center font-black text-base outline-none transition-all focus:scale-110 focus:shadow-lg ${
+            val !== "" && !isNaN(num)
+              ? `${scoreColor(num)} border-current/30 focus:ring-2 focus:ring-current/30`
+              : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-2 focus:ring-primary/20"
+          }`}
+        />
+      </td>
+    </tr>
+  );
+});
+StudentRow.displayName = "StudentRow";
 
 export default function ActivityGrader({ course, subject, grade }: ActivityGraderProps) {
   const { students, myStudents, addGrade, updateSingleDetailedGrade, masterData } = useApp();
@@ -67,20 +145,20 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const currentStudent = filteredStudents[currentIdx];
 
   // ── List mode helpers ────────────────────────────────────────────────────
-  const handleGradeChange = (studentId: string, rawValue: string) => {
+  const handleGradeChange = useCallback((studentId: string, rawValue: string) => {
     const value = rawValue.replace(",", ".");
     const num = parseFloat(value);
     if (value !== "" && (isNaN(num) || num < 0 || num > 5)) return;
     setGrades(prev => ({ ...prev, [studentId]: value }));
-  };
+  }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent, idx: number) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       const next = filteredStudents[idx + 1];
       if (next) inputRefs.current[next.id]?.focus();
     }
-  };
+  }, [filteredStudents]);
 
   const getActivePeriod = () => {
     if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
@@ -163,7 +241,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   };
 
   // ── Shared header ────────────────────────────────────────────────────────
-  const Header = () => (
+  const renderHeader = () => (
     <div className="p-6 border-b border-outline-variant bg-surface-container-lowest space-y-5">
       {/* Title row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -256,7 +334,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   if (mode === "list") {
     return (
       <section className="bg-white border border-outline-variant rounded-[2.5rem] shadow-xl overflow-hidden mt-6">
-        <Header />
+        {renderHeader()}
 
         {/* Progress bar */}
         <div className="px-6 py-3 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
@@ -296,61 +374,22 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
             <tbody className="divide-y divide-outline-variant/20">
               {filteredStudents.map((student, idx) => {
                 const val = grades[student.id] || "";
-                const num = parseFloat(val);
                 const hasSaved = savedIds.has(student.id);
-                const hasDuplicate = student.grades?.some(g => g.title === activityTitle && g.date?.slice(0, 10) === new Date().toISOString().slice(0, 10));
+                const hasDuplicate = !!student.grades?.some(g => g.title === activityTitle && g.date?.slice(0, 10) === new Date().toISOString().slice(0, 10));
 
                 return (
-                  <tr key={student.id} className={`transition-colors ${hasSaved ? "bg-emerald-50/40" : "hover:bg-surface-container-lowest"}`}>
-                    <td className="px-6 py-3 text-[10px] font-black text-on-surface-variant">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-[10px] shrink-0 ${hasSaved ? "bg-emerald-100 text-emerald-700" : "bg-primary/10 text-primary"}`}>
-                          {hasSaved ? <CheckCircle2 size={16} /> : `${(student.primerApellido || "")[0] || ""}${(student.primerNombre || "")[0] || ""}`}
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-black uppercase text-on-surface leading-tight">
-                            {student.primerApellido || ""} {student.segundoApellido || ""}{student.primerApellido ? "," : ""} {student.primerNombre || ""} {student.segundoNombre || ""}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <p className="text-[8px] font-bold text-on-surface-variant opacity-50 uppercase">{student.nroDocumento}</p>
-                            {hasDuplicate && activityTitle && (
-                              <span className="text-[8px] font-black bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                                <AlertTriangle size={9} /> Ya tiene esta nota
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-md">{normalizeGrade(student.grado)}</span>
-                        <span className="text-[8px] font-bold text-on-surface-variant opacity-50">{student.curso}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${scoreColor(student.avgGrade || 0)}`}>
-                        {(student.avgGrade || 0).toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-center">
-                      <input
-                        ref={el => { inputRefs.current[student.id] = el; }}
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="—"
-                        value={val}
-                        onChange={e => handleGradeChange(student.id, e.target.value)}
-                        onKeyDown={e => handleKeyDown(e, idx)}
-                        className={`w-20 h-11 border-2 rounded-xl text-center font-black text-base outline-none transition-all focus:scale-110 focus:shadow-lg ${
-                          val !== "" && !isNaN(num)
-                            ? `${scoreColor(num)} border-current/30 focus:ring-2 focus:ring-current/30`
-                            : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        }`}
-                      />
-                    </td>
-                  </tr>
+                  <StudentRow
+                    key={student.id}
+                    student={student}
+                    idx={idx}
+                    val={val}
+                    hasSaved={hasSaved}
+                    hasDuplicate={hasDuplicate}
+                    activityTitle={activityTitle}
+                    onGradeChange={handleGradeChange}
+                    onKeyDown={handleKeyDown}
+                    inputRef={el => { inputRefs.current[student.id] = el; }}
+                  />
                 );
               })}
             </tbody>
@@ -375,7 +414,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
 
   return (
     <section className="bg-white border border-outline-variant rounded-[2.5rem] shadow-xl overflow-hidden mt-6">
-      <Header />
+      {renderHeader()}
 
       {/* Navigator */}
       <div className="flex items-center justify-between px-6 py-3 bg-surface-container-low border-b border-outline-variant">
