@@ -3,10 +3,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
-import { Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, Loader2, AlertTriangle, FileWarning, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { printGradesTable } from "@/lib/printService";
+import { printGradesTable, printMissingGradesReport } from "@/lib/printService";
 
 interface EditableGradeCellProps {
   studentId: string;
@@ -34,7 +34,15 @@ const EditableGradeCell = React.memo(({ studentId, col, initialVal, onSave }: Ed
 
   const handleBlur = () => {
     if (val !== initialVal) {
-      onSave(studentId, col, val);
+      const msg = val === ""
+        ? `¿Desea borrar la nota de la columna ${col.id} de este estudiante para dejarla en blanco?`
+        : `¿Desea guardar la nota de "${val}" para la columna ${col.id} de este estudiante?`;
+      
+      if (window.confirm(msg)) {
+        onSave(studentId, col, val);
+      } else {
+        setVal(initialVal);
+      }
     }
   };
 
@@ -110,11 +118,14 @@ export default function GradesReportPage() {
 
   const availableSubjects = masterData.subjects || ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"];
 
-  if (!mounted) return (
-    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
-      <Loader2 className="w-12 h-12 text-primary animate-spin" />
-    </div>
-  );
+  const columns = [
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `SB${i + 1}`, type: "SB", idx: i })),
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
+    ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
+    { id: "AUT", type: "AUT", idx: 0 },
+    { id: "DEF", type: "DEF", idx: 0 }
+  ];
 
   // Fix #1: Mapping function for columns
   const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId: string) => {
@@ -123,21 +134,22 @@ export default function GradesReportPage() {
     // 1. Try NEW DetailedGrades Structure (High Precision)
     if (st.detailedGrades?.[subject]?.[pid]) {
       const d = st.detailedGrades[subject][pid];
-      if (colType === "SB") return d.sb[index] !== null ? d.sb[index].toFixed(1) : "";
-      if (colType === "SBH") return d.sbh[index] !== null ? d.sbh[index].toFixed(1) : "";
-      if (colType === "SR") return d.sr[index] !== null ? d.sr[index].toFixed(1) : "";
-      if (colType === "CV") return d.cv[index] !== null ? d.cv[index].toFixed(1) : "";
-      if (colType === "AUT") return d.aut !== null ? d.aut.toFixed(1) : "";
+      if (colType === "SB") return (d.sb && typeof d.sb[index] === 'number') ? d.sb[index].toFixed(1) : "";
+      if (colType === "SBH") return (d.sbh && typeof d.sbh[index] === 'number') ? d.sbh[index].toFixed(1) : "";
+      if (colType === "SR") return (d.sr && typeof d.sr[index] === 'number') ? d.sr[index].toFixed(1) : "";
+      if (colType === "CV") return (d.cv && typeof d.cv[index] === 'number') ? d.cv[index].toFixed(1) : "";
+      if (colType === "AUT") return typeof d.aut === 'number' ? d.aut.toFixed(1) : "";
       if (colType === "DEF") {
         const getAvg = (vals: (number | null)[]) => {
-          const valid = vals.filter(v => v !== null) as number[];
+          if (!vals) return 0;
+          const valid = vals.filter(v => typeof v === 'number') as number[];
           return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
         };
         const sbAvg = getAvg(d.sb);
         const sbhAvg = getAvg(d.sbh);
         const srAvg = getAvg(d.sr);
         const cvAvg = getAvg(d.cv);
-        const aut = d.aut || 0;
+        const aut = typeof d.aut === 'number' ? d.aut : 0;
         const final = (sbAvg * 0.3) + (sbhAvg * 0.4) + (srAvg * 0.2) + (cvAvg * 0.05) + (aut * 0.05);
         return final > 0 ? final.toFixed(1) : "0.0";
       }
@@ -172,6 +184,76 @@ export default function GradesReportPage() {
     const grade = filtered[index];
     return grade ? grade.score.toFixed(1) : "";
   };
+
+  // Active columns where at least one student has a grade in this subject and period
+  const activeCols = useMemo(() => {
+    return columns.filter(col => {
+      if (col.id === "DEF") return false;
+      return filteredStudents.some(st => {
+        const val = getGradeValue(st, col.type, col.idx, selectedSubject, selectedPeriod);
+        return val !== "";
+      });
+    });
+  }, [filteredStudents, selectedSubject, selectedPeriod]);
+
+  // Students analyzed for alerts (incomplete/missing evaluations)
+  const studentsWithAlerts = useMemo(() => {
+    return filteredStudents.map(st => {
+      const missingExams: string[] = [];
+      const missingTasks: string[] = [];
+      let totalActiveCount = 0;
+      let filledActiveCount = 0;
+
+      activeCols.forEach(col => {
+        totalActiveCount++;
+        const val = getGradeValue(st, col.type, col.idx, selectedSubject, selectedPeriod);
+        if (val !== "") {
+          filledActiveCount++;
+        } else {
+          if (col.type === "SB") {
+            missingExams.push(col.id);
+          } else {
+            missingTasks.push(col.id);
+          }
+        }
+      });
+
+      const isTotallyEmpty = totalActiveCount > 0 && filledActiveCount === 0;
+      const hasMissingExams = missingExams.length > 0;
+      const hasMissingTasks = missingTasks.length > 0;
+
+      let alertType: "COMPLETO" | "SIN_NOTAS" | "EXAMEN_PENDIENTE" | "TAREA_PENDIENTE" = "COMPLETO";
+      if (totalActiveCount > 0) {
+        if (isTotallyEmpty) alertType = "SIN_NOTAS";
+        else if (hasMissingExams) alertType = "EXAMEN_PENDIENTE";
+        else if (hasMissingTasks) alertType = "TAREA_PENDIENTE";
+      }
+
+      return {
+        student: st,
+        isTotallyEmpty,
+        hasMissingExams,
+        hasMissingTasks,
+        missingExams,
+        missingTasks,
+        alertType
+      };
+    });
+  }, [filteredStudents, activeCols, selectedSubject, selectedPeriod]);
+
+  const alertStats = useMemo(() => {
+    const empty = studentsWithAlerts.filter(sa => sa.alertType === "SIN_NOTAS");
+    const exams = studentsWithAlerts.filter(sa => sa.alertType === "EXAMEN_PENDIENTE");
+    const tasks = studentsWithAlerts.filter(sa => sa.alertType === "TAREA_PENDIENTE");
+    return {
+      empty,
+      exams,
+      tasks,
+      totalCount: empty.length + exams.length + tasks.length
+    };
+  }, [studentsWithAlerts]);
+
+
 
   const handleGradeCellChange = async (studentId: string, col: any, rawValue: string) => {
     const value = rawValue.replace(",", ".");
@@ -211,14 +293,7 @@ export default function GradesReportPage() {
     }
   };
 
-  const columns = [
-    ...Array.from({ length: 8 }, (_, i) => ({ id: `SB${i + 1}`, type: "SB", idx: i })),
-    ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
-    ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
-    ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
-    { id: "AUT", type: "AUT", idx: 0 },
-    { id: "DEF", type: "DEF", idx: 0 }
-  ];
+
 
   const handlePrint = () => {
     const originalTitle = document.title;
@@ -358,6 +433,131 @@ export default function GradesReportPage() {
         </div>
       </div>
 
+      {/* Centro de Control de Alertas y Novedades de Calificaciones */}
+      {alertStats.totalCount > 0 ? (
+        <div className="max-w-[1200px] mx-auto mb-6 md:mb-8 bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200 p-4 md:p-6 rounded-3xl shadow-lg print:hidden animate-fade-in">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-md">
+                <AlertTriangle className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-800 text-sm md:text-base tracking-tight leading-tight">
+                  CENTRO DE ALERTAS DE NOTAS INCOMPLETAS
+                </h3>
+                <p className="text-[10px] md:text-xs text-slate-600 font-medium mt-0.5">
+                  Se han detectado {alertStats.totalCount} estudiantes con pendientes de evaluación en {selectedSubject} ({selectedPeriod.toUpperCase()}).
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => printMissingGradesReport(filteredStudents, {
+                grade: selectedGrade,
+                course: selectedCurso,
+                teacher: profile.name,
+                subject: selectedSubject,
+                period: selectedPeriod
+              })}
+              className="w-full md:w-auto px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-amber-600/25 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+            >
+              <FileWarning size={15} /> Generar Reporte de Pendientes
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card 1: Sin notas */}
+            <div className="bg-white/80 backdrop-blur border border-red-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex justify-between items-center mb-2.5">
+                <span className="font-bold text-[10px] text-red-700 bg-red-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  Sin Calificaciones
+                </span>
+                <span className="font-extrabold text-sm text-red-600">{alertStats.empty.length}</span>
+              </div>
+              {alertStats.empty.length === 0 ? (
+                <p className="text-[10px] text-slate-500 font-medium">Ningún estudiante sin notas.</p>
+              ) : (
+                <div className="max-h-[120px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                  {alertStats.empty.map(sa => (
+                    <div key={sa.student.id} className="text-[9.5px] font-bold text-slate-700 leading-tight border-b border-slate-100 pb-1 last:border-b-0">
+                      • {sa.student.primerApellido} {sa.student.primerNombre}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Examen pendiente */}
+            <div className="bg-white/80 backdrop-blur border border-amber-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex justify-between items-center mb-2.5">
+                <span className="font-bold text-[10px] text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  Exámenes Faltantes
+                </span>
+                <span className="font-extrabold text-sm text-amber-600">{alertStats.exams.length}</span>
+              </div>
+              {alertStats.exams.length === 0 ? (
+                <p className="text-[10px] text-slate-500 font-medium">Ningún examen pendiente.</p>
+              ) : (
+                <div className="max-h-[120px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                  {alertStats.exams.map(sa => (
+                    <div key={sa.student.id} className="text-[9.5px] text-slate-700 leading-tight border-b border-slate-100 pb-1 last:border-b-0">
+                      <span className="font-bold">• {sa.student.primerApellido} {sa.student.primerNombre}</span>
+                      <div className="text-[8.5px] text-amber-600 font-semibold mt-0.5 ml-2">
+                        Falta: {sa.missingExams.join(', ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Card 3: Tareas pendientes */}
+            <div className="bg-white/80 backdrop-blur border border-blue-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex justify-between items-center mb-2.5">
+                <span className="font-bold text-[10px] text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  Tareas / Talleres
+                </span>
+                <span className="font-extrabold text-sm text-blue-600">{alertStats.tasks.length}</span>
+              </div>
+              {alertStats.tasks.length === 0 ? (
+                <p className="text-[10px] text-slate-500 font-medium">Ninguna actividad pendiente.</p>
+              ) : (
+                <div className="max-h-[120px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                  {alertStats.tasks.map(sa => (
+                    <div key={sa.student.id} className="text-[9.5px] text-slate-700 leading-tight border-b border-slate-100 pb-1 last:border-b-0">
+                      <span className="font-bold">• {sa.student.primerApellido} {sa.student.primerNombre}</span>
+                      <div className="text-[8.5px] text-blue-600 font-semibold mt-0.5 ml-2">
+                        Falta: {sa.missingTasks.join(', ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="max-w-[1200px] mx-auto mb-6 md:mb-8 bg-green-50 border border-green-200 p-4 rounded-3xl shadow-sm flex items-center justify-between print:hidden">
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className="w-5 h-5 text-green-600" />
+            <span className="text-[10px] md:text-xs text-green-800 font-bold">
+              ¡Planilla al día! Todos los alumnos cuentan con sus notas completas para las columnas activas.
+            </span>
+          </div>
+          <button
+            onClick={() => printMissingGradesReport(filteredStudents, {
+              grade: selectedGrade,
+              course: selectedCurso,
+              teacher: profile.name,
+              subject: selectedSubject,
+              period: selectedPeriod
+            })}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[8.5px] uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm shadow-green-600/10"
+          >
+            <Printer size={13} /> Imprimir Estado
+          </button>
+        </div>
+      )}
+
       {/* Formato Oficial Planilla Excel */}
       <div className="bg-white mx-auto w-full max-w-[1400px] p-4 md:p-6 shadow-2xl print:shadow-none print:p-0 overflow-x-auto text-[8px] md:text-[9px] font-sans">
         <table className="w-full border-collapse border border-black table-fixed min-w-[800px] md:min-w-0">
@@ -402,11 +602,26 @@ export default function GradesReportPage() {
             </tr>
 
             {/* Students Data */}
-            {filteredStudents.map((st) => (
-              <tr key={st.id} className="hover:bg-slate-50 transition-colors">
-                <td className="border border-black text-center p-0.5 font-mono opacity-60">{st.nroDocumento}</td>
-                <td className="border border-black px-1 uppercase leading-tight font-bold">{st.primerApellido} {st.segundoApellido}</td>
-                <td className="border border-black px-1 uppercase leading-tight">{st.primerNombre} {st.segundoNombre}</td>
+            {filteredStudents.map((st) => {
+              const alertInfo = studentsWithAlerts.find(sa => sa.student.id === st.id);
+              const alertBadge = alertInfo ? (
+                alertInfo.alertType === "SIN_NOTAS" ? (
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 ml-1.5 align-middle cursor-help print:hidden animate-pulse" title="Sin Calificaciones Registradas" />
+                ) : alertInfo.alertType === "EXAMEN_PENDIENTE" ? (
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 ml-1.5 align-middle cursor-help print:hidden" title={`Examen pendiente: ${alertInfo.missingExams.join(', ')}`} />
+                ) : alertInfo.alertType === "TAREA_PENDIENTE" ? (
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 ml-1.5 align-middle cursor-help print:hidden" title={`Tareas pendientes: ${alertInfo.missingTasks.join(', ')}`} />
+                ) : null
+              ) : null;
+
+              return (
+                <tr key={st.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="border border-black text-center p-0.5 font-mono opacity-60">{st.nroDocumento}</td>
+                  <td className="border border-black px-1 uppercase leading-tight font-bold">
+                    {st.primerApellido} {st.segundoApellido}
+                    {alertBadge}
+                  </td>
+                  <td className="border border-black px-1 uppercase leading-tight">{st.primerNombre} {st.segundoNombre}</td>
                 {columns.map((col) => {
                   const val = getGradeValue(st, col.type, col.idx, selectedSubject, selectedPeriod);
                   const scoreValue = parseFloat(val);
@@ -428,7 +643,8 @@ export default function GradesReportPage() {
                   );
                 })}
               </tr>
-            ))}
+            );
+            })}
             
             {/* Empty Students Rows for fill */}
             {Array.from({ length: Math.max(0, 15 - filteredStudents.length) }).map((_, i) => (

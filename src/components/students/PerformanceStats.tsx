@@ -7,10 +7,60 @@ import { useMemo } from "react";
 interface PerformanceStatsProps {
   grado: string;
   curso: string;
+  materia?: string;
 }
 
-export default function PerformanceStats({ grado, curso }: PerformanceStatsProps) {
-  const { students, profile } = useApp();
+export default function PerformanceStats({ grado, curso, materia = "TODAS" }: PerformanceStatsProps) {
+  const { students, profile, masterData } = useApp();
+  const activePeriod = masterData.activePeriod || "p2";
+
+  // Helper to calculate specific subject average in current active period
+  const getSubjectAverage = (st: any, subject: string, periodId: string) => {
+    const pid = periodId.toLowerCase();
+    
+    // 1. Try DetailedGrades
+    if (st.detailedGrades?.[subject]?.[pid]) {
+      const d = st.detailedGrades[subject][pid];
+      const getAvg = (vals: (number | null)[]) => {
+        if (!vals) return null;
+        const valid = vals.filter(v => typeof v === 'number') as number[];
+        return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+      };
+      const sbAvg = getAvg(d.sb);
+      const sbhAvg = getAvg(d.sbh);
+      const srAvg = getAvg(d.sr);
+      const cvAvg = getAvg(d.cv);
+      const aut = d.aut;
+
+      if (sbAvg === null && sbhAvg === null && srAvg === null && cvAvg === null && aut === null) {
+        return 0;
+      }
+
+      const final = (
+        ((sbAvg ?? 0) * 0.3) +
+        ((sbhAvg ?? 0) * 0.4) +
+        ((srAvg ?? 0) * 0.2) +
+        ((cvAvg ?? 0) * 0.05) +
+        ((aut ?? 0) * 0.05)
+      );
+      return parseFloat(final.toFixed(1));
+    }
+    
+    // 2. Fallback to Legacy grades
+    if (st.grades) {
+      const subjectGrades = st.grades.filter((g: any) => 
+        g.periodId === pid && g.title?.toUpperCase().includes(`[${subject.toUpperCase()}]`)
+      );
+      if (subjectGrades.length === 0) return 0;
+      
+      const validScores = subjectGrades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
+      const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+      const bonus = subjectGrades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
+      return parseFloat(Math.min(5.0, baseAvg + bonus).toFixed(1));
+    }
+    
+    return 0;
+  };
 
   // ── Governance + Dynamic Filters ─────────────────────────────
   const myStudents = useMemo(() => {
@@ -36,13 +86,23 @@ export default function PerformanceStats({ grado, curso }: PerformanceStatsProps
     return list;
   }, [students, profile, grado, curso]);
 
+  const studentGrades = useMemo(() => {
+    return myStudents.map(s => {
+      if (materia === "TODAS") {
+        return s.avgGrade || 0;
+      } else {
+        return getSubjectAverage(s, materia, activePeriod);
+      }
+    });
+  }, [myStudents, materia, activePeriod]);
+
   const avgGrade =
-    myStudents.length > 0
-      ? (myStudents.reduce((acc, s) => acc + (s.avgGrade || 0), 0) / myStudents.length)
+    studentGrades.length > 0
+      ? (studentGrades.reduce((acc, g) => acc + g, 0) / studentGrades.length)
       : 0;
 
-  const atRisk      = myStudents.filter(s => (s.avgGrade || 0) < 3.0).length;
-  const topPerform  = myStudents.filter(s => (s.avgGrade || 0) >= 4.6).length;
+  const atRisk      = studentGrades.filter(g => g > 0 && g < 3.0).length;
+  const topPerform  = studentGrades.filter(g => g >= 4.6).length;
 
   // Distribución por grados para tooltip / subtexto
   const gradeGroups = useMemo(() => {

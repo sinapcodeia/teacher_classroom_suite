@@ -12,6 +12,8 @@ interface StudentListProps {
   setGradoFilter: (val: string) => void;
   cursoFilter: string;
   setCursoFilter: (val: string) => void;
+  materiaFilter: string;
+  setMateriaFilter: (val: string) => void;
 }
 
 type SortField = "name" | "grade" | "avg";
@@ -24,6 +26,54 @@ function perfColor(avg: number) {
   if (avg >= 3.0) return { bar: "bg-amber-500",   badge: "bg-amber-50 text-amber-700",   label: "Básico" };
   return           { bar: "bg-red-500",    badge: "bg-red-50 text-red-700",    label: "Bajo" };
 }
+
+// Helper to calculate specific subject average in current active period
+const getSubjectAverage = (st: any, subject: string, periodId: string) => {
+  const pid = periodId.toLowerCase();
+  
+  // 1. Try DetailedGrades
+  if (st.detailedGrades?.[subject]?.[pid]) {
+    const d = st.detailedGrades[subject][pid];
+    const getAvg = (vals: (number | null)[]) => {
+      if (!vals) return null;
+      const valid = vals.filter(v => typeof v === 'number') as number[];
+      return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+    };
+    const sbAvg = getAvg(d.sb);
+    const sbhAvg = getAvg(d.sbh);
+    const srAvg = getAvg(d.sr);
+    const cvAvg = getAvg(d.cv);
+    const aut = d.aut;
+
+    if (sbAvg === null && sbhAvg === null && srAvg === null && cvAvg === null && aut === null) {
+      return 0;
+    }
+
+    const final = (
+      ((sbAvg ?? 0) * 0.3) +
+      ((sbhAvg ?? 0) * 0.4) +
+      ((srAvg ?? 0) * 0.2) +
+      ((cvAvg ?? 0) * 0.05) +
+      ((aut ?? 0) * 0.05)
+    );
+    return parseFloat(final.toFixed(1));
+  }
+  
+  // 2. Fallback to Legacy grades
+  if (st.grades) {
+    const subjectGrades = st.grades.filter((g: any) => 
+      g.periodId === pid && g.title?.toUpperCase().includes(`[${subject.toUpperCase()}]`)
+    );
+    if (subjectGrades.length === 0) return 0;
+    
+    const validScores = subjectGrades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
+    const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+    const bonus = subjectGrades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
+    return parseFloat(Math.min(5.0, baseAvg + bonus).toFixed(1));
+  }
+  
+  return 0;
+};
 
 // Genera color de avatar según inicial + grado (determinístico)
 const AVATAR_PALETTES = [
@@ -41,9 +91,10 @@ function avatarPalette(name: string) {
 
 export default function StudentList({ 
   selectedId, onSelect, onFilteredCountChange,
-  gradoFilter, setGradoFilter, cursoFilter, setCursoFilter 
+  gradoFilter, setGradoFilter, cursoFilter, setCursoFilter,
+  materiaFilter, setMateriaFilter
 }: StudentListProps) {
-  const { myStudents, profile } = useApp();
+  const { myStudents, profile, masterData } = useApp();
   const [searchTerm, setSearchTerm]     = useState("");
   const [sortField, setSortField]       = useState<SortField>("name");
   const [sortDir, setSortDir]           = useState<SortDir>("asc");
@@ -61,6 +112,10 @@ export default function StudentList({
     return [...new Set(base.map(s => s.curso))].filter(Boolean).sort();
   }, [myStudents, gradoFilter]);
 
+  const availableSubjects = useMemo(() => {
+    return masterData.subjects || ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"];
+  }, [masterData.subjects]);
+
   // ── Filtrado + ordenamiento ──────────────────────────────────────────────────
   const requiresFilter = gradoFilter === "TODOS" && cursoFilter === "TODOS" && searchTerm.trim() === "";
 
@@ -76,6 +131,7 @@ export default function StudentList({
       return matchSearch && matchGrado && matchCurso;
     });
 
+    const activePeriod = masterData.activePeriod || "p2";
     list.sort((a, b) => {
       let cmp = 0;
       if (sortField === "name") {
@@ -83,13 +139,15 @@ export default function StudentList({
       } else if (sortField === "grade") {
         cmp = normalizeGrade(a.grado).localeCompare(normalizeGrade(b.grado), undefined, { numeric: true });
       } else {
-        cmp = (a.avgGrade || 0) - (b.avgGrade || 0);
+        const avgA = materiaFilter === "TODAS" ? (a.avgGrade || 0) : getSubjectAverage(a, materiaFilter, activePeriod);
+        const avgB = materiaFilter === "TODAS" ? (b.avgGrade || 0) : getSubjectAverage(b, materiaFilter, activePeriod);
+        cmp = avgA - avgB;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
 
     return list;
-  }, [myStudents, searchTerm, gradoFilter, cursoFilter, sortField, sortDir]);
+  }, [myStudents, searchTerm, gradoFilter, cursoFilter, sortField, sortDir, materiaFilter, masterData.activePeriod, requiresFilter]);
 
   // Sincronizar el conteo con el componente padre para evitar inconsistencias visuales
   useEffect(() => {
@@ -162,6 +220,16 @@ export default function StudentList({
               <option value="TODOS">Todos los cursos</option>
               {cursoOptions.map(c => <option key={c} value={c}>Curso {c}</option>)}
             </select>
+
+            {/* Materia */}
+            <select
+              value={materiaFilter}
+              onChange={e => setMateriaFilter(e.target.value)}
+              className="h-11 bg-surface-container-low border border-primary/20 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer appearance-none text-primary"
+            >
+              <option value="TODAS">Todas las materias</option>
+              {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
 
           {/* Counter */}
@@ -221,11 +289,16 @@ export default function StudentList({
                 </tr>
               ) : (
                 filteredStudents.map(student => {
-                  const perf = perfColor(student.avgGrade || 0);
+                  const activePeriod = masterData.activePeriod || "p2";
+                  const displayAvg = materiaFilter === "TODAS"
+                    ? (student.avgGrade || 0)
+                    : getSubjectAverage(student, materiaFilter, activePeriod);
+
+                  const perf = perfColor(displayAvg);
                   const isSelected = selectedId === student.id;
                   const initials = `${student.primerApellido?.[0] ?? ""}${student.primerNombre?.[0] ?? ""}`;
                   const palette = avatarPalette(initials);
-                  const avgPct = Math.min(((student.avgGrade || 0) / 5) * 100, 100);
+                  const avgPct = Math.min((displayAvg / 5) * 100, 100);
 
                   return (
                     <tr
@@ -274,7 +347,7 @@ export default function StudentList({
                               {perf.label}
                             </span>
                             <span className="text-[11px] font-black text-on-surface">
-                              {(student.avgGrade || 0).toFixed(1)}
+                              {displayAvg.toFixed(1)}
                             </span>
                           </div>
                           <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">

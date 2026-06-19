@@ -311,8 +311,9 @@ export function printPedagogicalPlan(
         <div style="${bodyStyle}">
           ${m.body.replace(/\n/g, "<br/>")}
         </div>
-        <div style="background: #f9fafb; padding: 10px 20px; border-top: 1px solid #eee; font-size: 9px; color: #888; display: flex; justify-content: space-between;">
+        <div style="background: #f9fafb; padding: 10px 20px; border-top: 1px solid #eee; font-size: 9px; color: #888; display: flex; justify-content: space-between; align-items: center;">
           <span>Firma Docente: _______________________</span>
+          <span style="color: #cbd5e1; font-weight: 600; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Ing. Antonio Rodriguez Burgos</span>
           <span>Visto Bueno Coordinación: __________</span>
         </div>
       </div>
@@ -594,6 +595,196 @@ export function printInstitutionalStudentReport(students: Student[], teacherName
       <div>© 2026 Powered by Sinapcode · IETABA · Colombia</div>
       <div>Documento Oficial generado por EduManager Platinum Edition</div>
       <div>Página 1 de 1</div>
+    </div>
+  </body></html>`);
+}
+
+export function printMissingGradesReport(
+  students: any[],
+  meta: { grade: string; course: string; teacher: string; subject: string; period: string }
+) {
+  const activeStudents = students.filter(s => s.isActive !== false);
+  const subject = meta.subject;
+  const pid = meta.period.toLowerCase();
+
+  // Columns specification (same as page.tsx)
+  const columns = [
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `SB${i + 1}`, type: "SB", idx: i })),
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
+    ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
+    { id: "AUT", type: "AUT", idx: 0 }
+  ];
+
+  // Helper to extract value
+  const getVal = (st: any, colType: string, index: number) => {
+    if (st.detailedGrades?.[subject]?.[pid]) {
+      const d = st.detailedGrades[subject][pid];
+      if (colType === "SB") return (d.sb && typeof d.sb[index] === 'number') ? d.sb[index].toFixed(1) : "";
+      if (colType === "SBH") return (d.sbh && typeof d.sbh[index] === 'number') ? d.sbh[index].toFixed(1) : "";
+      if (colType === "SR") return (d.sr && typeof d.sr[index] === 'number') ? d.sr[index].toFixed(1) : "";
+      if (colType === "CV") return (d.cv && typeof d.cv[index] === 'number') ? d.cv[index].toFixed(1) : "";
+      if (colType === "AUT") return typeof d.aut === 'number' ? d.aut.toFixed(1) : "";
+    }
+    return "";
+  };
+
+  // Determine active columns (columns where at least one student in the filtered group has a grade)
+  const activeCols = columns.filter(col => {
+    return activeStudents.some(st => getVal(st, col.type, col.idx) !== "");
+  });
+
+  // Calculate missing grades for each student
+  const missingData = activeStudents.map(st => {
+    const missingExams: string[] = [];
+    const missingTasks: string[] = [];
+    let totalActiveCount = 0;
+    let filledActiveCount = 0;
+
+    activeCols.forEach(col => {
+      totalActiveCount++;
+      const val = getVal(st, col.type, col.idx);
+      if (val !== "") {
+        filledActiveCount++;
+      } else {
+        if (col.type === "SB") {
+          missingExams.push(col.id);
+        } else {
+          missingTasks.push(col.id);
+        }
+      }
+    });
+
+    const isTotallyEmpty = totalActiveCount > 0 && filledActiveCount === 0;
+    const hasMissingExams = missingExams.length > 0;
+    const hasMissingTasks = missingTasks.length > 0;
+
+    let alertType: "COMPLETO" | "SIN_NOTAS" | "EXAMEN_PENDIENTE" | "TAREA_PENDIENTE" = "COMPLETO";
+    if (totalActiveCount > 0) {
+      if (isTotallyEmpty) alertType = "SIN_NOTAS";
+      else if (hasMissingExams) alertType = "EXAMEN_PENDIENTE";
+      else if (hasMissingTasks) alertType = "TAREA_PENDIENTE";
+    }
+
+    return {
+      student: st,
+      alertType,
+      missingExams,
+      missingTasks,
+      hasPending: alertType !== "COMPLETO"
+    };
+  }).filter(item => item.hasPending); // Only include students with pending grades/exams
+
+  // Generate list rows
+  const rows = missingData
+    .sort((a, b) => a.student.primerApellido.localeCompare(b.student.primerApellido))
+    .map((item, i) => {
+      const s = item.student;
+      let statusLabel = "";
+      let statusClass = "";
+      let details = "";
+
+      if (item.alertType === "SIN_NOTAS") {
+        statusLabel = "Sin Calificaciones";
+        statusClass = "badge-red";
+        details = "El alumno no registra ninguna calificación en este periodo.";
+      } else if (item.alertType === "EXAMEN_PENDIENTE") {
+        statusLabel = "Examen Pendiente";
+        statusClass = "badge-red";
+        details = `Examen faltante: <strong>${item.missingExams.join(', ')}</strong>${item.missingTasks.length > 0 ? `. Actividades faltantes: ${item.missingTasks.join(', ')}` : ''}`;
+      } else {
+        statusLabel = "Actividades Pendientes";
+        statusClass = "badge-blue";
+        details = `Actividades/Talleres faltantes: <strong>${item.missingTasks.join(', ')}</strong>`;
+      }
+
+      return `
+        <tr>
+          <td style="width: 40px; text-align: center; color: #94a3b8; font-weight: 800;">${i + 1}</td>
+          <td>
+            <div style="font-weight: 800; color: #0f172a;">${fullName(s)}</div>
+            <div style="font-size: 8px; color: #64748b; text-transform: uppercase;">${s.tipoDocumento} ${s.nroDocumento}</div>
+          </td>
+          <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+          <td style="color: #475569; font-size: 9.5px; line-height: 1.4;">${details}</td>
+        </tr>
+      `;
+    }).join("");
+
+  // Executive summary counts
+  const totalStudents = activeStudents.length;
+  const pendingCount = missingData.length;
+  const sinNotasCount = missingData.filter(m => m.alertType === "SIN_NOTAS").length;
+  const examenesPendientesCount = missingData.filter(m => m.alertType === "EXAMEN_PENDIENTE").length;
+
+  open(`<!DOCTYPE html><html><head><title>INFORME_PENDIENTES_${meta.grade}_${meta.course}</title>${baseStyles()}</head><body>
+    ${standardHeader("Informe de Calificaciones Faltantes y Pendientes", {
+      grade: meta.grade,
+      course: meta.course,
+      teacher: meta.teacher,
+      subject: meta.subject,
+      period: meta.period.toUpperCase()
+    })}
+
+    <div style="margin-top: 10px;">
+      <h2 style="font-size: 14px; font-weight: 900; color: #1e3a8a; text-transform: uppercase; margin-bottom: 5px;">INFORME DE CALIFICACIONES FALTANTES Y EVALUACIONES PENDIENTES</h2>
+      <p style="font-size: 9.5px; color: #475569; line-height: 1.4; margin-bottom: 20px;">
+        Este informe detalla los alumnos que presentan novedades de registro académico o evaluaciones pendientes en el periodo actual. Se solicita a la coordinación pedagógica e institucional realizar el seguimiento respectivo.
+      </p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Total Estudiantes</div>
+        <div class="stat-value">${totalStudents}</div>
+        <div class="stat-sub">Matriculados en el grupo</div>
+      </div>
+      <div class="stat-card accent-red">
+        <div class="stat-label">Con Pendientes</div>
+        <div class="stat-value">${pendingCount}</div>
+        <div class="stat-sub">Requieren intervención (${totalStudents > 0 ? ((pendingCount / totalStudents) * 100).toFixed(0) : 0}%)</div>
+      </div>
+      <div class="stat-card accent-red" style="background: #fffbeb; border-color: #fde68a;">
+        <div class="stat-label">Sin Notas</div>
+        <div class="stat-value">${sinNotasCount}</div>
+        <div class="stat-sub">Inasistencia o sin registrar</div>
+      </div>
+      <div class="stat-card accent-blue" style="background: #faf5ff; border-color: #e9d5ff;">
+        <div class="stat-label">Exámenes Faltantes</div>
+        <div class="stat-value">${examenesPendientesCount}</div>
+        <div class="stat-sub">Evaluaciones escritas sin nota</div>
+      </div>
+    </div>
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Estudiante / Documento</th>
+          <th>Estado Alerta</th>
+          <th>Detalle de Notas Pendientes (Columnas Activas)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || `<tr><td colspan="4" style="text-align: center; color: #166534; font-weight: 800; padding: 30px; background: #f0fdf4;">¡Excelente! Todos los alumnos tienen sus notas al día en este periodo y asignatura.</td></tr>`}
+      </tbody>
+    </table>
+
+    <div class="sign" style="margin-top: 60px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
+      <div class="sign-line" style="border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #475569;">
+        <strong>${meta.teacher.toUpperCase()}</strong><br/>Docente de Área
+      </div>
+      <div class="sign-line" style="border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #475569;">
+        <strong>COORDINACIÓN PEDAGÓGICA</strong><br/>IETABA Awá
+      </div>
+      <div class="sign-line" style="border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #475569;">
+        <strong>PADRE DE FAMILIA / ACUDIENTE</strong><br/>Firma de Enterado
+      </div>
+    </div>
+
+    <div class="footer" style="margin-top: 80px; padding-top: 15px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 8px;">
+      <div>Ing. Antonio Rodriguez Burgos · IETABA · Resguardo Awá Katsa Su</div>
+      <div>Documento de Control Pedagógico Oficial · Generado por EduManager Platinum Edition</div>
     </div>
   </body></html>`);
 }

@@ -56,7 +56,7 @@ function parseAttendanceRecord(record?: Record<string, string>) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function StudentProfile({ id }: { id: string }) {
+export default function StudentProfile({ id, initialSubject }: { id: string; initialSubject?: string }) {
   const { students, addGrade, profile, updateStudent, masterData } = useApp();
   const [activeTab, setActiveTab] = useState<"ai-diagnostico" | "grades" | "attendance" | "notes">("ai-diagnostico");
   const [selectedSubject, setSelectedSubject] = useState("TECNOLOGÍA");
@@ -158,6 +158,16 @@ export default function StudentProfile({ id }: { id: string }) {
       }
     }
   }, [availableSubjects, selectedSubject]);
+
+  // Sincronizar con el filtro global de la página de estudiantes
+  useEffect(() => {
+    if (initialSubject && initialSubject !== "TODAS") {
+      const match = availableSubjects.find(s => s.toUpperCase() === initialSubject.toUpperCase());
+      if (match) {
+        setSelectedSubject(match);
+      }
+    }
+  }, [initialSubject, availableSubjects]);
 
   // ── Memoized Academic Calculation Engines ────────────────────────────────────
   const getPeriodDefinitive = useCallback((subject: string, periodId: string) => {

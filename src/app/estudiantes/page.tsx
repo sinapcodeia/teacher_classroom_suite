@@ -26,6 +26,7 @@ export default function StudentsPage() {
   const [search, setSearch] = useState("");
   const [gradoFilter, setGradoFilter] = useState("TODOS");
   const [cursoFilter, setCursoFilter] = useState("TODOS");
+  const [materiaFilter, setMateriaFilter] = useState("TODAS");
 
   const [selectedId, setSelectedId] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -235,6 +236,7 @@ export default function StudentsPage() {
         <PerformanceStats 
           grado={gradoFilter} 
           curso={cursoFilter} 
+          materia={materiaFilter}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -246,6 +248,8 @@ export default function StudentsPage() {
               setGradoFilter={setGradoFilter}
               cursoFilter={cursoFilter}
               setCursoFilter={setCursoFilter}
+              materiaFilter={materiaFilter}
+              setMateriaFilter={setMateriaFilter}
               onFilteredCountChange={(count) => {
                 if (count === 0) setSelectedId("");
               }}
@@ -254,7 +258,7 @@ export default function StudentsPage() {
           <div className="lg:col-span-5">
             <div className="sticky top-24">
               {selectedId ? (
-                <StudentProfile id={selectedId} />
+                <StudentProfile id={selectedId} initialSubject={materiaFilter} />
               ) : (
                 <div className="bg-white border border-outline-variant rounded-[2.5rem] p-16 flex flex-col items-center justify-center text-center gap-4 shadow-xl">
                   <div className="w-20 h-20 rounded-3xl bg-surface-container flex items-center justify-center">
