@@ -63,7 +63,7 @@ export default function NextClassAlert() {
         </div>
 
         <Link 
-          href={`/clase-en-vivo?subject=${encodeURIComponent(nextClass.subject)}&curso=${encodeURIComponent(nextClass.group)}`}
+          href={`/clase-en-vivo?subject=${encodeURIComponent(nextClass.subject)}&grado=${encodeURIComponent(nextClass.grade)}&curso=${encodeURIComponent(nextClass.group)}`}
           className="px-10 py-5 bg-white text-primary rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 relative z-10"
         >
           <PlayCircle size={20} />

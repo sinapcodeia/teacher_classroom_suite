@@ -97,7 +97,7 @@ export default function HorarioPage() {
                         <td key={day} className="p-1 md:p-2 border-r border-outline-variant/30 align-top h-24 md:h-32">
                           {entry ? (
                             <Link 
-                              href={`/clase-en-vivo?subject=${encodeURIComponent(entry.subject)}&curso=${encodeURIComponent(entry.group)}`}
+                              href={`/clase-en-vivo?subject=${encodeURIComponent(entry.subject)}&grado=${encodeURIComponent(entry.grade)}&curso=${encodeURIComponent(entry.group)}`}
                               className={`h-full p-2 md:p-4 rounded-xl border border-black/5 shadow-sm flex flex-col justify-between transition-all hover:shadow-lg block cursor-pointer ${entry.color}`}
                             >
                                <div className="space-y-1">

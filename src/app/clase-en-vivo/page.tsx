@@ -16,60 +16,138 @@ const SessionReminders = nextDynamic(() => import("@/components/live-class/Sessi
 import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useApp, normalizeGrade } from "@/context/AppContext";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function LiveClassPage() {
-  const { subjects, masterData, myStudents, studentsLoading } = useApp();
+function LiveClassPageContent() {
+  const { subjects, masterData, myStudents, studentsLoading, profile } = useApp();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
+  const [initialSyncDone, setInitialSyncDone] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlSubject = params.get("subject");
-      const urlCurso = params.get("curso");
-      
+    if (mounted && subjects.length > 0 && !initialSyncDone) {
+      const urlSubject = searchParams.get("subject");
+      const urlCurso = searchParams.get("curso");
+      const urlGrado = searchParams.get("grado");
+
       if (urlSubject) {
         const found = subjects.find(s => s.name.toLowerCase() === urlSubject.toLowerCase());
         if (found) setSelectedSubject(found.id);
+      } else {
+        setSelectedSubject(subjects[0].id);
       }
-      if (urlCurso) {
-        setSelectedCurso(urlCurso);
+
+      if (urlGrado) {
+        setSelectedGrado(normalizeGrade(urlGrado));
+      } else if (urlCurso && urlCurso.includes('-')) {
         const parts = urlCurso.split('-');
-        if (parts.length > 0) setSelectedGrado(parts[0]);
+        setSelectedGrado(normalizeGrade(parts[0]));
       }
-    }
-  }, [subjects]);
 
-  useEffect(() => {
-    if (!selectedSubject && subjects.length > 0) {
-      setSelectedSubject(subjects[0].id);
+      if (urlCurso) {
+        const parts = urlCurso.split('-');
+        const actualCurso = parts.length > 1 ? parts[1] : urlCurso;
+        setSelectedCurso(actualCurso);
+      }
+      
+      setInitialSyncDone(true);
     }
-  }, [subjects, selectedSubject]);
+  }, [mounted, subjects, searchParams, initialSyncDone]);
 
-  const currentSubjectName = subjects.find(s => s.id === selectedSubject)?.name || "MATERIA";
-  const normalizedGradeForCurriculum = normalizeGrade(selectedGrado === "TODOS" ? "1" : selectedGrado);
+  const hasSchedule = useMemo(() => {
+    return profile && profile.weeklySchedule && profile.weeklySchedule.length > 0;
+  }, [profile]);
+
+  const filteredSubjects = useMemo(() => {
+    if (!hasSchedule) return subjects;
+    
+    let result = subjects;
+    if (selectedGrado !== "TODOS") {
+      const subjectsInGrade = new Set(
+        profile.weeklySchedule
+          .filter(b => normalizeGrade(b.grade) === selectedGrado)
+          .map(b => b.subject.toUpperCase())
+      );
+      result = subjects.filter(s => subjectsInGrade.has(s.name.toUpperCase()));
+    } else {
+      const subjectsInSchedule = new Set(
+        profile.weeklySchedule.map(b => b.subject.toUpperCase())
+      );
+      result = subjects.filter(s => subjectsInSchedule.has(s.name.toUpperCase()));
+    }
+    return result.length > 0 ? result : subjects;
+  }, [subjects, profile, selectedGrado, hasSchedule]);
 
   const gradeOptions = useMemo(() => {
-    const grades = new Set(myStudents.map(s => normalizeGrade(s.grado)));
-    return Array.from(grades).sort();
-  }, [myStudents]);
+    const allGrades = Array.from(new Set(myStudents.map(s => normalizeGrade(s.grado)))).sort();
+    if (!hasSchedule) return allGrades;
+
+    const currentSubName = subjects.find(s => s.id === selectedSubject)?.name;
+    if (!currentSubName) return allGrades;
+
+    const gradesForSubject = new Set(
+      profile.weeklySchedule
+        .filter(b => b.subject.toUpperCase() === currentSubName.toUpperCase())
+        .map(b => normalizeGrade(b.grade))
+    );
+
+    const filtered = allGrades.filter(g => gradesForSubject.has(g));
+    return filtered.length > 0 ? filtered : allGrades;
+  }, [myStudents, subjects, selectedSubject, profile, hasSchedule]);
 
   const cursoOptions = useMemo(() => {
     let base = myStudents;
     if (selectedGrado !== "TODOS") {
       base = base.filter(s => normalizeGrade(s.grado) === selectedGrado);
     }
-    const courses = new Set(base.map(s => s.curso));
-    return Array.from(courses).sort();
-  }, [myStudents, selectedGrado]);
+    const allCourses = Array.from(new Set(base.map(s => s.curso))).sort();
+    if (!hasSchedule) return allCourses;
+
+    const currentSubName = subjects.find(s => s.id === selectedSubject)?.name;
+    if (!currentSubName) return allCourses;
+
+    const coursesForSubAndGrade = new Set(
+      profile.weeklySchedule
+        .filter(b => {
+          const matchSub = b.subject.toUpperCase() === currentSubName.toUpperCase();
+          const matchGrade = selectedGrado === "TODOS" || normalizeGrade(b.grade) === selectedGrado;
+          return matchSub && matchGrade;
+        })
+        .map(b => b.course.toString().trim().toUpperCase())
+    );
+
+    const filtered = allCourses.filter(c => coursesForSubAndGrade.has(c.toString().trim().toUpperCase()));
+    return filtered.length > 0 ? filtered : allCourses;
+  }, [myStudents, selectedGrado, subjects, selectedSubject, profile, hasSchedule]);
+
+  useEffect(() => {
+    if (initialSyncDone && gradeOptions.length > 0) {
+      if (selectedGrado !== "TODOS" && !gradeOptions.includes(selectedGrado)) {
+        setSelectedGrado(gradeOptions[0]);
+        setSelectedCurso("TODOS");
+      }
+    }
+  }, [gradeOptions, selectedGrado, initialSyncDone]);
+
+  useEffect(() => {
+    if (initialSyncDone && cursoOptions.length > 0) {
+      if (selectedCurso !== "TODOS" && !cursoOptions.includes(selectedCurso)) {
+        setSelectedCurso("TODOS");
+      }
+    }
+  }, [cursoOptions, selectedCurso, initialSyncDone]);
+
+  const currentSubjectName = subjects.find(s => s.id === selectedSubject)?.name || "MATERIA";
+  const normalizedGradeForCurriculum = normalizeGrade(selectedGrado === "TODOS" ? "1" : selectedGrado);
 
   if (!mounted) return null;
 
@@ -87,7 +165,7 @@ export default function LiveClassPage() {
             <div className="space-y-2 relative z-10">
               <label className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><LayoutGrid size={14} /> Docente / Materia</label>
               <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-primary transition-all appearance-none cursor-pointer">
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {filteredSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
 
@@ -195,6 +273,19 @@ export default function LiveClassPage() {
 
       <BottomNavBar />
     </div>
+  );
+}
+
+export default function LiveClassPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen bg-surface-container-lowest justify-center items-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-primary">Cargando aula...</p>
+      </div>
+    }>
+      <LiveClassPageContent />
+    </Suspense>
   );
 }
 

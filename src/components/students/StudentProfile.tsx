@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   User, Calendar, Hash, GraduationCap, MapPin, Star, BookOpen,
   Plus, ClipboardList, Phone, RefreshCw, TrendingUp, AlertTriangle,
   ChevronRight, Activity, Edit, X, Loader2, CheckCircle,
+  Sparkles, Target, Brain, ArrowUpRight
 } from "lucide-react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import Link from "next/link";
@@ -57,7 +58,8 @@ function parseAttendanceRecord(record?: Record<string, string>) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StudentProfile({ id }: { id: string }) {
   const { students, addGrade, profile, updateStudent, masterData } = useApp();
-  const [activeTab, setActiveTab] = useState<"grades" | "attendance" | "notes">("grades");
+  const [activeTab, setActiveTab] = useState<"ai-diagnostico" | "grades" | "attendance" | "notes">("ai-diagnostico");
+  const [selectedSubject, setSelectedSubject] = useState("TECNOLOGÍA");
   const [showAddGrade, setShowAddGrade] = useState(false);
   const [newGrade, setNewGrade] = useState({
     title: "", score: "5.0",
@@ -72,10 +74,11 @@ export default function StudentProfile({ id }: { id: string }) {
 
   // Toast notification system
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
+  const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // States for full student editing
   const [showEditModal, setShowEditModal] = useState(false);
@@ -116,6 +119,247 @@ export default function StudentProfile({ id }: { id: string }) {
     }
   }, [id, student]);
 
+  // ── Extract subjects dynamically from student grades and detailed structure ──
+  const availableSubjects = useMemo(() => {
+    if (!student) return [];
+    
+    const subjectsSet = new Set<string>();
+    
+    // 1. Gather from detailed grades
+    if (student.detailedGrades) {
+      Object.keys(student.detailedGrades).forEach(sub => {
+        if (sub) subjectsSet.add(sub.toUpperCase());
+      });
+    }
+    
+    // 2. Gather from legacy grades titles (format "[MATEMÁTICAS] Actividad...")
+    if (student.grades) {
+      student.grades.forEach((g: any) => {
+        const match = g.title?.match(/\[(.*?)\]/);
+        if (match && match[1]) {
+          subjectsSet.add(match[1].toUpperCase());
+        }
+      });
+    }
+
+    // 3. Fallback to default school master subjects
+    if (subjectsSet.size === 0 && masterData.subjects) {
+      masterData.subjects.forEach(s => subjectsSet.add(s.toUpperCase()));
+    }
+
+    return Array.from(subjectsSet).sort();
+  }, [student, masterData.subjects]);
+
+  // Adjust current selected subject if not present in the dynamic subject list
+  useEffect(() => {
+    if (availableSubjects.length > 0) {
+      if (!availableSubjects.includes(selectedSubject)) {
+        setSelectedSubject(availableSubjects[0]);
+      }
+    }
+  }, [availableSubjects, selectedSubject]);
+
+  // ── Memoized Academic Calculation Engines ────────────────────────────────────
+  const getPeriodDefinitive = useCallback((subject: string, periodId: string) => {
+    if (!student) return null;
+    const pid = periodId.toLowerCase();
+    
+    // 1. Detailed structure check
+    if (student.detailedGrades?.[subject]?.[pid]) {
+      const d = student.detailedGrades[subject][pid];
+      const getAvg = (vals: (number | null)[]) => {
+        const valid = vals.filter(v => v !== null) as number[];
+        return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+      };
+      const sbAvg = getAvg(d.sb);
+      const sbhAvg = getAvg(d.sbh);
+      const srAvg = getAvg(d.sr);
+      const cvAvg = getAvg(d.cv);
+      const aut = d.aut;
+
+      if (sbAvg === null && sbhAvg === null && srAvg === null && cvAvg === null && aut === null) {
+        return null;
+      }
+
+      const final = (
+        ((sbAvg ?? 0) * 0.3) +
+        ((sbhAvg ?? 0) * 0.4) +
+        ((srAvg ?? 0) * 0.2) +
+        ((cvAvg ?? 0) * 0.05) +
+        ((aut ?? 0) * 0.05)
+      );
+      return parseFloat(final.toFixed(2));
+    }
+    
+    // 2. Legacy check
+    if (student.grades) {
+      const subjectGrades = student.grades.filter((g: any) => 
+        g.periodId === pid && g.title?.toUpperCase().includes(`[${subject.toUpperCase()}]`)
+      );
+      if (subjectGrades.length === 0) return null;
+      
+      const validScores = subjectGrades.filter((g: any) => g.type !== 'participation').map((g: any) => g.score);
+      const baseAvg = validScores.length > 0 ? validScores.reduce((a: number, b: number) => a + b, 0) / validScores.length : 0;
+      const bonus = subjectGrades.filter((g: any) => g.type === 'participation').reduce((a: number, b: any) => a + (b.score * 0.02), 0);
+      return parseFloat(Math.min(5.0, baseAvg + bonus).toFixed(2));
+    }
+
+    return null;
+  }, [student]);
+
+  const getSubjectMetrics = useCallback((subject: string) => {
+    if (!student) return { exams: 0, activities: 0, participation: 0, convivir: 0, autoeval: 0 };
+    
+    const activePid = (masterData.activePeriod || "p2").toLowerCase();
+    
+    let sb: (number | null)[] = Array(8).fill(null);
+    let sbh: (number | null)[] = Array(8).fill(null);
+    let sr: (number | null)[] = Array(5).fill(null);
+    let cv: (number | null)[] = Array(3).fill(null);
+    let aut: number | null = null;
+
+    if (student.detailedGrades?.[subject]?.[activePid]) {
+      const d = student.detailedGrades[subject][activePid];
+      sb = d.sb || sb;
+      sbh = d.sbh || sbh;
+      sr = d.sr || sr;
+      cv = d.cv || cv;
+      aut = d.aut;
+    }
+
+    const getAvg = (vals: (number | null)[]) => {
+      const valid = vals.filter(v => v !== null) as number[];
+      return valid.length > 0 ? parseFloat((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2)) : 0;
+    };
+
+    const sbAvg = getAvg(sb);
+    const sbhAvg = getAvg(sbh);
+    const srAvg = getAvg(sr);
+    const cvAvg = getAvg(cv);
+    
+    // Legacy mapping fallback
+    let legacyExamCount = 0, legacyExamSum = 0;
+    let legacyActivityCount = 0, legacyActivitySum = 0;
+    let legacyPartCount = 0, legacyPartSum = 0;
+
+    if (student.grades) {
+      const currentSubjectGrades = student.grades.filter((g: any) => 
+        g.periodId === activePid && g.title?.toUpperCase().includes(`[${subject.toUpperCase()}]`)
+      );
+      currentSubjectGrades.forEach((g: any) => {
+        if (g.type === "exam") {
+          legacyExamCount++;
+          legacyExamSum += g.score;
+        } else if (g.type === "activity") {
+          legacyActivityCount++;
+          legacyActivitySum += g.score;
+        } else if (g.type === "participation") {
+          legacyPartCount++;
+          legacyPartSum += g.score;
+        }
+      });
+    }
+
+    const finalSbAvg = sbAvg > 0 ? sbAvg : (legacyExamCount > 0 ? legacyExamSum / legacyExamCount : 0);
+    const finalSbhAvg = sbhAvg > 0 ? sbhAvg : (legacyActivityCount > 0 ? legacyActivitySum / legacyActivityCount : 0);
+    const finalSrAvg = srAvg > 0 ? srAvg : (legacyPartCount > 0 ? legacyPartSum / legacyPartCount : 0);
+    
+    return {
+      exams: parseFloat(finalSbAvg.toFixed(1)),
+      activities: parseFloat(finalSbhAvg.toFixed(1)),
+      participation: parseFloat(finalSrAvg.toFixed(1)),
+      convivir: cvAvg > 0 ? parseFloat(cvAvg.toFixed(1)) : 0,
+      autoeval: aut !== null ? parseFloat(aut.toFixed(1)) : 0
+    };
+  }, [student, masterData.activePeriod]);
+
+  const getAIPsychopedagogicalInsight = useCallback((
+    metrics: { exams: number; activities: number; participation: number; convivir: number; autoeval: number },
+    attendancePct: number | null,
+    p1: number | null,
+    p2: number | null,
+    p3: number | null
+  ) => {
+    if (!student) return { alerts: [], suggestions: [], priority: "LOW", iconColor: "text-emerald-500", bgColor: "bg-emerald-50/50" };
+
+    const activePid = (masterData.activePeriod || "p2").toUpperCase();
+    const grades = [p1, p2, p3].filter(g => g !== null) as number[];
+    const currentYearAvg = grades.length > 0 ? grades.reduce((a, b) => a + b, 0) / grades.length : null;
+
+    const alerts: string[] = [];
+    const suggestions: string[] = [];
+    let priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
+    let iconColor = "text-emerald-500";
+    let bgColor = "bg-emerald-50/50 border-emerald-200";
+
+    // 1. Attendance Check
+    if (attendancePct !== null && attendancePct < 85) {
+      priority = "CRITICAL";
+      alerts.push(`Inasistencia Crítica de ${attendancePct}%: Alto riesgo de reprobación por deserción escolar.`);
+      suggestions.push("Adaptar tiempos de entrega de guías y contactar de inmediato al acudiente vía telefónica.");
+    } else if (attendancePct !== null && attendancePct < 90) {
+      priority = "HIGH";
+      alerts.push(`Asistencia regular del ${attendancePct}%: Se observa pérdida de continuidad en explicaciones.`);
+      suggestions.push("Realizar nivelación rápida de bitácoras y verificar comprensión de las últimas actividades.");
+    }
+
+    // 2. Academic Pillars Dissonance
+    if (metrics.exams >= 3.8 && metrics.activities < 3.0 && metrics.activities > 0) {
+      if (priority === "LOW") priority = "MEDIUM";
+      alerts.push("Brecha de Aplicación: Alto rendimiento en evaluaciones teóricas pero bajo progreso en talleres del aula (Saber-Hacer).");
+      suggestions.push("Monitorear y guiar el trabajo en clase del estudiante para evitar retrasos y procrastinación.");
+    } else if (metrics.activities >= 3.8 && metrics.exams < 3.0 && metrics.exams > 0) {
+      if (priority === "LOW") priority = "MEDIUM";
+      alerts.push("Ansiedad Evaluativa: Excelente ejecución en talleres prácticos cotidianos, pero bloqueos en exámenes escritos (Saber).");
+      suggestions.push("Proporcionar estrategias de manejo de estrés o habilitar evaluaciones formativas de carácter oral/gráfico.");
+    }
+
+    if (metrics.participation < 3.0 && metrics.participation > 0) {
+      if (priority === "LOW") priority = "MEDIUM";
+      alerts.push("Retraimiento o Desconexión Afectiva (SER): Bajo puntaje en participación y motivación actitudinal.");
+      suggestions.push("Vincular al alumno en dinámicas cooperativas asignándole roles de liderazgo grupal.");
+    }
+
+    // Overall Low performance check
+    const currentPeriodGrade = getPeriodDefinitive(selectedSubject, masterData.activePeriod || "p2");
+    if (currentPeriodGrade !== null && currentPeriodGrade < 3.0) {
+      priority = "HIGH";
+      alerts.push(`Puntaje de Periodo Bajo: La nota proyectada (${currentPeriodGrade.toFixed(1)}) no alcanza la mínima de aprobación.`);
+      suggestions.push("Activar Plan de Apoyo y Nivelación Pedagógica institucional antes del cierre de actas.");
+    }
+
+    // Trend check
+    if (p1 !== null && p2 !== null && p2 < p1 - 0.5) {
+      if (priority !== "CRITICAL") priority = "HIGH";
+      alerts.push("Curva de Rendimiento Descendente: Descenso marcado del rendimiento del Periodo 1 al Periodo 2.");
+      suggestions.push("Tutoría psicopedagógica para indagar sobre factores extraescolares o cambios socioemocionales.");
+    }
+
+    if (alerts.length === 0) {
+      if (currentYearAvg !== null && currentYearAvg >= 4.5) {
+        priority = "LOW";
+        iconColor = "text-indigo-500";
+        bgColor = "bg-indigo-50/50 border-indigo-200";
+        alerts.push("Trayectoria Sobresaliente: Excelente rendimiento general con promedio superior.");
+        suggestions.push("Retar con proyectos avanzados, mentoría de pares y postular para incentivo escolar.");
+      } else {
+        priority = "LOW";
+        alerts.push("Progreso Académico Estable: Trayectoria regular alineada a los estándares pedagógicos esperados.");
+        suggestions.push("Mantener el seguimiento continuo en el aula y reforzar las buenas prácticas.");
+      }
+    }
+
+    if (priority === "CRITICAL" || priority === "HIGH") {
+      iconColor = "text-rose-500";
+      bgColor = "bg-rose-50/50 border-rose-200";
+    } else if (priority === "MEDIUM") {
+      iconColor = "text-amber-500";
+      bgColor = "bg-amber-50/50 border-amber-200";
+    }
+
+    return { alerts, suggestions, priority, iconColor, bgColor };
+  }, [student, selectedSubject, getPeriodDefinitive, masterData.activePeriod]);
+
   // ── Governance: determine what role can edit ──────────────────────────────
   const canEdit =
     profile.isSuperAdmin ||
@@ -149,6 +393,7 @@ export default function StudentProfile({ id }: { id: string }) {
     : null;
 
   const tabs = [
+    { key: "ai-diagnostico", label: "Diagnóstico IA", icon: <Sparkles size={13} /> },
     { key: "grades",     label: "Notas",       icon: <TrendingUp size={13} /> },
     { key: "attendance", label: "Asistencia",  icon: <Activity size={13} /> },
     { key: "notes",      label: "Notas doc.",  icon: <ClipboardList size={13} /> },
@@ -325,7 +570,250 @@ export default function StudentProfile({ id }: { id: string }) {
       {/* ── Content ──────────────────────────────────────────────────────────── */}
       <div className="p-6 space-y-6 flex-1 overflow-y-auto max-h-[420px]">
 
-        {/* NOTAS */}
+        {/* IA DIAGNOSTICO TAB */}
+        {activeTab === "ai-diagnostico" && (() => {
+          const metrics = getSubjectMetrics(selectedSubject);
+          const p1 = getPeriodDefinitive(selectedSubject, "p1");
+          const p2 = getPeriodDefinitive(selectedSubject, "p2");
+          const p3 = getPeriodDefinitive(selectedSubject, "p3");
+          const aiInsight = getAIPsychopedagogicalInsight(metrics, attendancePct, p1, p2, p3);
+
+          const periodGrades = [p1, p2, p3].filter(g => g !== null) as number[];
+          const currentYearAverage = periodGrades.length > 0 
+            ? periodGrades.reduce((a, b) => a + b, 0) / periodGrades.length 
+            : 0;
+
+          // Projection calculation
+          const sumPeriods = (p1 !== null ? p1 : 0) + (p2 !== null ? p2 : 0) + (p3 !== null ? p3 : 0);
+          const completedPeriodsCount = [p1, p2, p3].filter(g => g !== null).length;
+          
+          let targetMessage = "";
+          let targetStatus = "stable";
+          if (completedPeriodsCount < 3) {
+            const missingToPass = 9.0 - sumPeriods;
+            const remainingPeriodsCount = 3 - completedPeriodsCount;
+            const requiredGrade = missingToPass / remainingPeriodsCount;
+
+            if (requiredGrade <= 0) {
+              targetMessage = "¡Aprobado asegurado! Ya cuenta con los puntos acumulados necesarios.";
+              targetStatus = "success";
+            } else if (requiredGrade > 5.0) {
+              targetMessage = `Requiere un promedio inalcanzable de ${requiredGrade.toFixed(1)} para aprobar el año escolar.`;
+              targetStatus = "critical";
+            } else {
+              targetMessage = `Requiere obtener una nota promedio de ${requiredGrade.toFixed(1)} en el/los periodo(s) restante(s) para aprobar el año.`;
+              targetStatus = "warning";
+            }
+          } else {
+            targetMessage = currentYearAverage >= 3.0 
+              ? `Año escolar aprobado con un promedio final de ${currentYearAverage.toFixed(1)}.` 
+              : `Año escolar reprobado con un promedio final de ${currentYearAverage.toFixed(1)}.`;
+            targetStatus = currentYearAverage >= 3.0 ? "success" : "critical";
+          }
+
+          // SVG Line coordinates
+          const p1Score = p1 !== null ? p1 : 0;
+          const p2Score = p2 !== null ? p2 : (p1 !== null ? p1 : 0);
+          const p3ScoreForPlot = p3 !== null ? p3 : (completedPeriodsCount > 0 ? currentYearAverage : 3.5);
+          
+          const getY = (score: number) => 100 - ((score / 5) * 80);
+          const y1 = getY(p1Score);
+          const y2 = getY(p2Score);
+          const y3 = getY(p3ScoreForPlot);
+
+          const pathD = `M 40 ${y1} C 100 ${y1}, 120 ${y2}, 160 ${y2} C 200 ${y2}, 220 ${y3}, 280 ${y3}`;
+          const areaD = `${pathD} L 280 110 L 40 110 Z`;
+
+          return (
+            <div className="space-y-6">
+              
+              {/* Dynamic Subject Selector */}
+              <div className="flex items-center justify-between bg-slate-50 p-2 rounded-2xl border border-slate-200">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-2">Asignatura:</span>
+                <select
+                  value={selectedSubject}
+                  onChange={e => setSelectedSubject(e.target.value)}
+                  className="bg-transparent border-none font-black text-[11px] uppercase text-primary focus:ring-0 cursor-pointer"
+                >
+                  {availableSubjects.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Advanced SVG Projection Chart */}
+              <div className="bg-slate-900 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden border border-slate-800">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1">
+                      <TrendingUp size={12} /> Curva Predictiva de Periodos
+                    </h5>
+                    <p className="text-[8px] text-slate-400 font-medium">Trayectoria académica y proyección del año</p>
+                  </div>
+                  <span className="px-2 py-0.5 bg-white/10 rounded-md text-[8px] font-black uppercase tracking-widest text-white/80">
+                    Año: {new Date().getFullYear()}
+                  </span>
+                </div>
+
+                <div className="relative h-28 w-full flex justify-center items-center">
+                  <svg className="w-full h-full" viewBox="0 0 320 120">
+                    <defs>
+                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* Grid lines */}
+                    <line x1="40" y1="20" x2="280" y2="20" stroke="#334155" strokeWidth="1" strokeDasharray="2" />
+                    <line x1="40" y1="52" x2="280" y2="52" stroke="#e11d48" strokeWidth="1" strokeDasharray="3" /> {/* 3.0 Passing threshold */}
+                    <line x1="40" y1="100" x2="280" y2="100" stroke="#334155" strokeWidth="1" />
+
+                    <text x="35" y="55" fill="#e11d48" fontSize="6" fontWeight="bold" textAnchor="end">MIN 3.0</text>
+                    <text x="35" y="24" fill="#64748b" fontSize="6" fontWeight="bold" textAnchor="end">MAX 5.0</text>
+
+                    {/* Area under curve */}
+                    <path d={areaD} fill="url(#chartGradient)" />
+
+                    {/* Bezier line */}
+                    <path d={pathD} fill="none" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" />
+
+                    {/* Period points */}
+                    {/* Period 1 */}
+                    <circle cx="40" cy={y1} r="5" fill={p1 !== null ? "#6366f1" : "#475569"} stroke="#1e293b" strokeWidth="2" />
+                    <text x="40" y={y1 - 10} fill="#ffffff" fontSize="8" fontWeight="black" textAnchor="middle">{p1 !== null ? p1.toFixed(1) : "—"}</text>
+                    <text x="40" y="115" fill="#94a3b8" fontSize="7" fontWeight="bold" textAnchor="middle">P1</text>
+
+                    {/* Period 2 */}
+                    <circle cx="160" cy={y2} r="5" fill={p2 !== null ? "#6366f1" : "#475569"} stroke="#1e293b" strokeWidth="2" />
+                    <text x="160" y={y2 - 10} fill="#ffffff" fontSize="8" fontWeight="black" textAnchor="middle">{p2 !== null ? p2.toFixed(1) : "—"}</text>
+                    <text x="160" y="115" fill="#94a3b8" fontSize="7" fontWeight="bold" textAnchor="middle">P2</text>
+
+                    {/* Period 3 (Proyectado/Real) */}
+                    <circle cx="280" cy={y3} r="5" fill={p3 !== null ? "#10b981" : "#f59e0b"} stroke="#1e293b" strokeWidth="2" strokeDasharray={p3 === null ? "2" : "0"} />
+                    <text x="280" y={y3 - 10} fill={p3 !== null ? "#10b981" : "#f59e0b"} fontSize="8" fontWeight="black" textAnchor="middle">
+                      {p3 !== null ? p3.toFixed(1) : `${p3ScoreForPlot.toFixed(1)}*`}
+                    </text>
+                    <text x="280" y="115" fill="#94a3b8" fontSize="7" fontWeight="bold" textAnchor="middle">
+                      {p3 !== null ? "P3" : "P3 (Proy)"}
+                    </text>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Proyeccion Anual & Sugerencia Target */}
+              <div className={`p-5 rounded-3xl border ${
+                targetStatus === "success" ? "bg-emerald-50 border-emerald-200" :
+                targetStatus === "critical" ? "bg-rose-50 border-rose-200" :
+                "bg-amber-50 border-amber-200"
+              } flex gap-4 items-start shadow-sm`}>
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                  targetStatus === "success" ? "bg-emerald-100 text-emerald-700" :
+                  targetStatus === "critical" ? "bg-rose-100 text-rose-700" :
+                  "bg-amber-100 text-amber-700"
+                }`}>
+                  <Target size={20} />
+                </div>
+                <div className="space-y-1">
+                  <h6 className={`text-[10px] font-black uppercase tracking-wider ${
+                    targetStatus === "success" ? "text-emerald-800" :
+                    targetStatus === "critical" ? "text-rose-800" :
+                    "text-amber-800"
+                  }`}>
+                    Proyección Definitiva Anual: {currentYearAverage > 0 ? currentYearAverage.toFixed(2) : "0.00"}
+                  </h6>
+                  <p className="text-[10px] font-bold text-slate-700 leading-relaxed">
+                    {targetMessage}
+                  </p>
+                </div>
+              </div>
+
+              {/* Metrics Grid (Pillars) */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b pb-2">Rendimiento por Criterio</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  
+                  {/* Exams */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col justify-between h-20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-black uppercase text-purple-600 tracking-wider">Exámenes (30%)</span>
+                      <span className="text-sm font-black text-slate-900">{metrics.exams.toFixed(1)}</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${(metrics.exams / 5) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Activities */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col justify-between h-20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-black uppercase text-blue-600 tracking-wider">Talleres (40%)</span>
+                      <span className="text-sm font-black text-slate-900">{metrics.activities.toFixed(1)}</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${(metrics.activities / 5) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Participation */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col justify-between h-20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-black uppercase text-amber-600 tracking-wider">Participación (20%)</span>
+                      <span className="text-sm font-black text-slate-900">{metrics.participation.toFixed(1)}</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${(metrics.participation / 5) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Attendance */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col justify-between h-20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-black uppercase text-emerald-600 tracking-wider">Asistencia</span>
+                      <span className="text-sm font-black text-slate-900">{attendancePct !== null ? `${attendancePct}%` : "100%"}</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${attendancePct !== null ? attendancePct : 100}%` }} />
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Psychopedagogical Suggestion Box */}
+              <div className={`p-5 rounded-3xl border ${aiInsight.bgColor} space-y-3 relative overflow-hidden shadow-sm`}>
+                <div className="flex items-center gap-2 border-b border-current/10 pb-2">
+                  <Brain size={16} className={aiInsight.iconColor} />
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+                    Diagnóstico Psicopedagógico IA
+                  </h5>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1">Hallazgos Clave</span>
+                    <ul className="list-disc list-inside text-[9px] font-bold text-slate-700 space-y-1.5">
+                      {aiInsight.alerts.map((alt, i) => (
+                        <li key={i} className="leading-tight">{alt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1">Estrategias de Apoyo Sugeridas</span>
+                    <ul className="list-disc list-inside text-[9px] font-bold text-slate-800 space-y-1.5">
+                      {aiInsight.suggestions.map((sug, i) => (
+                        <li key={i} className="leading-tight">{sug}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
+
+        {/* NOTAS GENERALES TAB */}
         {activeTab === "grades" && (
           <div className="space-y-4">
             {/* KPI chips */}
@@ -441,7 +929,7 @@ export default function StudentProfile({ id }: { id: string }) {
               href="/reportes/asistencia"
               className="w-full py-3 bg-surface-container-low border border-outline-variant rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-primary/5 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2"
             >
-              <ChevronRight size={13} /> Ver Reporte Oficial de Asistencia
+              Ver Reporte Oficial de Asistencia <ArrowUpRight size={13} />
             </Link>
           </div>
         )}
@@ -472,7 +960,7 @@ export default function StudentProfile({ id }: { id: string }) {
       </div>
 
       {/* ── Footer sync indicator ─────────────────────────────────────────────── */}
-      <div className="px-6 py-3 bg-surface-container-lowest border-t border-outline-variant">
+      <div className="px-6 py-3 bg-surface-container-lowest border-t border-outline-variant shrink-0">
         <p className="text-center text-[9px] text-secondary font-black flex items-center justify-center gap-1.5 uppercase tracking-[0.25em]">
           <RefreshCw size={11} className="animate-spin" />
           Sincronización en tiempo real

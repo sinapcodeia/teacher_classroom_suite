@@ -5,7 +5,7 @@ import React from "react";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import {
   Save, Award, FileText, CheckCircle2, List, User,
-  ChevronLeft, ChevronRight, AlertTriangle, Zap,
+  ChevronLeft, ChevronRight, AlertTriangle, Zap, Search, X
 } from "lucide-react";
 
 interface ActivityGraderProps {
@@ -62,8 +62,8 @@ const StudentRow = React.memo(({
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-[8px] font-bold text-on-surface-variant opacity-50 uppercase">{student.nroDocumento}</p>
               {hasDuplicate && activityTitle && (
-                <span className="text-[8px] font-black bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                  <AlertTriangle size={9} /> Ya tiene esta nota
+                <span className="text-[8px] font-black bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                  <CheckCircle2 size={9} /> Nota registrada
                 </span>
               )}
             </div>
@@ -114,12 +114,21 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Search & Past Activity states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedActivityKey, setSelectedActivityKey] = useState<string>("new");
+
   // Individual mode
   const [currentIdx, setCurrentIdx] = useState(0);
   const [indivScore, setIndivScore] = useState("5.0");
   const [indivSaving, setIndivSaving] = useState(false);
 
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const getActivePeriod = useCallback(() => {
+    if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
+    return masterData.activePeriod || "p2";
+  }, [subject, grade, masterData.activePeriod]);
 
   const filteredStudents = useMemo(() =>
     myStudents
@@ -136,15 +145,139 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     [myStudents, course, grade]
   );
 
-  const gradedCount = Object.values(grades).filter(v => v !== "").length;
+  const searchedStudents = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return filteredStudents;
+    return filteredStudents.filter(s => {
+      const fullName = `${s.primerApellido || ""} ${s.segundoApellido || ""} ${s.primerNombre || ""} ${s.segundoNombre || ""}`.toLowerCase();
+      return fullName.includes(term) || (s.nroDocumento && s.nroDocumento.includes(term));
+    });
+  }, [filteredStudents, searchTerm]);
+
+  // Overall grading statistics (independent of search filter)
+  const gradedCount = filteredStudents.filter(s => grades[s.id] && grades[s.id] !== "").length;
   const total = filteredStudents.length;
 
-  // Reset individual index when course changes
-  useEffect(() => { setCurrentIdx(0); }, [course]);
+  const currentStudent = searchedStudents[currentIdx];
 
-  const currentStudent = filteredStudents[currentIdx];
+  // Reset index when course changes
+  useEffect(() => {
+    setCurrentIdx(0);
+    setSearchTerm("");
+    setSelectedActivityKey("new");
+    setActivityTitle("");
+  }, [course]);
 
-  // ── List mode helpers ────────────────────────────────────────────────────
+  // Reset index when search term changes
+  useEffect(() => {
+    setCurrentIdx(0);
+  }, [searchTerm]);
+
+  // Compile unique past activities for this course/subject in the current period
+  const pastActivities = useMemo(() => {
+    const activityMap = new Map<string, {
+      title: string;
+      cleanTitle: string;
+      category: "sb" | "sbh" | "sr" | "cv" | "aut";
+      slotIndex: number;
+      date: string;
+    }>();
+
+    const periodId = getActivePeriod();
+    const subjectUpper = subject.toUpperCase();
+
+    filteredStudents.forEach(student => {
+      if (student.grades) {
+        student.grades.forEach(g => {
+          if (g.periodId !== periodId) return;
+
+          const subjectTag = `[${subjectUpper}]`;
+          if (g.title && g.title.toUpperCase().includes(subjectTag)) {
+            const cleanTitle = g.title.replace(new RegExp(`\\s*\\[${subject}\\s*\\]\\s*`, 'i'), '').trim();
+            const category = g.category || (g.type === 'exam' ? 'sb' : (g.type === 'participation' ? 'sr' : 'sbh'));
+            const slotIndex = g.slotIndex !== undefined ? g.slotIndex : 0;
+            const key = `${category}-${slotIndex}`;
+
+            if (!activityMap.has(key)) {
+              activityMap.set(key, {
+                title: g.title,
+                cleanTitle: cleanTitle || g.title,
+                category,
+                slotIndex,
+                date: g.date
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return Array.from(activityMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredStudents, subject, grade, getActivePeriod]);
+
+  // Dynamic grade pre-loading from detailedGrades when category/slot details change
+  useEffect(() => {
+    const periodId = getActivePeriod();
+    const loadedGrades: Record<string, string> = {};
+
+    filteredStudents.forEach(student => {
+      const detailed = student.detailedGrades?.[subject]?.[periodId];
+      if (detailed) {
+        let score: number | null = null;
+        if (targetCategory === 'aut') {
+          score = detailed.aut;
+        } else {
+          const catArray = detailed[targetCategory];
+          if (catArray && catArray[targetSlot] !== undefined) {
+            score = catArray[targetSlot];
+          }
+        }
+        loadedGrades[student.id] = score !== null && score !== undefined ? score.toString() : "";
+      } else {
+        loadedGrades[student.id] = "";
+      }
+    });
+
+    setGrades(loadedGrades);
+    setSavedIds(new Set()); // Reset save flags when slot changes
+  }, [targetCategory, targetSlot, subject, course, grade, filteredStudents, getActivePeriod]);
+
+  // Sync individual student score when selection changes
+  useEffect(() => {
+    if (currentStudent) {
+      const periodId = getActivePeriod();
+      const detailed = currentStudent.detailedGrades?.[subject]?.[periodId];
+      let score: number | null = null;
+      if (detailed) {
+        if (targetCategory === 'aut') {
+          score = detailed.aut;
+        } else {
+          const catArray = detailed[targetCategory];
+          if (catArray && catArray[targetSlot] !== undefined) {
+            score = catArray[targetSlot];
+          }
+        }
+      }
+      setIndivScore(score !== null && score !== undefined ? score.toString() : "5.0");
+    }
+  }, [currentStudent, targetCategory, targetSlot, subject, getActivePeriod]);
+
+  // Handlers
+  const handleActivitySelection = (key: string) => {
+    setSelectedActivityKey(key);
+    if (key === "new") {
+      setActivityTitle("");
+      return;
+    }
+
+    const found = pastActivities.find(act => `${act.category}-${act.slotIndex}` === key);
+    if (found) {
+      setActivityTitle(found.cleanTitle);
+      setTargetCategory(found.category);
+      setTargetSlot(found.slotIndex);
+    }
+  };
+
   const handleGradeChange = useCallback((studentId: string, rawValue: string) => {
     const value = rawValue.replace(",", ".");
     const num = parseFloat(value);
@@ -155,15 +288,10 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const handleKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      const next = filteredStudents[idx + 1];
+      const next = searchedStudents[idx + 1];
       if (next) inputRefs.current[next.id]?.focus();
     }
-  }, [filteredStudents]);
-
-  const getActivePeriod = () => {
-    if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
-    return masterData.activePeriod || "p2";
-  };
+  }, [searchedStudents]);
 
   const handleSaveAll = async () => {
     if (!activityTitle.trim()) return alert("Ingresa un nombre para la actividad.");
@@ -173,6 +301,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     setIsSaving(true);
     const today = new Date().toISOString();
     const periodId = getActivePeriod();
+    const prefix = `[${subject.toUpperCase()}]`;
+    const fullTitle = activityTitle.startsWith('[') ? activityTitle : `${prefix} ${activityTitle}`;
 
     try {
       for (const id of toGrade) {
@@ -181,18 +311,20 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
         // 1. Sincronización con el Pilar Institucional (Planilla Oficial)
         await updateSingleDetailedGrade(id, subject, periodId, targetCategory, targetSlot, score);
         
-        // 2. Historial de sesión (Visibilidad en Consola)
+        // 2. Historial de sesión (Visibilidad en Consola y Sabana)
         await addGrade(id, { 
-          title: activityTitle, 
+          title: fullTitle, 
           score, 
           type: targetCategory === 'sb' ? 'exam' : (targetCategory === 'sbh' ? 'participation' : 'activity'), 
           date: today,
-          periodId
+          periodId,
+          category: targetCategory,
+          slotIndex: targetSlot
         });
       }
       setSavedIds(prev => new Set([...prev, ...toGrade]));
       setShowSuccess(true);
-      setTimeout(() => { setShowSuccess(false); setGrades({}); }, 3500);
+      setTimeout(() => { setShowSuccess(false); }, 3500);
     } catch (err) {
       console.error("Error al guardar:", err);
       alert("Hubo un error al guardar las notas.");
@@ -209,6 +341,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     const periodId = getActivePeriod();
     const score = parseFloat(indivScore) || 0;
     const today = new Date().toISOString();
+    const prefix = `[${subject.toUpperCase()}]`;
+    const fullTitle = activityTitle.startsWith('[') ? activityTitle : `${prefix} ${activityTitle}`;
 
     try {
       // 1. Sincronización con el Pilar Institucional
@@ -216,18 +350,19 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
 
       // 2. Historial de sesión
       await addGrade(currentStudent.id, {
-        title: activityTitle,
+        title: fullTitle,
         score,
         type: targetCategory === 'sb' ? 'exam' : (targetCategory === 'sbh' ? 'participation' : 'activity'),
         date: today,
-        periodId
+        periodId,
+        category: targetCategory,
+        slotIndex: targetSlot
       });
       
       setSavedIds(prev => new Set([...prev, currentStudent.id]));
       
-      if (currentIdx < total - 1) {
+      if (currentIdx < searchedStudents.length - 1) {
         setCurrentIdx(i => i + 1);
-        setIndivScore("5.0");
       } else {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
@@ -240,7 +375,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     }
   };
 
-  // ── Shared header ────────────────────────────────────────────────────────
+  // Shared UI blocks
   const renderHeader = () => (
     <div className="p-6 border-b border-outline-variant bg-surface-container-lowest space-y-5">
       {/* Title row */}
@@ -266,7 +401,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
             <List size={14} /> Modo Lista
           </button>
           <button
-            onClick={() => { setMode("individual"); setCurrentIdx(0); setIndivScore("5.0"); }}
+            onClick={() => { setMode("individual"); setCurrentIdx(0); }}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${mode === "individual" ? "bg-primary text-white shadow-lg shadow-primary/30" : "text-on-surface-variant hover:text-on-surface"}`}
           >
             <User size={14} /> Uno a Uno
@@ -274,49 +409,97 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
         </div>
       </div>
 
-      {/* Institutional Config Row */}
-      <div className="flex flex-col xl:flex-row gap-4 bg-slate-50 p-5 md:p-8 rounded-[2.5rem] border border-slate-200 shadow-inner">
-        <div className="flex-1 space-y-2 min-w-[200px]">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción de la Actividad</p>
-          <div className="relative">
-            <input
-              type="text"
-              value={activityTitle}
-              onChange={e => setActivityTitle(e.target.value)}
-              placeholder="Ej: Taller de circuitos, Examen parcial..."
-              className="w-full bg-white border border-outline-variant rounded-2xl px-5 py-4 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm"
-            />
-            <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline opacity-30" size={18} />
-          </div>
+      {/* Dynamic Search Box */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Buscar estudiante por nombre, apellido o documento..."
+          className="w-full bg-surface-container-low border border-outline-variant rounded-2xl pl-12 pr-10 py-3.5 text-xs font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm"
+        />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-40 animate-pulse" size={16} />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm("")}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Institutional Config Card */}
+      <div className="flex flex-col gap-5 bg-slate-50 p-5 md:p-8 rounded-[2.5rem] border border-slate-200 shadow-inner">
+        {/* Past Activity Selection Dropdown */}
+        <div className="space-y-2">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Seleccionar Actividad (Nueva o Existente)</p>
+          <select
+            value={selectedActivityKey}
+            onChange={e => handleActivitySelection(e.target.value)}
+            className="w-full h-14 bg-white border border-outline-variant rounded-2xl px-5 font-black text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm cursor-pointer"
+          >
+            <option value="new">+ REGISTRAR NUEVA ACTIVIDAD (INGRESAR DETALLES)</option>
+            {pastActivities.map(act => (
+              <option key={`${act.category}-${act.slotIndex}`} value={`${act.category}-${act.slotIndex}`}>
+                [{act.category.toUpperCase()} - COL {act.slotIndex + 1}] {act.cleanTitle.toUpperCase()}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="md:flex gap-4">
-          <div className="flex-1 md:w-64 space-y-2">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilar Institucional</p>
-            <select
-              value={targetCategory}
-              onChange={e => setTargetCategory(e.target.value as any)}
-              className="w-full h-14 bg-white border border-outline-variant rounded-2xl px-5 font-black text-[9px] sm:text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm"
-            >
-              <option value="sb">SABER (30%) - EXÁMENES</option>
-              <option value="sbh">SABER-HACER (40%) - PARTICIPACIÓN</option>
-              <option value="sr">SER (20%) - ACTITUDINAL</option>
-              <option value="cv">CONVIVENCIA (5%)</option>
-              <option value="aut">AUTOEVALUACIÓN (5%)</option>
-            </select>
+        <div className="flex flex-col xl:flex-row gap-4">
+          <div className="flex-1 space-y-2 min-w-[200px]">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción de la Actividad</p>
+            <div className="relative">
+              <input
+                type="text"
+                value={activityTitle}
+                onChange={e => setActivityTitle(e.target.value)}
+                placeholder="Ej: Taller de circuitos, Examen parcial..."
+                disabled={selectedActivityKey !== "new"}
+                className={`w-full border border-outline-variant rounded-2xl px-5 py-4 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm ${
+                  selectedActivityKey !== "new" ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white"
+                }`}
+              />
+              <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline opacity-30" size={18} />
+            </div>
           </div>
 
-          <div className="w-full md:w-32 space-y-2 mt-4 md:mt-0">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Columna</p>
-            <select
-              value={targetSlot}
-              onChange={e => setTargetSlot(parseInt(e.target.value))}
-              className="w-full h-14 bg-white border border-outline-variant rounded-2xl px-5 font-black text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm"
-            >
-              {[...Array(targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : (targetCategory === 'aut' ? 1 : 8)))].map((_, i) => (
-                <option key={i} value={i}>COL {i + 1}</option>
-              ))}
-            </select>
+          <div className="md:flex gap-4">
+            <div className="flex-1 md:w-64 space-y-2">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilar Institucional</p>
+              <select
+                value={targetCategory}
+                onChange={e => setTargetCategory(e.target.value as any)}
+                disabled={selectedActivityKey !== "new"}
+                className={`w-full h-14 border border-outline-variant rounded-2xl px-5 font-black text-[9px] sm:text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm ${
+                  selectedActivityKey !== "new" ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white"
+                }`}
+              >
+                <option value="sb">SABER (30%) - EXÁMENES</option>
+                <option value="sbh">SABER-HACER (40%) - PARTICIPACIÓN</option>
+                <option value="sr">SER (20%) - ACTITUDINAL</option>
+                <option value="cv">CONVIVENCIA (5%)</option>
+                <option value="aut">AUTOEVALUACIÓN (5%)</option>
+              </select>
+            </div>
+
+            <div className="w-full md:w-32 space-y-2 mt-4 md:mt-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Columna</p>
+              <select
+                value={targetSlot}
+                onChange={e => setTargetSlot(parseInt(e.target.value))}
+                disabled={selectedActivityKey !== "new"}
+                className={`w-full h-14 border border-outline-variant rounded-2xl px-5 font-black text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary shadow-sm ${
+                  selectedActivityKey !== "new" ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white"
+                }`}
+              >
+                {[...Array(targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : (targetCategory === 'aut' ? 1 : 8)))].map((_, i) => (
+                  <option key={i} value={i}>COL {i + 1}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -372,10 +555,13 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20">
-              {filteredStudents.map((student, idx) => {
+              {searchedStudents.map((student, idx) => {
                 const val = grades[student.id] || "";
                 const hasSaved = savedIds.has(student.id);
-                const hasDuplicate = !!student.grades?.some(g => g.title === activityTitle && g.date?.slice(0, 10) === new Date().toISOString().slice(0, 10));
+
+                const prefix = `[${subject.toUpperCase()}]`;
+                const fullTitle = activityTitle.startsWith('[') ? activityTitle : `${prefix} ${activityTitle}`;
+                const hasDuplicate = !!student.grades?.some(g => g.title?.toLowerCase() === fullTitle.toLowerCase());
 
                 return (
                   <StudentRow
@@ -392,6 +578,13 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
                   />
                 );
               })}
+              {searchedStudents.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-on-surface-variant opacity-40 font-bold uppercase tracking-wider text-[10px]">
+                    No se encontraron estudiantes que coincidan con la búsqueda
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -411,6 +604,10 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const scoreNum = parseFloat(indivScore) || 0;
   const scoreConf = scoreColor(scoreNum);
   const pct = (scoreNum / 5) * 100;
+  const totalSearched = searchedStudents.length;
+
+  const prefix = `[${subject.toUpperCase()}]`;
+  const fullTitle = activityTitle.startsWith('[') ? activityTitle : `${prefix} ${activityTitle}`;
 
   return (
     <section className="bg-white border border-outline-variant rounded-[2.5rem] shadow-xl overflow-hidden mt-6">
@@ -419,31 +616,31 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
       {/* Navigator */}
       <div className="flex items-center justify-between px-6 py-3 bg-surface-container-low border-b border-outline-variant">
         <button
-          onClick={() => { setCurrentIdx(i => Math.max(0, i - 1)); setIndivScore("5.0"); }}
+          onClick={() => { setCurrentIdx(i => Math.max(0, i - 1)); }}
           disabled={currentIdx === 0}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-outline-variant text-[10px] font-black uppercase tracking-widest hover:bg-surface-container transition-all disabled:opacity-30 disabled:pointer-events-none"
         >
           <ChevronLeft size={16} /> Anterior
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex gap-1.5">
-            {filteredStudents.map((s, i) => (
+          <div className="flex gap-1.5 max-w-[200px] sm:max-w-[400px] overflow-x-auto py-1">
+            {searchedStudents.map((s, i) => (
               <button
                 key={s.id}
-                onClick={() => { setCurrentIdx(i); setIndivScore("5.0"); }}
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  i === currentIdx ? "bg-primary scale-125" : savedIds.has(s.id) ? "bg-emerald-400" : "bg-outline-variant"
+                onClick={() => { setCurrentIdx(i); }}
+                className={`w-2.5 h-2.5 rounded-full transition-all shrink-0 ${
+                  i === currentIdx ? "bg-primary scale-125 font-black ring-2 ring-primary ring-offset-2" : savedIds.has(s.id) ? "bg-emerald-400" : "bg-outline-variant"
                 }`}
               />
             ))}
           </div>
-          <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
-            {currentIdx + 1} / {total}
+          <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest shrink-0">
+            {totalSearched > 0 ? `${currentIdx + 1} / ${totalSearched}` : "0 / 0"}
           </span>
         </div>
         <button
-          onClick={() => { setCurrentIdx(i => Math.min(total - 1, i + 1)); setIndivScore("5.0"); }}
-          disabled={currentIdx >= total - 1}
+          onClick={() => { setCurrentIdx(i => Math.min(totalSearched - 1, i + 1)); }}
+          disabled={currentIdx >= totalSearched - 1}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-outline-variant text-[10px] font-black uppercase tracking-widest hover:bg-surface-container transition-all disabled:opacity-30 disabled:pointer-events-none"
         >
           Siguiente <ChevronRight size={16} />
@@ -457,7 +654,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
             <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl font-black border-4 shrink-0 ${savedIds.has(currentStudent.id) ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
               {savedIds.has(currentStudent.id)
                 ? <CheckCircle2 size={36} />
-                : `${currentStudent.primerApellido[0]}${currentStudent.primerNombre[0]}`
+                : `${(currentStudent.primerApellido || "")[0] || ""}${(currentStudent.primerNombre || "")[0] || ""}`
               }
             </div>
             <div className="flex-1 min-w-0">
@@ -526,13 +723,13 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
           </div>
 
           {/* Previous grades of this student for this activity */}
-          {activityTitle && currentStudent.grades && currentStudent.grades.filter(g => g.title === activityTitle).length > 0 && (
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-3">
-              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+          {activityTitle && currentStudent.grades && currentStudent.grades.filter(g => g.title?.toLowerCase() === fullTitle.toLowerCase()).length > 0 && (
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-start gap-3">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] font-black uppercase text-amber-800">Este estudiante ya tiene una nota con este nombre</p>
-                {currentStudent.grades.filter(g => g.title === activityTitle).map(g => (
-                  <p key={g.id} className="text-[9px] font-bold text-amber-700">{g.date?.slice(0, 10)} → {g.score.toFixed(1)}</p>
+                <p className="text-[10px] font-black uppercase text-emerald-800">Este estudiante ya tiene una nota guardada para esta actividad</p>
+                {currentStudent.grades.filter(g => g.title?.toLowerCase() === fullTitle.toLowerCase()).map(g => (
+                  <p key={g.id} className="text-[9px] font-bold text-emerald-700">{g.date?.slice(0, 10)} → {g.score.toFixed(1)}</p>
                 ))}
               </div>
             </div>
@@ -547,7 +744,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
             >
               {indivSaving ? (
                 <span className="animate-pulse">Guardando…</span>
-              ) : currentIdx < total - 1 ? (
+              ) : currentIdx < totalSearched - 1 ? (
                 <><Save size={18} /> Guardar y Siguiente <ChevronRight size={18} /></>
               ) : (
                 <><Zap size={18} /> Guardar Último</>
@@ -557,13 +754,13 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
 
           {/* Saved count */}
           <p className="text-center text-[9px] font-black text-on-surface-variant uppercase tracking-widest opacity-50">
-            {savedIds.size} de {total} estudiantes calificados
+            {gradedCount} de {total} estudiantes calificados en total
           </p>
         </div>
       ) : (
         <div className="py-16 flex flex-col items-center gap-3 text-on-surface-variant opacity-30">
           <Award size={40} />
-          <p className="text-xs font-black uppercase tracking-widest">Sin estudiantes en este curso</p>
+          <p className="text-xs font-black uppercase tracking-widest">Sin estudiantes que coincidan con el filtro</p>
         </div>
       )}
     </section>

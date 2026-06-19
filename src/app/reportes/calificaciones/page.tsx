@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
 import { Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, Loader2 } from "lucide-react";
@@ -8,8 +8,65 @@ import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { printGradesTable } from "@/lib/printService";
 
+interface EditableGradeCellProps {
+  studentId: string;
+  col: any;
+  initialVal: string;
+  onSave: (studentId: string, col: any, val: string) => Promise<void>;
+}
+
+const EditableGradeCell = React.memo(({ studentId, col, initialVal, onSave }: EditableGradeCellProps) => {
+  const [val, setVal] = useState(initialVal);
+
+  useEffect(() => {
+    setVal(initialVal);
+  }, [initialVal]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(",", ".");
+    if (raw === "" || /^[0-5]?\.?\d*$/.test(raw)) {
+      const num = parseFloat(raw);
+      if (raw === "" || (!isNaN(num) && num >= 0 && num <= 5)) {
+        setVal(raw);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    if (val !== initialVal) {
+      onSave(studentId, col, val);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  };
+
+  const scoreValue = parseFloat(val);
+  const isLow = !isNaN(scoreValue) && scoreValue < 3.0;
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={val}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      placeholder="—"
+      className={`w-full h-full text-center bg-transparent border-none outline-none font-bold p-0 text-[8px] md:text-[9px] focus:bg-primary/5 focus:ring-1 focus:ring-primary/30 transition-colors ${
+        isLow ? "text-red-600 font-extrabold" : "text-on-surface"
+      } print:placeholder-transparent`}
+    />
+  );
+});
+
+EditableGradeCell.displayName = "EditableGradeCell";
+
 export default function GradesReportPage() {
-  const { students, myStudents, masterData, profile } = useApp();
+  const { students, myStudents, masterData, profile, addGrade, updateSingleDetailedGrade } = useApp();
   
   const [selectedGrade, setSelectedGrade] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
@@ -114,6 +171,44 @@ export default function GradesReportPage() {
 
     const grade = filtered[index];
     return grade ? grade.score.toFixed(1) : "";
+  };
+
+  const handleGradeCellChange = async (studentId: string, col: any, rawValue: string) => {
+    const value = rawValue.replace(",", ".");
+    const score = value === "" ? null : parseFloat(value);
+    
+    if (value !== "" && (isNaN(score!) || score! < 0 || score! > 5)) return;
+
+    try {
+      // 1. Sincronizar planilla oficial
+      await updateSingleDetailedGrade(studentId, selectedSubject, selectedPeriod, col.type.toLowerCase() as any, col.idx, score);
+
+      // 2. Historial de sesión (Visibilidad en Consola y sabana)
+      const student = myStudents.find(s => s.id === studentId);
+      if (student && score !== null) {
+        const existingGrade = student.grades?.find(g => 
+          g.periodId === selectedPeriod && 
+          g.category === col.type.toLowerCase() && 
+          g.slotIndex === col.idx
+        );
+
+        const cleanTitle = existingGrade 
+          ? existingGrade.title 
+          : `[${selectedSubject.toUpperCase()}] ${col.id}`;
+
+        await addGrade(studentId, {
+          title: cleanTitle,
+          score,
+          type: col.type === 'SB' ? 'exam' : (col.type === 'SR' ? 'participation' : 'activity'),
+          date: new Date().toISOString(),
+          periodId: selectedPeriod,
+          category: col.type.toLowerCase() as any,
+          slotIndex: col.idx
+        });
+      }
+    } catch (err) {
+      console.error("Error al actualizar nota desde planilla:", err);
+    }
   };
 
   const columns = [
@@ -319,7 +414,16 @@ export default function GradesReportPage() {
                   const isDef = col.id === "DEF";
                   return (
                     <td key={col.id} className={`border border-black text-center p-0.5 ${isLow ? 'text-red-600 font-bold' : ''} ${isDef ? 'bg-slate-100 font-black' : ''}`}>
-                      {val}
+                      {isDef ? (
+                        val
+                      ) : (
+                        <EditableGradeCell
+                          studentId={st.id}
+                          col={col}
+                          initialVal={val}
+                          onSave={handleGradeCellChange}
+                        />
+                      )}
                     </td>
                   );
                 })}

@@ -126,6 +126,8 @@ export type Grade = {
   type: 'activity' | 'participation' | 'exam';
   date: string;
   periodId?: string;
+  category?: keyof DetailedGrades;
+  slotIndex?: number;
 }
 
 export type DetailedGrades = {
@@ -1298,14 +1300,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const student = students.find(s => s.id === studentId);
       if (!student) return;
       
-      const newGrade = { 
-        ...grade, 
-        periodId: grade.periodId || masterData.activePeriod || "p1",
-        title: toTitleCase(grade.title),
-        id: `grade-${Date.now()}` 
-      };
+      const periodId = grade.periodId || masterData.activePeriod || "p1";
+      
+      let formattedTitle = grade.title;
+      const match = grade.title.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (match) {
+        const [, subj, rest] = match;
+        formattedTitle = `[${subj.toUpperCase()}] ${toTitleCase(rest)}`;
+      } else {
+        formattedTitle = toTitleCase(grade.title);
+      }
+
       const currentGrades = student.grades || [];
-      const newGrades = [...currentGrades, newGrade];
+      const newGrades = [...currentGrades];
+      
+      const existingIndex = newGrades.findIndex(g => 
+        g.periodId === periodId && (
+          (grade.category !== undefined && g.category === grade.category && g.slotIndex === grade.slotIndex) ||
+          g.title?.toLowerCase() === formattedTitle.toLowerCase()
+        )
+      );
+
+      if (existingIndex > -1) {
+        newGrades[existingIndex] = {
+          ...newGrades[existingIndex],
+          score: grade.score,
+          date: grade.date || new Date().toISOString(),
+          type: grade.type,
+          title: formattedTitle,
+          category: grade.category,
+          slotIndex: grade.slotIndex
+        };
+      } else {
+        const newGrade = { 
+          ...grade, 
+          periodId,
+          title: formattedTitle,
+          id: `grade-${Date.now()}` 
+        };
+        newGrades.push(newGrade);
+      }
       
       const validScores = newGrades.filter(g => g.type !== 'participation').map(g => g.score);
       let newAvg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
@@ -1319,7 +1353,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await updateDoc(doc(db, "students", studentId), updates);
       setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
     } catch (err) {
-      console.error("Error al añadir nota:", err);
+      console.error("Error al añadir o actualizar nota:", err);
     }
   };
 
