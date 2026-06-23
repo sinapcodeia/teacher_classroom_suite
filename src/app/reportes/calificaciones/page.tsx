@@ -3,10 +3,15 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
-import { Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, Loader2, AlertTriangle, FileWarning, ClipboardCheck } from "lucide-react";
+import { 
+  Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, 
+  Loader2, AlertTriangle, FileWarning, ClipboardCheck, 
+  Upload, X, Check, FileText 
+} from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { printGradesTable, printMissingGradesReport } from "@/lib/printService";
+import Papa from "papaparse";
 
 interface EditableGradeCellProps {
   studentId: string;
@@ -74,7 +79,10 @@ const EditableGradeCell = React.memo(({ studentId, col, initialVal, onSave }: Ed
 EditableGradeCell.displayName = "EditableGradeCell";
 
 export default function GradesReportPage() {
-  const { students, myStudents, masterData, profile, addGrade, updateSingleDetailedGrade } = useApp();
+  const { 
+    students, myStudents, masterData, profile, addGrade, 
+    updateSingleDetailedGrade, importDetailedGrades 
+  } = useApp();
   
   const [selectedGrade, setSelectedGrade] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
@@ -82,11 +90,20 @@ export default function GradesReportPage() {
   const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p2");
   const [mounted, setMounted] = useState(false);
 
+  // Estados del importador de calificaciones
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [importStats, setImportStats] = useState<any>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Fix #2: Auto-reset curso when grade changes
+  // Auto-reset curso cuando cambia el grado
   useEffect(() => {
     setSelectedCurso("TODOS");
   }, [selectedGrade]);
@@ -127,11 +144,10 @@ export default function GradesReportPage() {
     { id: "DEF", type: "DEF", idx: 0 }
   ];
 
-  // Fix #1: Mapping function for columns
   const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId: string) => {
     const pid = periodId.toLowerCase();
     
-    // 1. Try NEW DetailedGrades Structure (High Precision)
+    // 1. Nueva estructura DetailedGrades
     if (st.detailedGrades?.[subject]?.[pid]) {
       const d = st.detailedGrades[subject][pid];
       if (colType === "SB") return (d.sb && typeof d.sb[index] === 'number') ? d.sb[index].toFixed(1) : "";
@@ -155,7 +171,7 @@ export default function GradesReportPage() {
       }
     }
 
-    // 2. Fallback to Legacy st.grades
+    // 2. Compatibilidad con calificaciones legadas st.grades
     if (!st.grades) return "";
     const subjectGrades = st.grades.filter((g: any) => g.title?.includes(`[${subject}]`));
 
@@ -185,7 +201,6 @@ export default function GradesReportPage() {
     return grade ? grade.score.toFixed(1) : "";
   };
 
-  // Active columns where at least one student has a grade in this subject and period
   const activeCols = useMemo(() => {
     return columns.filter(col => {
       if (col.id === "DEF") return false;
@@ -196,7 +211,6 @@ export default function GradesReportPage() {
     });
   }, [filteredStudents, selectedSubject, selectedPeriod]);
 
-  // Students analyzed for alerts (incomplete/missing evaluations)
   const studentsWithAlerts = useMemo(() => {
     return filteredStudents.map(st => {
       const missingExams: string[] = [];
@@ -253,8 +267,6 @@ export default function GradesReportPage() {
     };
   }, [studentsWithAlerts]);
 
-
-
   const handleGradeCellChange = async (studentId: string, col: any, rawValue: string) => {
     const value = rawValue.replace(",", ".");
     const score = value === "" ? null : parseFloat(value);
@@ -262,10 +274,8 @@ export default function GradesReportPage() {
     if (value !== "" && (isNaN(score!) || score! < 0 || score! > 5)) return;
 
     try {
-      // 1. Sincronizar planilla oficial
       await updateSingleDetailedGrade(studentId, selectedSubject, selectedPeriod, col.type.toLowerCase() as any, col.idx, score);
 
-      // 2. Historial de sesión (Visibilidad en Consola y sabana)
       const student = myStudents.find(s => s.id === studentId);
       if (student && score !== null) {
         const existingGrade = student.grades?.find(g => 
@@ -293,26 +303,15 @@ export default function GradesReportPage() {
     }
   };
 
-
-
-  const handlePrint = () => {
-    const originalTitle = document.title;
-    const cleanGrade = selectedGrade.replace('°', '');
-    const period = (masterData.activePeriod || "P2").toUpperCase();
-    document.title = `SABANA_${cleanGrade}_${selectedCurso}_${selectedSubject}_${period}`;
-    window.print();
-    setTimeout(() => { document.title = originalTitle; }, 500);
-  };
-
   const handleDownloadCSV = () => {
     const csvRows: string[] = [];
     const addRow = (row: string[]) => {
-      csvRows.push(row.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(","));
+      csvRows.push(row.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(";"));
     };
 
     addRow(["COD_SECCION", "11350", "INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGUE AWA", ...Array(25).fill("")]);
     addRow(["COD_ASIGNATURA", "60", ...Array(26).fill("")]);
-    addRow(["SECCION", `${selectedGrade}-${selectedCurso} IETABA`, ...Array(26).fill("")]);
+    addRow(["SECCION", `${selectedGrade === "TODOS" ? "5-1" : selectedGrade.replace("°", "")}-${selectedCurso === "TODOS" ? "1" : selectedCurso} IETABA`, ...Array(26).fill("")]);
     addRow(["ASIGNATURA", selectedSubject, ...Array(26).fill("")]);
     addRow(["DOCENTE", profile.name, ...Array(26).fill("")]);
     
@@ -350,11 +349,282 @@ export default function GradesReportPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Sabana_${selectedSubject}_${selectedGrade}_${selectedCurso}.csv`);
+    link.setAttribute("download", `Planilla_${selectedSubject}_${selectedGrade}_${selectedCurso}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+
+  // Lógica de lectura y parseo del cargador de CSV
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processCSVFile(file);
+  };
+
+  const processCSVFile = (file: File) => {
+    setImportFile(file);
+    setImportError(null);
+    setImportSuccess(false);
+    setImportStats(null);
+
+    Papa.parse(file, {
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const rows = results.data as string[][];
+          if (rows.length === 0) {
+            setImportError("El archivo seleccionado está vacío.");
+            return;
+          }
+
+          // 1. Detectar grado y curso desde los metadatos de cabecera del CSV
+          let targetGrade = selectedGrade;
+          let targetCurso = selectedCurso;
+          
+          const seccionRow = rows.find(r => r[0] && r[0].toString().toUpperCase().trim() === "SECCION");
+          if (seccionRow && seccionRow[1]) {
+            const cleanSec = seccionRow[1].replace(" IETABA", "").trim();
+            const secParts = cleanSec.split("-");
+            if (secParts.length >= 1) {
+              targetGrade = normalizeGrade(secParts[0]);
+              if (secParts.length >= 2) {
+                targetCurso = secParts[1].trim().toUpperCase();
+              }
+            }
+          }
+
+          // 2. Localizar la fila de encabezados que contiene el campo "CODIGO"
+          const headerRowIdx = rows.findIndex(row => 
+            row.some(cell => cell && cell.toString().toUpperCase().trim() === "CODIGO")
+          );
+
+          if (headerRowIdx === -1) {
+            setImportError("Estructura inválida. No se encontró la columna de cabecera con el campo 'CODIGO'. Asegúrate de usar la plantilla exportada.");
+            return;
+          }
+
+          // Normalizar delimitador: PapaParse auto-detecta, pero a veces mezcla campos
+          // Si el header tiene un solo elemento con separador, lo dividimos manualmente
+          let headers = rows[headerRowIdx].map(h => (h || "").toString().trim().toUpperCase());
+          let isSemicolonSplit = false;
+          if (headers.length === 1 && headers[0].includes(";")) {
+            headers = headers[0].split(";");
+            isSemicolonSplit = true;
+          }
+
+          const colCodigoIdx = headers.indexOf("CODIGO");
+          const colApellidoIdx = headers.indexOf("APELLIDO");
+          const colNombreIdx = headers.indexOf("NOMBRE");
+
+          if (colCodigoIdx === -1) {
+            setImportError("Falta la columna 'CODIGO' en el archivo cargado.");
+            return;
+          }
+
+          // Filtrar columnas de evaluación disponibles
+          const evalCols = columns.filter(c => c.id !== "DEF").map(col => {
+            const idx = headers.indexOf(col.id.toUpperCase());
+            return { ...col, csvIdx: idx };
+          }).filter(c => c.csvIdx !== -1);
+
+          if (evalCols.length === 0) {
+            setImportError("No se encontraron columnas de calificaciones (SB1-SB8, SBH1-8, SR1-5, CV1-3, AUT) para importar.");
+            return;
+          }
+
+          const parsedData: any[] = [];
+          const novelties: string[] = [];
+          const roomChanges: any[] = [];
+          const unmatched: string[] = [];
+          let totalGradesRead = 0;
+
+          // Recorrer las filas de estudiantes
+          for (let i = headerRowIdx + 1; i < rows.length; i++) {
+            let row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            if (isSemicolonSplit && row.length === 1) {
+              row = row[0].split(";");
+            }
+
+            const firstCell = (row[0] || "").toString().trim().toUpperCase();
+            if (firstCell === "CONVENCIONES" || firstCell === "CONVENCIONES Y ESCALA DE VALORACIÓN" || firstCell === "") {
+              break; // Detener lectura en la zona de leyendas
+            }
+
+            const rawCodigo = row[colCodigoIdx];
+            if (!rawCodigo) continue;
+
+            const codigo = rawCodigo.toString().replace(".0", "").trim();
+            if (!codigo || codigo === "CODIGO") continue;
+
+            // Cruce con la base de datos de estudiantes
+            const student = students.find(s => 
+              s.nroDocumento === codigo || 
+              s.id === `st-${codigo}-1` || 
+              s.id === `st-${codigo}`
+            );
+
+            const rawApellido = colApellidoIdx !== -1 ? (row[colApellidoIdx] || "").toString().trim() : "";
+            const rawNombre = colNombreIdx !== -1 ? (row[colNombreIdx] || "").toString().trim() : "";
+
+            const apParts = rawApellido.split(/\s+/).filter(Boolean);
+            const primerApellido = apParts.length > 0 ? apParts[0].toUpperCase() : "";
+            const segundoApellido = apParts.length > 1 ? apParts.slice(1).join(" ").toUpperCase() : "";
+
+            const nmParts = rawNombre.split(/\s+/).filter(Boolean);
+            const primerNombre = nmParts.length > 0 ? nmParts[0].toUpperCase() : "";
+            const segundoNombre = nmParts.length > 1 ? nmParts.slice(1).join(" ").toUpperCase() : "";
+
+            const sName = rawApellido || rawNombre
+              ? `${rawApellido} ${rawNombre}`.replace(/\s+/g, " ").trim().toUpperCase()
+              : `Estudiante ${codigo}`;
+
+            if (!student) {
+              unmatched.push(`${sName} (ID: ${codigo})`);
+              continue;
+            }
+
+            // Mapear notas
+            const detailed: any = {
+              sb: Array(8).fill(null),
+              sbh: Array(8).fill(null),
+              sr: Array(5).fill(null),
+              cv: Array(3).fill(null),
+              aut: null
+            };
+
+            const existingDetailed = student.detailedGrades?.[selectedSubject]?.[selectedPeriod.toLowerCase()];
+            if (existingDetailed) {
+              if (existingDetailed.sb) detailed.sb = [...existingDetailed.sb];
+              if (existingDetailed.sbh) detailed.sbh = [...existingDetailed.sbh];
+              if (existingDetailed.sr) detailed.sr = [...existingDetailed.sr];
+              if (existingDetailed.cv) detailed.cv = [...existingDetailed.cv];
+              detailed.aut = existingDetailed.aut;
+            }
+
+            evalCols.forEach(col => {
+              const cellVal = row[col.csvIdx];
+              if (cellVal !== undefined && cellVal !== null && cellVal !== "") {
+                const score = parseFloat(cellVal.toString().replace(",", "."));
+                if (!isNaN(score) && score >= 0 && score <= 5) {
+                  if (col.type === "SB") detailed.sb[col.idx] = score;
+                  else if (col.type === "SBH") detailed.sbh[col.idx] = score;
+                  else if (col.type === "SR") detailed.sr[col.idx] = score;
+                  else if (col.type === "CV") detailed.cv[col.idx] = score;
+                  else if (col.type === "AUT") detailed.aut = score;
+                  totalGradesRead++;
+                } else if (cellVal.toString().trim() !== "" && cellVal.toString().trim() !== "—") {
+                  novelties.push(`Nota "${cellVal}" omitida por estar fuera de rango (0.0 - 5.0) para ${sName} en ${col.id}.`);
+                }
+              }
+            });
+
+            // Validar traslados de Grado/Curso
+            const currentGradoNormalized = normalizeGrade(student.grado);
+            const targetGradeNormalized = normalizeGrade(targetGrade);
+            const isDifferentRoom = currentGradoNormalized !== targetGradeNormalized || student.curso !== targetCurso;
+
+            if (isDifferentRoom) {
+              roomChanges.push({
+                nombre: `${student.primerApellido} ${student.primerNombre}`,
+                documento: student.nroDocumento,
+                antes: `${student.grado}-${student.curso}`,
+                ahora: `${targetGrade}-${targetCurso}`
+              });
+            }
+
+            parsedData.push({
+              studentId: student.id,
+              nombre: `${primerApellido} ${segundoApellido} ${primerNombre} ${segundoNombre}`.replace(/\s+/g, " ").trim() || `${student.primerApellido} ${student.primerNombre}`,
+              documento: student.nroDocumento,
+              detailed,
+              grado: targetGrade,
+              curso: targetCurso,
+              primerNombre,
+              segundoNombre,
+              primerApellido,
+              segundoApellido
+            });
+          }
+
+          if (parsedData.length === 0) {
+            setImportError("No se encontraron registros de estudiantes válidos en el archivo.");
+            return;
+          }
+
+          setImportStats({
+            totalRows: parsedData.length,
+            targetGrade,
+            targetCurso,
+            matchedCount: parsedData.length,
+            unmatched,
+            roomChanges,
+            updatedGradesCount: totalGradesRead,
+            novelties,
+            payload: parsedData
+          });
+
+        } catch (e: any) {
+          console.error(e);
+          setImportError(`Error de lectura: ${e.message}`);
+        }
+      },
+      error: (err) => {
+        setImportError(`Error en el lector de archivos CSV: ${err.message}`);
+      }
+    });
+  };
+
+  const handleApplyImport = async () => {
+    if (!importStats || !importStats.payload) return;
+    
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      await importDetailedGrades(selectedSubject, selectedPeriod, importStats.payload);
+      setImportSuccess(true);
+      setTimeout(() => {
+        setIsImportOpen(false);
+        setImportFile(null);
+        setImportStats(null);
+        setImportSuccess(false);
+      }, 2500);
+    } catch (err: any) {
+      console.error(err);
+      setImportError(`No se pudo guardar la información en Firestore: ${err.message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.name.endsWith(".csv")) {
+      processCSVFile(file);
+    } else {
+      setImportError("Solo se admiten archivos en formato CSV (.csv).");
+    }
+  };
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   return (
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
@@ -422,12 +692,15 @@ export default function GradesReportPage() {
                  subject: selectedSubject,
                  period: selectedPeriod.toUpperCase() 
                })} 
-               className="flex-1 md:flex-none justify-center px-4 py-3 md:px-6 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2 md:gap-3"
+               className="flex-1 md:flex-none justify-center px-4 py-3 md:px-5 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2"
              >
-               <Download size={16} /> PDF
+               <Download size={15} /> PDF
              </button>
              <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
-               <FileSpreadsheet size={16} /> Excel
+               <FileSpreadsheet size={15} /> Excel
+             </button>
+             <button onClick={() => setIsImportOpen(true)} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
+               <Upload size={15} /> Subir Notas
              </button>
            </div>
         </div>
@@ -575,7 +848,7 @@ export default function GradesReportPage() {
             </tr>
             <tr>
               <td className="border border-black font-bold text-center" colSpan={2}>SECCION</td>
-              <td className="border border-black font-bold text-center">{selectedGrade === "TODOS" ? "VARIOS" : selectedGrade}-{selectedCurso === "TODOS" ? "TODOS" : selectedCurso} IETABA</td>
+              <td className="border border-black font-bold text-center">{selectedGrade === "TODOS" ? "5-1" : selectedGrade.replace("°", "")}-{selectedCurso === "TODOS" ? "1" : selectedCurso} IETABA</td>
               <td className="border border-black" colSpan={25}></td>
             </tr>
             <tr>
@@ -712,6 +985,267 @@ export default function GradesReportPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE IMPORTACIÓN PREMIUM DE NOTAS (STARTUP STYLE) */}
+      {isImportOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 md:p-10 shadow-2xl space-y-6 border border-slate-200/50 animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
+            
+            {/* Cabecera Modal */}
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[9px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-full uppercase tracking-widest">
+                  Carga Inteligente
+                </span>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic mt-1.5">
+                  Subir Planilla de Calificaciones
+                </h3>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                  Asignatura: {selectedSubject} | Periodo: {selectedPeriod.toUpperCase()}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsImportOpen(false);
+                  setImportFile(null);
+                  setImportStats(null);
+                  setImportError(null);
+                  setImportSuccess(false);
+                }} 
+                className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-full transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Contenido / Dropzone */}
+            {!importStats && !importError && !importSuccess && (
+              <div 
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4 transition-all duration-200 ${
+                  dragOver 
+                    ? "border-primary bg-primary/5 scale-[1.01]" 
+                    : "border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400"
+                }`}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center shadow-inner">
+                  <Upload className="w-8 h-8 text-primary animate-bounce" />
+                </div>
+                <div>
+                  <p className="font-extrabold text-slate-800 text-sm">Arrastra tu planilla exportada aquí</p>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-1">O selecciona el archivo desde tu dispositivo (.csv)</p>
+                </div>
+                
+                <label className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 shadow-lg shadow-slate-950/20">
+                  Seleccionar Archivo
+                  <input 
+                    type="file" 
+                    accept=".csv" 
+                    className="hidden" 
+                    onChange={handleCSVUpload}
+                  />
+                </label>
+              </div>
+            )}
+
+            {/* Errores */}
+            {importError && (
+              <div className="bg-red-50 border border-red-200 p-6 rounded-3xl flex flex-col items-center text-center gap-3 animate-in slide-in-from-bottom-4">
+                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center shadow-inner">
+                  <X size={24} className="stroke-[3]" />
+                </div>
+                <h4 className="font-black text-red-800 text-xs uppercase tracking-wider">Error en la Validación del Archivo</h4>
+                <p className="text-[10px] text-red-700 font-medium leading-relaxed max-w-md">{importError}</p>
+                <button 
+                  onClick={() => {
+                    setImportError(null);
+                    setImportFile(null);
+                  }}
+                  className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-[9px] font-black uppercase tracking-wider mt-2 transition-all"
+                >
+                  Intentar con otro archivo
+                </button>
+              </div>
+            )}
+
+            {/* Éxito */}
+            {importSuccess && (
+              <div className="bg-green-50 border border-green-200 p-8 rounded-3xl flex flex-col items-center text-center gap-3 animate-in zoom-in-95">
+                <div className="w-16 h-16 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-500/30 animate-pulse">
+                  <Check size={36} className="stroke-[3]" />
+                </div>
+                <h4 className="font-black text-green-800 text-sm uppercase tracking-wider">¡Planilla Importada con Éxito!</h4>
+                <p className="text-[10px] text-green-700 font-medium max-w-sm">
+                  Las calificaciones del primer periodo y las novedades del curso se han cargado y sincronizado exitosamente con Firestore.
+                </p>
+              </div>
+            )}
+
+            {/* Previsualización y Estadísticas */}
+            {importStats && !importSuccess && (
+              <div className="space-y-5 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between bg-slate-50 border border-slate-200/60 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className="text-primary w-5 h-5" />
+                    <div>
+                      <p className="font-bold text-slate-800 text-[11px] truncate max-w-[250px]">{importFile?.name}</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Tamaño: {(importFile?.size || 0 / 1024).toFixed(1)} KB</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setImportFile(null);
+                      setImportStats(null);
+                    }}
+                    className="text-[9px] font-black text-red-600 hover:underline uppercase tracking-wider"
+                  >
+                    Cambiar archivo
+                  </button>
+                </div>
+
+                {/* Métricas de Carga */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+                    <p className="text-xs font-black text-slate-800">{importStats.totalRows}</p>
+                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-wider mt-1">Estudiantes Leídos</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-150 rounded-2xl p-3 text-center">
+                    <p className="text-xs font-black text-green-700">{importStats.updatedGradesCount}</p>
+                    <p className="text-[8px] text-green-600 font-bold uppercase tracking-wider mt-1">Notas Cargadas</p>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
+                    <p className="text-xs font-black text-amber-700">{importStats.roomChanges.length}</p>
+                    <p className="text-[8px] text-amber-600 font-bold uppercase tracking-wider mt-1">Traslados de Salón</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-150 rounded-2xl p-3 text-center">
+                    <p className="text-xs font-black text-red-700">{importStats.unmatched.length}</p>
+                    <p className="text-[8px] text-red-600 font-bold uppercase tracking-wider mt-1">No Encontrados</p>
+                  </div>
+                </div>
+
+                {/* Alerta de Traslados de Salón */}
+                {importStats.roomChanges.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 max-h-[160px] overflow-y-auto">
+                    <h5 className="font-extrabold text-[10px] text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertTriangle size={13} /> TRASLADOS DE SALÓN DETECTADOS (Se actualizará grado/curso en la BD)
+                    </h5>
+                    <div className="space-y-1 pl-1">
+                      {importStats.roomChanges.map((change: any, idx: number) => (
+                        <p key={idx} className="text-[9px] text-amber-700 font-semibold leading-tight">
+                          • {change.nombre} (ID: {change.documento}): Se moverá de {change.antes} a {change.ahora}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Alerta de no emparejados */}
+                {importStats.unmatched.length > 0 && (
+                  <div className="bg-red-50 border border-red-150 rounded-2xl p-4 space-y-2 max-h-[140px] overflow-y-auto">
+                    <h5 className="font-extrabold text-[10px] text-red-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <X size={13} className="stroke-[3]" /> ESTUDIANTES OMITIDOS (No existen en la base de datos local)
+                    </h5>
+                    <div className="space-y-1 pl-1">
+                      {importStats.unmatched.map((unm: string, idx: number) => (
+                        <p key={idx} className="text-[9px] text-red-700 font-medium">• {unm}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Novedades / Advertencias de Notas */}
+                {importStats.novelties.length > 0 && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-1.5 max-h-[120px] overflow-y-auto">
+                    <h5 className="font-extrabold text-[10px] text-slate-700 uppercase tracking-wider">
+                      ADVERTENCIAS DE FORMATO
+                    </h5>
+                    <div className="space-y-1 pl-1">
+                      {importStats.novelties.map((nov: string, idx: number) => (
+                        <p key={idx} className="text-[9px] text-slate-600 font-medium">• {nov}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Previsualización del Lote */}
+                <div className="space-y-2">
+                  <h5 className="font-black text-[10px] text-slate-700 uppercase tracking-wider">Previsualización del Lote de Carga</h5>
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                    <table className="w-full text-left border-collapse text-[9px]">
+                      <thead className="bg-slate-50 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="p-2 text-slate-600">Estudiante</th>
+                          <th className="p-2 text-slate-600 text-center">Salón Actual</th>
+                          <th className="p-2 text-slate-600 text-center">Salón Nuevo</th>
+                          <th className="p-2 text-slate-600 text-center">Calificaciones Leídas</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {importStats.payload.slice(0, 3).map((item: any, idx: number) => {
+                          const originalSt = students.find(s => s.id === item.studentId);
+                          const counts = [
+                            ...item.detailed.sb,
+                            ...item.detailed.sbh,
+                            ...item.detailed.sr,
+                            ...item.detailed.cv,
+                            item.detailed.aut
+                          ].filter(v => typeof v === 'number').length;
+
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50/50">
+                              <td className="p-2 font-semibold text-slate-800">{item.nombre}</td>
+                              <td className="p-2 text-center text-slate-500 font-medium">{originalSt?.grado}-{originalSt?.curso}</td>
+                              <td className={`p-2 text-center font-bold ${originalSt?.grado !== item.grado || originalSt?.curso !== item.curso ? 'text-amber-600' : 'text-slate-500'}`}>
+                                {item.grado}-{item.curso}
+                              </td>
+                              <td className="p-2 text-center text-indigo-600 font-bold">{counts} notas definidas</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {importStats.payload.length > 3 && (
+                      <p className="text-center p-2 bg-slate-50 text-[8.5px] text-slate-400 font-bold border-t border-slate-200 uppercase tracking-wider">
+                        y {importStats.payload.length - 3} estudiantes más en el lote...
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Acciones del Modal */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button 
+                    disabled={isImporting}
+                    onClick={() => {
+                      setImportFile(null);
+                      setImportStats(null);
+                    }}
+                    className="px-5 py-3 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
+                  >
+                    Volver a Cargar
+                  </button>
+                  <button 
+                    disabled={isImporting}
+                    onClick={handleApplyImport}
+                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    {isImporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        Sincronizando Firestore...
+                      </>
+                    ) : (
+                      "Aplicar Actualización Masiva"
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @media print {

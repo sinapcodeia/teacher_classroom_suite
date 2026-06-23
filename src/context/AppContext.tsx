@@ -274,7 +274,7 @@ interface AppContextType {
   studentsLoading: boolean;
   setStudents: (students: Student[]) => void;
   addStudent: (student: Omit<Student, "id">) => Promise<void>;
-  importStudents: (incoming: Omit<Student, "id">[]) => Promise<{ novelties: any[], notFound: string[] }>;
+  importStudents: (incoming: Omit<Student, "id">[], deleteIds?: string[]) => Promise<{ novelties: any[], notFound: string[] }>;
   removeStudent: (id: string) => Promise<void>;
   updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
    updateDetailedGrades: (studentId: string, subjectId: string, periodId: string, grades: DetailedGrades) => Promise<void>;
@@ -1079,12 +1079,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  /** Importa estudiantes a Firestore con estrategia de fusión (merge):
+  /** Importa estudiantes a Firestore con estrategia de fusión (merge) y soporte de borrado:
    *  - Si el estudiante YA existe: actualiza solo los campos del CSV, conserva el resto
    *  - Si es NUEVO: lo crea
-   *  - NUNCA elimina registros existentes
+   *  - Si está en deleteIds: lo marca como inactivo (isActive: false)
    */
-  const importStudents = async (incoming: any[]) => {
+  const importStudents = async (incoming: any[], deleteIds: string[] = []) => {
     const LIMITE_LOTE = 400;
     const novelties: { student: string, oldRoom: string, newRoom: string }[] = [];
     const notFound: string[] = [];
@@ -1158,18 +1158,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Procesar bajas
+    const deletesToApply: Student[] = [];
+    for (const id of deleteIds) {
+      const existing = students.find(ex => ex.id === id);
+      if (existing) {
+        deletesToApply.push({
+          ...existing,
+          isActive: false,
+          audit: {
+            ...existing.audit,
+            updatedBy: profile.name || "SISTEMA",
+            updatedAt: new Date().toISOString()
+          }
+        } as Student);
+      }
+    }
+
     setStudents(prev => {
       const mapa = new Map(prev.map(s => [s.id, s]));
       for (const nuevo of conIds) {
         const existente = mapa.get(nuevo.id);
         mapa.set(nuevo.id, existente ? { ...existente, ...nuevo } : nuevo);
       }
+      for (const del of deletesToApply) {
+        const existente = mapa.get(del.id);
+        if (existente) {
+          mapa.set(del.id, { ...existente, isActive: false, audit: del.audit });
+        }
+      }
       return Array.from(mapa.values());
     });
 
-    for (let i = 0; i < conIds.length; i += LIMITE_LOTE) {
+    const allOperations = [...conIds, ...deletesToApply];
+    for (let i = 0; i < allOperations.length; i += LIMITE_LOTE) {
       const lote = writeBatch(db);
-      const porcion = conIds.slice(i, i + LIMITE_LOTE);
+      const porcion = allOperations.slice(i, i + LIMITE_LOTE);
       for (const estudiante of porcion) {
         lote.set(doc(db, "students", estudiante.id), estudiante, { merge: true });
       }

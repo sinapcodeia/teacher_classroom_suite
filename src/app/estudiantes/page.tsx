@@ -10,7 +10,7 @@ const StudentList = nextDynamic(() => import("@/components/students/StudentList"
 const StudentProfile = nextDynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
 const PerformanceStats = nextDynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
 const ImportSummaryModal = nextDynamic(() => import("@/components/students/ImportSummaryModal"), { ssr: false });
-import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2 } from "lucide-react";
+import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
 import { useApp, normalizeGrade } from "@/context/AppContext";
@@ -22,8 +22,6 @@ import { printInstitutionalStudentReport } from "@/lib/printService";
 export default function StudentsPage() {
   const { myStudents, addStudent, masterData, profile, importStudents } = useApp();
   
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [search, setSearch] = useState("");
   const [gradoFilter, setGradoFilter] = useState("TODOS");
   const [cursoFilter, setCursoFilter] = useState("TODOS");
   const [materiaFilter, setMateriaFilter] = useState("TODAS");
@@ -47,6 +45,18 @@ export default function StudentsPage() {
     errors: [] as string[]
   });
 
+  // Estados para la Sincronización Interactiva (Carga y Comparación)
+  const [syncData, setSyncData] = useState<{
+    newStudents: any[];
+    modifiedStudents: { student: any; id: string; changes: { field: string; old: string; newVal: string }[] }[];
+    missingStudents: any[];
+    unchangedStudents: any[];
+  } | null>(null);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [deleteMissing, setDeleteMissing] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [activeSyncTab, setActiveSyncTab] = useState<"new" | "modified" | "missing" | "unchanged">("new");
+
   const [formData, setFormData] = useState({
     nombre: "",
     grado: "",
@@ -59,6 +69,52 @@ export default function StudentsPage() {
   const showModalToast = (msg: string, ok = true) => {
     setModalToast({ msg, ok });
     if (ok) setTimeout(() => setModalToast(null), 3000);
+  };
+
+  const handleExportAll = () => {
+    const dataToExport = myStudents.map(s => ({
+      "CURSO IETABA": s.curso || "",
+      "GRADO": s.grado || "",
+      "TIPO DOC.": s.tipoDocumento || "",
+      "NRO DOCUMENTO": s.nroDocumento || "",
+      "PRIMER APELLIDO": s.primerApellido || "",
+      "SEGUNDO APELLIDO": s.segundoApellido || "",
+      "PRIMER NOMBRE": s.primerNombre || "",
+      "SEGUNDO NOMBRE": s.segundoNombre || "",
+      "FECHA NACIMIENTO": s.fechaNacimiento || "",
+      "GENERO": s.genero || ""
+    }));
+    exportToCSV(dataToExport, "Estudiantes_Maestro_IETABA");
+  };
+
+  const handleApplySync = async () => {
+    if (!syncData) return;
+    setIsSyncing(true);
+
+    const payload = [
+      ...syncData.newStudents,
+      ...syncData.modifiedStudents.map(m => m.student),
+      ...syncData.unchangedStudents
+    ];
+    const deleteIds = deleteMissing ? syncData.missingStudents.map(m => m.id) : [];
+
+    try {
+      const { novelties, notFound } = await importStudents(payload, deleteIds);
+      setImportStats({
+        total: payload.length + deleteIds.length,
+        success: payload.length,
+        novelties,
+        errors: notFound
+      });
+      setIsSyncing(false);
+      setShowSyncModal(false);
+      setSyncData(null);
+      setShowImportResults(true);
+    } catch (err) {
+      console.error("Error al aplicar la sincronización:", err);
+      alert("Error al aplicar la sincronización. Revisa la consola.");
+      setIsSyncing(false);
+    }
   };
 
   const handleAddStudent = async () => {
@@ -133,6 +189,12 @@ export default function StudentsPage() {
               <FileText size={16} className="text-error" /> PDF
             </button>
             <button 
+              onClick={handleExportAll}
+              className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-5 md:py-3 bg-white border md:border-2 border-outline-variant rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all min-w-[140px]"
+            >
+              <FileDown size={16} className="text-primary" /> Descargar Todo
+            </button>
+            <button 
               onClick={() => setShowModal(true)}
               className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-6 md:py-3 bg-primary text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95 min-w-[140px]"
             >
@@ -153,17 +215,14 @@ export default function StudentsPage() {
                     skipEmptyLines: true,
                     complete: async (results) => {
                       const rows = results.data as any[];
-                      const dataToImport: any[] = [];
+                      const incoming: any[] = [];
                       
                       for (const row of rows) {
                         // Normalizar llaves y valores (limpiar caracteres invisibles como BOM o espacios extra)
                         const s: any = {};
-                        const rawValues = Object.values(row);
-                        
                         Object.keys(row).forEach((k, idx) => {
                           const cleanKey = k.replace(/^\uFEFF/, "").toLowerCase().trim();
                           s[cleanKey] = row[k];
-                          // Guardar por posición también como fallback (0: Grado, 1: Curso, 2: Documento)
                           s[`pos_${idx}`] = row[k];
                         });
 
@@ -173,33 +232,75 @@ export default function StudentsPage() {
                         const rawGrado = (s.grado || s.nivel || s.pos_0 || s.pos_2 || "").toString();
 
                         if (docNum && rawGrado) {
-                          dataToImport.push({
-                            grado: rawGrado.trim(),
+                          incoming.push({
+                            grado: normalizeGrade(rawGrado.trim()),
                             curso: rawCurso.trim(),
                             nroDocumento: String(docNum).trim(),
-                            tipoDocumento: s["tipo doc."] || s.tipodoc || s.pos_2 || "T.I.",
-                            primerApellido: s["primer apellido"] || s.primerapellido || s.apellido || s.pos_4 || "",
-                            segundoApellido: s["segundo apellido"] || s.segundoapellido || s.pos_5 || "",
-                            primerNombre: s["primer nombre"] || s.primernombre || s.nombre || s.pos_6 || "",
-                            segundoNombre: s["segundo nombre"] || s.segundonombre || s.pos_7 || "",
-                            fechaNacimiento: s["fecha nacimiento"] || s.fechanacimiento || s.pos_8 || "",
-                            genero: s.genero || s.pos_9 || "M"
+                            tipoDocumento: (s["tipo doc."] || s.tipodoc || s.pos_2 || "T.I.").toString().trim().toUpperCase(),
+                            primerApellido: (s["primer apellido"] || s.primerapellido || s.apellido || s.pos_4 || "").toString().trim().toUpperCase(),
+                            segundoApellido: (s["segundo apellido"] || s.segundoapellido || s.pos_5 || "").toString().trim().toUpperCase(),
+                            primerNombre: (s["primer nombre"] || s.primernombre || s.nombre || s.pos_6 || "").toString().trim().toUpperCase(),
+                            segundoNombre: (s["segundo nombre"] || s.segundonombre || s.pos_7 || "").toString().trim().toUpperCase(),
+                            fechaNacimiento: (s["fecha nacimiento"] || s.fechanacimiento || s.pos_8 || "").toString().trim(),
+                            genero: (s.genero || s.pos_9 || "M").toString().toUpperCase().charAt(0)
                           });
                         }
                       }
 
-                      if (dataToImport.length > 0) {
-                        const { novelties, notFound } = await importStudents(dataToImport);
-                        setImportStats({
-                          total: dataToImport.length,
-                          success: dataToImport.length - notFound.length,
-                          novelties,
-                          errors: notFound
-                        });
-                        setShowImportResults(true);
-                      } else {
+                      if (incoming.length === 0) {
                         alert("No se encontraron datos válidos en el archivo. Revisa que las columnas coincidan con la plantilla.");
+                        return;
                       }
+
+                      // Comparar
+                      const newStudents: any[] = [];
+                      const modifiedStudents: any[] = [];
+                      const unchangedStudents: any[] = [];
+                      const incomingDocs = new Set(incoming.map(i => i.nroDocumento));
+
+                      incoming.forEach(inc => {
+                        const existing = myStudents.find(ex => ex.nroDocumento === inc.nroDocumento);
+                        if (!existing) {
+                          newStudents.push(inc);
+                        } else {
+                          const changes: { field: string; old: string; newVal: string }[] = [];
+                          const checkField = (label: string, incVal: string, extVal: string) => {
+                            const cleanInc = (incVal || "").trim().toUpperCase();
+                            const cleanExt = (extVal || "").trim().toUpperCase();
+                            if (cleanInc !== cleanExt) {
+                              changes.push({ field: label, old: extVal || "—", newVal: incVal || "—" });
+                            }
+                          };
+
+                          checkField("Primer Nombre", inc.primerNombre, existing.primerNombre);
+                          checkField("Segundo Nombre", inc.segundoNombre, existing.segundoNombre);
+                          checkField("Primer Apellido", inc.primerApellido, existing.primerApellido);
+                          checkField("Segundo Apellido", inc.segundoApellido, existing.segundoApellido);
+                          checkField("Grado", inc.grado, existing.grado);
+                          checkField("Curso", inc.curso, existing.curso);
+                          checkField("Tipo Doc.", inc.tipoDocumento, existing.tipoDocumento);
+                          checkField("F. Nacimiento", inc.fechaNacimiento, existing.fechaNacimiento);
+                          checkField("Género", inc.genero, existing.genero);
+
+                          if (changes.length > 0) {
+                            modifiedStudents.push({ student: inc, id: existing.id, changes });
+                          } else {
+                            unchangedStudents.push(inc);
+                          }
+                        }
+                      });
+
+                      const missingStudents = myStudents.filter(ex => !incomingDocs.has(ex.nroDocumento));
+
+                      setSyncData({
+                        newStudents,
+                        modifiedStudents,
+                        missingStudents,
+                        unchangedStudents
+                      });
+                      setDeleteMissing(true);
+                      setActiveSyncTab("new");
+                      setShowSyncModal(true);
                       if (e.target) e.target.value = "";
                     }
                   });
@@ -349,6 +450,309 @@ export default function StudentsPage() {
                 "Completar Registro Institucional"
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE COMPARACIÓN INTERACTIVO (SyncPreviewModal) */}
+      {showSyncModal && syncData && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl p-8 md:p-10 shadow-2xl space-y-6 border border-slate-200/50 animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
+            
+            {/* Cabecera */}
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4 flex-shrink-0">
+              <div>
+                <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-widest">
+                  Sincronización Inteligente
+                </span>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic mt-1.5">
+                  Comparación y Sincronización de Estudiantes
+                </h3>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                  Analizando base de datos local contra el archivo cargado
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowSyncModal(false);
+                  setSyncData(null);
+                }}
+                className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-full transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Pestañas de Grupo */}
+            <div className="flex border-b border-slate-100 pb-px gap-1 flex-shrink-0 overflow-x-auto">
+              {[
+                { id: "new", label: "Nuevos", count: syncData.newStudents.length, color: "bg-green-500 text-white" },
+                { id: "modified", label: "Modificados", count: syncData.modifiedStudents.length, color: "bg-blue-500 text-white" },
+                { id: "missing", label: "Faltantes (No en archivo)", count: syncData.missingStudents.length, color: "bg-amber-500 text-white" },
+                { id: "unchanged", label: "Sin Cambios", count: syncData.unchangedStudents.length, color: "bg-slate-500 text-white" }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSyncTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-5 py-3 border-b-2 font-black text-[10px] uppercase tracking-widest transition-all ${
+                    activeSyncTab === tab.id 
+                      ? "border-indigo-600 text-indigo-600" 
+                      : "border-transparent text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${tab.color}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Contenido Dinámico con Scroll */}
+            <div className="flex-1 overflow-y-auto min-h-0 pr-2 space-y-4">
+              
+              {/* Tab NUEVOS */}
+              {activeSyncTab === "new" && (
+                <div className="space-y-3">
+                  {syncData.newStudents.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest text-xs">
+                      No se detectaron estudiantes nuevos en el archivo.
+                    </div>
+                  ) : (
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-100 font-bold text-slate-600">
+                          <tr>
+                            <th className="p-3">Identificación</th>
+                            <th className="p-3">Nombre</th>
+                            <th className="p-3 text-center">Salón (Grado/Curso)</th>
+                            <th className="p-3 text-center">Género</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {syncData.newStudents.map((st, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/50">
+                              <td className="p-3 font-mono font-bold text-slate-700">{st.nroDocumento}</td>
+                              <td className="p-3 font-semibold text-slate-800">
+                                {`${st.primerApellido} ${st.segundoApellido} ${st.primerNombre} ${st.segundoNombre}`.replace(/\s+/g, " ").trim()}
+                              </td>
+                              <td className="p-3 text-center font-bold text-indigo-600">
+                                {st.grado} - {st.curso}
+                              </td>
+                              <td className="p-3 text-center font-semibold text-slate-500">{st.genero}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab MODIFICADOS */}
+              {activeSyncTab === "modified" && (
+                <div className="space-y-4">
+                  {syncData.modifiedStudents.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest text-xs">
+                      No hay modificaciones pendientes.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {syncData.modifiedStudents.map((item, idx) => (
+                        <div key={idx} className="border border-slate-200/60 bg-slate-50/30 rounded-2xl p-4 space-y-3">
+                          <div className="flex justify-between items-start border-b border-slate-100 pb-2">
+                            <div>
+                              <p className="font-extrabold text-slate-900 text-sm">
+                                {`${item.student.primerApellido} ${item.student.primerNombre}`}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-semibold font-mono">Doc: {item.student.nroDocumento}</p>
+                            </div>
+                            <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                              Modificado
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {item.changes.map((change, cIdx) => (
+                              <div key={cIdx} className="grid grid-cols-3 items-center text-[10px] font-bold">
+                                <span className="text-slate-400 uppercase tracking-wider">{change.field}</span>
+                                <span className="text-red-500 line-through truncate pr-2">{change.old}</span>
+                                <span className="text-green-600 flex items-center gap-1 font-extrabold truncate">
+                                  <ArrowRight size={10} /> {change.newVal}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab FALTANTES */}
+              {activeSyncTab === "missing" && (
+                <div className="space-y-6">
+                  {syncData.missingStudents.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest text-xs">
+                      Todos los estudiantes del sistema están presentes en el archivo.
+                    </div>
+                  ) : (
+                    <>
+                      {/* Alerta explicativa y selectores de acción */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <AlertTriangle className="w-6 h-6 animate-pulse" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 uppercase tracking-tight text-sm">Estudiantes faltantes en tu archivo</h4>
+                            <p className="text-[10px] text-slate-500 font-semibold">El archivo subido no contiene los registros de {syncData.missingStudents.length} estudiantes activos.</p>
+                          </div>
+                        </div>
+
+                        {/* Opciones de Borrado/Conservación */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <button
+                            onClick={() => setDeleteMissing(true)}
+                            className={`flex flex-col text-left p-5 rounded-2xl border-2 transition-all ${
+                              deleteMissing 
+                                ? "border-red-500 bg-red-50/20 shadow-md" 
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 text-red-600 font-black text-[10px] uppercase tracking-wider">
+                              <Trash2 size={14} /> Desactivar / Borrar (Recomendado)
+                            </span>
+                            <span className="text-[9.5px] text-slate-500 mt-2 leading-relaxed">
+                              Marca a los alumnos ausentes en el archivo como inactivos en el sistema. Ideal para mantener la base sincronizada.
+                            </span>
+                          </button>
+
+                          <button
+                            onClick={() => setDeleteMissing(false)}
+                            className={`flex flex-col text-left p-5 rounded-2xl border-2 transition-all ${
+                              !deleteMissing 
+                                ? "border-indigo-600 bg-indigo-50/20 shadow-md" 
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-wider">
+                              <CheckCircle size={14} /> Conservar en el sistema
+                            </span>
+                            <span className="text-[9.5px] text-slate-500 mt-2 leading-relaxed">
+                              No realiza ningún cambio sobre los ausentes; permanecen activos y solo se agregan o modifican los demás.
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Lista de estudiantes faltantes */}
+                      <div className="space-y-2">
+                        <h5 className="font-black text-[9px] text-slate-400 uppercase tracking-widest">Estudiantes que se verán afectados</h5>
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                          <table className="w-full border-collapse text-left text-xs">
+                            <thead className="bg-slate-50 border-b border-slate-100 font-bold text-slate-600">
+                              <tr>
+                                <th className="p-3">Identificación</th>
+                                <th className="p-3">Nombre</th>
+                                <th className="p-3 text-center">Salón Actual</th>
+                                <th className="p-3 text-center">Estado Final</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {syncData.missingStudents.map((st, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/50">
+                                  <td className="p-3 font-mono text-slate-600">{st.nroDocumento}</td>
+                                  <td className="p-3 font-semibold text-slate-700">
+                                    {`${st.primerApellido} ${st.segundoApellido} ${st.primerNombre} ${st.segundoNombre}`.replace(/\s+/g, " ").trim()}
+                                  </td>
+                                  <td className="p-3 text-center text-slate-500">{st.grado} - {st.curso}</td>
+                                  <td className="p-3 text-center font-bold">
+                                    {deleteMissing ? (
+                                      <span className="text-red-600 uppercase text-[9px] tracking-wider bg-red-50 px-2 py-0.5 rounded">Inactivo</span>
+                                    ) : (
+                                      <span className="text-indigo-600 uppercase text-[9px] tracking-wider bg-indigo-50 px-2 py-0.5 rounded">Sin Cambios</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Tab SIN CAMBIOS */}
+              {activeSyncTab === "unchanged" && (
+                <div className="space-y-3">
+                  {syncData.unchangedStudents.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest text-xs">
+                      No se encontraron registros idénticos sin cambios en el archivo.
+                    </div>
+                  ) : (
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-100 font-bold text-slate-600">
+                          <tr>
+                            <th className="p-3">Identificación</th>
+                            <th className="p-3">Nombre</th>
+                            <th className="p-3 text-center">Salón</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {syncData.unchangedStudents.map((st, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/50">
+                              <td className="p-3 font-mono text-slate-500">{st.nroDocumento}</td>
+                              <td className="p-3 text-slate-600">
+                                {`${st.primerApellido} ${st.segundoApellido} ${st.primerNombre} ${st.segundoNombre}`.replace(/\s+/g, " ").trim()}
+                              </td>
+                              <td className="p-3 text-center text-slate-500">{st.grado} - {st.curso}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            {/* Botonera de Acción */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 flex-shrink-0">
+              <button
+                disabled={isSyncing}
+                onClick={() => {
+                  setShowSyncModal(false);
+                  setSyncData(null);
+                }}
+                className="px-5 py-3 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={isSyncing}
+                onClick={handleApplySync}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-2"
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} className="stroke-[3]" />
+                    Aplicar Sincronización
+                  </>
+                )}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
