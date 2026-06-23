@@ -6,12 +6,13 @@ import { normalizeGrade } from "@/context/AppContext";
 import { 
   Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, 
   Loader2, AlertTriangle, FileWarning, ClipboardCheck, 
-  Upload, X, Check, FileText 
+  Upload, X, Check, FileText, Award 
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { printGradesTable, printMissingGradesReport } from "@/lib/printService";
 import Papa from "papaparse";
+import VisualReportModal from "@/components/dashboard/VisualReportModal";
 
 interface EditableGradeCellProps {
   studentId: string;
@@ -89,6 +90,8 @@ export default function GradesReportPage() {
   const [selectedSubject, setSelectedSubject] = useState("TECNOLOGÍA");
   const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p2");
   const [mounted, setMounted] = useState(false);
+
+  const [isVisualReportOpen, setIsVisualReportOpen] = useState(false);
 
   // Estados del importador de calificaciones
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -266,6 +269,47 @@ export default function GradesReportPage() {
       totalCount: empty.length + exams.length + tasks.length
     };
   }, [studentsWithAlerts]);
+
+  const classAvg = useMemo(() => {
+    if (filteredStudents.length === 0) return 0;
+    
+    let sum = 0;
+    let count = 0;
+    filteredStudents.forEach(st => {
+      const defVal = getGradeValue(st, "DEF", 0, selectedSubject, selectedPeriod);
+      const defNum = parseFloat(defVal);
+      if (!isNaN(defNum) && defNum > 0) {
+        sum += defNum;
+        count++;
+      }
+    });
+    return count > 0 ? parseFloat((sum / count).toFixed(2)) : 0;
+  }, [filteredStudents, selectedSubject, selectedPeriod]);
+
+  const aiInsightText = useMemo(() => {
+    const avg = classAvg;
+    const sub = selectedSubject.toUpperCase();
+    if (avg === 0) return "Registra notas en la planilla para generar recomendaciones contextuales de talleres.";
+    if (avg < 3.5) {
+      if (sub.includes("MATEMÁTICAS")) return "La IA sugiere un taller práctico de nivelación con materiales de la chagra escolar (yuca, plátano) para afianzar operaciones de conteo y fracciones.";
+      if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) return "La IA sugiere un taller de nivelación de hojas de cálculo con la creación de tablas simplificadas de 3 columnas (Cosecha, Consumo, Trueque).";
+      if (sub.includes("FÍSICA")) return "La IA sugiere un laboratorio práctico sobre ventajas mecánicas de poleas de madera usando el principio del trapiche del Diviso.";
+      if (sub.includes("ÉTICA")) return "La IA sugiere realizar círculos de la palabra cortos enfocados en los valores Awá de solidaridad y minga solidaria.";
+      return `La IA sugiere un taller de refuerzo sobre conceptos clave de ${selectedSubject} con apoyo de tutorías entre pares en clase.`;
+    } else if (avg >= 4.2) {
+      if (sub.includes("MATEMÁTICAS")) return "La IA sugiere un taller avanzado sobre geometría y cestería Awá, aplicando progresiones espirales y simetría al diseño de canastos tradicionales.";
+      if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) return "La IA sugiere un proyecto de prototipado: algoritmos aplicados al diseño de un sistema de riego automatizado con materiales del medio.";
+      if (sub.includes("FÍSICA")) return "La IA sugiere un taller de termodinámica aplicada: análisis de la transferencia de calor en el proceso de cocción de panela.";
+      if (sub.includes("ÉTICA")) return "La IA sugiere liderar una minga estudiantil de pensamiento comunitario enfocada en la gobernanza y el cuidado ecológico.";
+      return `La IA sugiere un taller de investigación y sustentación oral en grupos sobre la aplicación práctica de ${selectedSubject} en la vereda.`;
+    } else {
+      if (sub.includes("MATEMÁTICAS")) return "La IA sugiere un taller de resolución de problemas cotidianos sobre presupuestos familiares y comercio en el mercado veredal local.";
+      if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) return "La IA sugiere un taller de creación de tablas de seguimiento para el inventario de herramientas agrícolas de la comunidad.";
+      if (sub.includes("FÍSICA")) return "La IA sugiere un taller de hidrodinámica analizando la velocidad del caudal en las quebradas locales usando botellas flotantes.";
+      if (sub.includes("ÉTICA")) return "La IA sugiere una dinámica de roles sobre la relación y el respeto que tiene el joven Awá hacia el cuidado de los ríos del piedemonte.";
+      return `La IA sugiere un taller colaborativo en parejas de aplicación de conceptos teóricos de ${selectedSubject} a situaciones reales de Katsa Su.`;
+    }
+  }, [classAvg, selectedSubject, selectedPeriod]);
 
   const handleGradeCellChange = async (studentId: string, col: any, rawValue: string) => {
     const value = rawValue.replace(",", ".");
@@ -683,26 +727,32 @@ export default function GradesReportPage() {
               </select>
            </div>
 
-           <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
-             <button 
-               onClick={() => printGradesTable(filteredStudents, { 
-                 grade: selectedGrade, 
-                 course: selectedCurso, 
-                 teacher: profile.name, 
-                 subject: selectedSubject,
-                 period: selectedPeriod.toUpperCase() 
-               })} 
-               className="flex-1 md:flex-none justify-center px-4 py-3 md:px-5 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2"
-             >
-               <Download size={15} /> PDF
-             </button>
-             <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
-               <FileSpreadsheet size={15} /> Excel
-             </button>
-             <button onClick={() => setIsImportOpen(true)} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
-               <Upload size={15} /> Subir Notas
-             </button>
-           </div>
+           <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap md:flex-nowrap">
+              <button 
+                onClick={() => setIsVisualReportOpen(true)}
+                className="flex-1 md:flex-none justify-center px-4 py-3 md:px-5 md:py-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-all flex items-center gap-2"
+              >
+                <Award size={15} /> Diplomas e Infografías
+              </button>
+              <button 
+                onClick={() => printGradesTable(filteredStudents, { 
+                  grade: selectedGrade, 
+                  course: selectedCurso, 
+                  teacher: profile.name, 
+                  subject: selectedSubject,
+                  period: selectedPeriod.toUpperCase() 
+                })} 
+                className="flex-1 md:flex-none justify-center px-4 py-3 md:px-5 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2"
+              >
+                <Download size={15} /> PDF
+              </button>
+              <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
+                <FileSpreadsheet size={15} /> Excel
+              </button>
+              <button onClick={() => setIsImportOpen(true)} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
+                <Upload size={15} /> Subir Notas
+              </button>
+            </div>
         </div>
       </div>
 
@@ -1246,6 +1296,18 @@ export default function GradesReportPage() {
           </div>
         </div>
       )}
+
+      <VisualReportModal
+        isOpen={isVisualReportOpen}
+        onClose={() => setIsVisualReportOpen(false)}
+        students={filteredStudents}
+        subject={selectedSubject}
+        period={selectedPeriod}
+        teacherName={profile.name}
+        grade={selectedGrade}
+        course={selectedCurso}
+        aiInsightText={aiInsightText}
+      />
 
       <style jsx global>{`
         @media print {
