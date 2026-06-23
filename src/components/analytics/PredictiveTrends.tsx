@@ -9,13 +9,19 @@ import { TrendingUp, Users, Target, Activity, Calendar, Filter, Award } from "lu
 import { useMemo, useState, useEffect } from "react";
 
 export default function PredictiveTrends() {
-  const { students, myStudents, profile, masterData } = useApp();
+  const { students, myStudents, profile, masterData, subjects } = useApp();
   const [mounted, setMounted] = useState(false);
 
   // ── ESTADOS DE FILTROS ACTIVO 360 ──────────────────────────────────────────
   const [selectedPeriod, setSelectedPeriod] = useState<string>("p1"); // "p1", "p2", "p3", "acumulado"
   const [selectedSubject, setSelectedSubject] = useState<string>("TODAS"); // "TODAS", "TECNOLOGÍA", "MATEMÁTICAS", etc.
   const [selectedGradeCourse, setSelectedGradeCourse] = useState<string>("TODOS"); // "TODOS", "6°-6", etc.
+
+  useEffect(() => {
+    if (masterData?.activePeriod) {
+      setSelectedPeriod(masterData.activePeriod);
+    }
+  }, [masterData]);
 
   useEffect(() => {
     setMounted(true);
@@ -36,13 +42,14 @@ export default function PredictiveTrends() {
     return ["TODOS", ...Array.from(courses)];
   }, [myStudents, profile]);
 
-  // Obtener materias disponibles
+  // Obtener materias disponibles de forma dinámica
   const availableSubjects = useMemo(() => {
-    if (profile.teachingSubjectsList?.length) {
-      return ["TODAS", ...profile.teachingSubjectsList];
+    const list = (subjects || []).map(s => s.name);
+    if (list.length > 0) {
+      return ["TODAS", ...list];
     }
     return ["TODAS", "TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"];
-  }, [profile]);
+  }, [subjects]);
 
   // ── CÁLCULO DINÁMICO DE PROMEDIO DE UN ESTUDIANTE ──────────────────────────
   const getStudentAvgForFilter = (student: any, period: string, subjectFilter: string): number | null => {
@@ -142,6 +149,89 @@ export default function PredictiveTrends() {
   }, [filteredStudentsWithGrades]);
 
   const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
+
+  // ── 3. SUGERENCIA CONTEXTUAL DE IA PARA TALLERES BASADA EN TENDENCIA DE NOTAS ──
+  const groupAverage = useMemo(() => {
+    if (filteredStudentsWithGrades.length === 0) return 0;
+    const sum = filteredStudentsWithGrades.reduce((acc, s) => acc + s.displayGrade, 0);
+    return parseFloat((sum / filteredStudentsWithGrades.length).toFixed(2));
+  }, [filteredStudentsWithGrades]);
+
+  const aiWorkshopSuggestion = useMemo(() => {
+    const avg = groupAverage;
+    const sub = selectedSubject.toUpperCase();
+    
+    let type = "Refuerzo y Nivelación";
+    let desc = "";
+    
+    if (avg === 0) {
+      return {
+        title: "Esperando calificaciones",
+        type: "Planificación",
+        desc: "Ingresa las primeras notas en la planilla para generar recomendaciones contextuales de talleres.",
+        color: "text-slate-400 bg-slate-100 border-slate-200"
+      };
+    }
+
+    if (avg < 3.5) {
+      type = "Taller de Refuerzo y Nivelación Directa";
+      if (sub.includes("MATEMÁTICAS")) {
+        desc = "La IA sugiere un Taller Práctico de Fracciones con materiales del medio (hojas, semillas) para afianzar el conteo y reparto equitativo.";
+      } else if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) {
+        desc = "La IA sugiere un Taller de Nivelación de Hojas de Cálculo con plantillas simplificadas de 3 columnas (Cosecha, Consumo, Trueque).";
+      } else if (sub.includes("FÍSICA")) {
+        desc = "La IA sugiere un Laboratorio de Campo sobre Fuerzas Simples usando poleas de madera e implementando el principio del trapiche.";
+      } else if (sub.includes("ÉTICA")) {
+        desc = "La IA sugiere un Círculo de la Palabra enfocado en resolución pacífica de conflictos y compañerismo en el aula.";
+      } else {
+        desc = `La IA sugiere un Taller de Recuperación de conceptos clave de ${selectedSubject} con apoyo de tutorías entre pares.`;
+      }
+      return {
+        title: `Nivelación sugerida para ${selectedSubject === "TODAS" ? "todas las materias" : selectedSubject}`,
+        type,
+        desc,
+        color: "text-rose-600 bg-rose-50 border-rose-200"
+      };
+    } else if (avg >= 4.2) {
+      type = "Taller de Profundización e Innovación";
+      if (sub.includes("MATEMÁTICAS")) {
+        desc = "La IA sugiere un Taller Avanzado de Geometría y Cestería Tradicional, aplicando progresiones espirales al tejido de canastas.";
+      } else if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) {
+        desc = "La IA sugiere un Proyecto de Prototipado Tecnológico: Creación de un sistema de riego automatizado con materiales reciclados y lógica computacional.";
+      } else if (sub.includes("FÍSICA")) {
+        desc = "La IA sugiere un Taller de Termodinámica Aplicada: Estudio del calor y transferencia de energía en el proceso de evaporación de la panela.";
+      } else if (sub.includes("ÉTICA")) {
+        desc = "La IA sugiere liderar una Minga de Pensamiento Comunitaria sobre gobernanza indígena y liderazgo de proyectos estudiantiles.";
+      } else {
+        desc = `La IA sugiere un Taller de Investigación y Sustentación oral sobre la aplicación real de ${selectedSubject} en el territorio.`;
+      }
+      return {
+        title: `Innovación sugerida para ${selectedSubject === "TODAS" ? "todas las materias" : selectedSubject}`,
+        type,
+        desc,
+        color: "text-emerald-600 bg-emerald-50 border-emerald-200"
+      };
+    } else {
+      type = "Taller de Consolidación Pedagógica";
+      if (sub.includes("MATEMÁTICAS")) {
+        desc = "La IA sugiere un Taller de Resolución de Problemas cotidianos sobre presupuestos familiares y comercio en el mercado veredal.";
+      } else if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) {
+        desc = "La IA sugiere un Taller de Creación de Tablas de Seguimiento de Rendimiento Agropecuario para la chagra escolar.";
+      } else if (sub.includes("FÍSICA")) {
+        desc = "La IA sugiere un Taller Práctico sobre Leyes de Newton analizando la caída libre de agua en ríos y el movimiento de poleas.";
+      } else if (sub.includes("ÉTICA")) {
+        desc = "La IA sugiere una Dinámica grupal de roles enfocada en los valores Awá de solidaridad y minga solidaria.";
+      } else {
+        desc = `La IA sugiere un Taller de Aplicación conceptual de ${selectedSubject} en parejas con exposición al final de la sesión.`;
+      }
+      return {
+        title: `Práctica sugerida para ${selectedSubject === "TODAS" ? "todas las materias" : selectedSubject}`,
+        type,
+        desc,
+        color: "text-blue-600 bg-blue-50 border-blue-200"
+      };
+    }
+  }, [groupAverage, selectedSubject]);
 
   if (!mounted) return <div className="h-[400px] w-full bg-slate-50 animate-pulse rounded-[2.5rem]" />;
 
@@ -335,6 +425,31 @@ export default function PredictiveTrends() {
         </div>
 
       </div>
+
+      {/* SUGERENCIA DE IA CONTEXTUAL DE TALLERES */}
+      {groupAverage > 0 && (
+        <div className={`p-6 rounded-[2.5rem] border ${aiWorkshopSuggestion.color} flex flex-col md:flex-row gap-5 items-start md:items-center justify-between shadow-lg`}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-md shrink-0">
+              <span className="text-primary font-black text-xl">💡</span>
+            </div>
+            <div>
+              <span className="text-[8px] font-black uppercase tracking-widest bg-white/60 px-2 py-0.5 rounded border border-current">{aiWorkshopSuggestion.type}</span>
+              <h4 className="text-sm font-black uppercase tracking-tight mt-1 text-slate-800">{aiWorkshopSuggestion.title}</h4>
+              <p className="text-xs text-slate-600 mt-1 font-medium leading-relaxed max-w-4xl">{aiWorkshopSuggestion.desc}</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              alert(`Sugerencia de taller copiada al portapapeles. Puedes pegarla en la bitácora o crear una tarea.`);
+              navigator.clipboard.writeText(aiWorkshopSuggestion.desc);
+            }}
+            className="px-5 py-3 bg-white text-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shrink-0 shadow-sm"
+          >
+            Copiar Sugerencia
+          </button>
+        </div>
+      )}
     </section>
   );
 }

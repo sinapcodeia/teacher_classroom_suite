@@ -205,7 +205,7 @@ export default function LoginPage() {
                 )}
 
                 {/* Sandbox / Demo Access Buttons */}
-                {process.env.NODE_ENV === "development" && (
+                {(process.env.NODE_ENV === "development" || (typeof window !== "undefined" && !navigator.onLine)) && (
                   <>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
                       <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", textAlign: "center", margin: "0 0 4px" }}>

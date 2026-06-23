@@ -64,20 +64,6 @@ export default function PedagogicalControlPanel() {
       }
     });
 
-    // 2. Tareas por recibir (AgendaNotes tipo TASK pendientes)
-    const pendingTasks = agendaNotes.filter(n => n.type === 'TASK' && !n.isCompleted);
-    pendingTasks.forEach(task => {
-      list.push({
-        type: "TASK",
-        title: `Tarea Pendiente: ${task.course}`,
-        subtitle: `${task.subject} · ${task.content}`,
-        link: `/clase-en-vivo?subject=${task.subject}&grado=${task.grade || ""}&curso=${task.course}`,
-        icon: Bell,
-        color: "text-rose-600",
-        bg: "bg-rose-50",
-        border: "border-rose-200"
-      });
-    });
 
     return list.slice(0, 4); // Limitar a 4 alertas más importantes
   }, [todayClasses, students, todayStr, agendaNotes]);

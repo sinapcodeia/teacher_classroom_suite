@@ -417,6 +417,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const handleOffline = () => setIsOnline(false);
       window.addEventListener("online", handleOnline);
       window.addEventListener("offline", handleOffline);
+
+      // Carga inmediata de sesión cacheada para acceso instantáneo
+      const cachedUserRaw = localStorage.getItem("offline_user");
+      const cachedProfileRaw = localStorage.getItem("offline_profile");
+      if (cachedUserRaw && cachedProfileRaw) {
+        try {
+          const cachedUser = JSON.parse(cachedUserRaw);
+          const cachedProfile = JSON.parse(cachedProfileRaw);
+          setUser(cachedUser);
+          setProfile(cachedProfile);
+          setSchedule(blocksToEntries(cachedProfile.weeklySchedule || []));
+        } catch (e) {
+          console.warn("Error parsing offline session on mount:", e);
+        }
+      }
+
+      // Carga inmediata de colecciones cacheadas
+      const cachedStudents = localStorage.getItem("edu_students");
+      if (cachedStudents) {
+        try {
+          setStudents(JSON.parse(cachedStudents));
+          setStudentsLoading(false);
+        } catch { /* ignore */ }
+      }
+
+      const cachedAgenda = localStorage.getItem("edu_agendaNotes");
+      if (cachedAgenda) {
+        try {
+          setAgendaNotes(JSON.parse(cachedAgenda));
+        } catch { /* ignore */ }
+      }
+
+      const cachedCurriculum = localStorage.getItem("edu_curriculum");
+      if (cachedCurriculum) {
+        try {
+          setCurriculum(JSON.parse(cachedCurriculum));
+        } catch { /* ignore */ }
+      }
+
       return () => {
         window.removeEventListener("online", handleOnline);
         window.removeEventListener("offline", handleOffline);
@@ -697,6 +736,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           setProfile(builtProfile);
 
+          if (typeof window !== "undefined") {
+            localStorage.setItem("offline_user", JSON.stringify({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL
+            }));
+            localStorage.setItem("offline_profile", JSON.stringify(builtProfile));
+            localStorage.setItem(`edu_profile_${firebaseUser.email?.toLowerCase()}`, JSON.stringify(builtProfile));
+          }
+
           if (builtProfile.weeklySchedule && builtProfile.weeklySchedule.length > 0) {
             setSchedule(blocksToEntries(builtProfile.weeklySchedule));
           }
@@ -727,6 +777,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             } as Student;
           });
           setStudents(firestoreStudents);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("edu_students", JSON.stringify(firestoreStudents));
+          }
           setStudentsLoading(false);
         }, (err) => {
           console.warn("Error en tiempo real (estudiantes):", err);
@@ -745,6 +798,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const unsubscribeAgenda = onSnapshot(agendaQuery, (snap) => {
           const notes = snap.docs.map(d => ({ id: d.id, ...d.data() } as AgendaNote));
           setAgendaNotes(notes);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("edu_agendaNotes", JSON.stringify(notes));
+          }
         }, (err) => {
           console.warn("Error en tiempo real (agenda):", err);
         });
@@ -754,6 +810,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
           const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Curriculum));
           setCurriculum(items);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("edu_curriculum", JSON.stringify(items));
+          }
         }, (err) => {
           console.warn("Error en tiempo real (currículo):", err);
         });
@@ -761,6 +820,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         setUser(firebaseUser);
       } else {
+        // Si no hay firebaseUser pero estamos offline y tenemos sesión cacheada, la preservamos
+        const hasOfflineUser = typeof window !== "undefined" && localStorage.getItem("offline_user");
+        if (typeof window !== "undefined" && !navigator.onLine && hasOfflineUser) {
+          console.log("Preservando sesión offline debido a la falta de red");
+          setAuthLoading(false);
+          return;
+        }
+
         setUser(null);
         setProfile(DEFAULT_PROFILE);
         setSchedule(blocksToEntries(DEFAULT_SCHEDULE_BLOCKS));
@@ -874,6 +941,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      const cachedUserRaw = localStorage.getItem("offline_user");
+      const cachedProfileRaw = localStorage.getItem("offline_profile");
+      
+      if (cachedUserRaw && cachedProfileRaw) {
+        const cachedUser = JSON.parse(cachedUserRaw);
+        const cachedProfile = JSON.parse(cachedProfileRaw);
+        
+        if (cachedUser.email?.toLowerCase() === email.toLowerCase()) {
+          setUser(cachedUser);
+          setProfile(cachedProfile);
+          setSchedule(blocksToEntries(cachedProfile.weeklySchedule || []));
+          setAuthLoading(false);
+          return;
+        }
+      }
+      
+      const individualProfileRaw = localStorage.getItem(`edu_profile_${email.toLowerCase()}`);
+      if (individualProfileRaw) {
+        const profileData = JSON.parse(individualProfileRaw);
+        const offlineUser = {
+          uid: profileData.uid || "offline-uid-123",
+          email: profileData.email,
+          displayName: profileData.name,
+          photoURL: profileData.photoURL || ""
+        };
+        setUser(offlineUser as any);
+        setProfile(profileData);
+        setSchedule(blocksToEntries(profileData.weeklySchedule || []));
+        setAuthLoading(false);
+        return;
+      }
+      
+      throw { code: "auth/network-request-failed" };
+    }
+
     const { signInWithEmailAndPassword } = await import("firebase/auth");
     await signInWithEmailAndPassword(auth, email, pass);
   };
@@ -1010,6 +1113,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("demo_role");
+      localStorage.removeItem("offline_user");
+      localStorage.removeItem("offline_profile");
+      localStorage.removeItem("edu_students");
+      localStorage.removeItem("edu_agendaNotes");
+      localStorage.removeItem("edu_curriculum");
+      
+      const keysToRemove = Object.keys(localStorage).filter(
+        k => k.startsWith("edu_profile_") || k.startsWith("edu_terms_accepted_")
+      );
+      keysToRemove.forEach(k => localStorage.removeItem(k));
     }
     await signOut(auth);
     if (typeof window !== "undefined") {

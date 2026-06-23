@@ -11,7 +11,7 @@ import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
   CheckCircle2, AlertCircle, Activity, ClipboardList, AlertTriangle, FileText,
-  BrainCircuit, Trophy, CalendarDays, UploadCloud, Target, Sparkles, Filter, Loader2
+  Trophy, CalendarDays, UploadCloud, Target, Sparkles, Filter, Loader2
 } from "lucide-react";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
@@ -45,44 +45,6 @@ const QUICK_ACTIONS = (isSuperAdmin: boolean) => isSuperAdmin
       { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
       { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
     ];
-
-const SUBJECT_SUPPORT: Record<string, { title: string, news: string, tip: string, icon: any, color: string }> = {
-  "TECNOLOGÍA": {
-    title: "Innovación y Territorio",
-    news: "Nuevas herramientas de IA pueden ayudar a los estudiantes de 8-3 a visualizar conceptos de robótica básica usando materiales reciclados.",
-    tip: "Tip: Inicia la clase preguntando cómo la tecnología puede proteger los ríos del piedemonte costero.",
-    icon: Zap,
-    color: "text-blue-600"
-  },
-  "MATEMÁTICAS": {
-    title: "Pensamiento Numérico Awá",
-    news: "Se recomienda usar el sistema de conteo basado en el tejido de 'shingras' para explicar progresiones aritméticas hoy.",
-    tip: "Tip: Los patrones geométricos en la cestería tradicional son ideales para explicar simetría.",
-    icon: Target,
-    color: "text-emerald-600"
-  },
-  "ÉTICA": {
-    title: "Tejido Social",
-    news: "Dinámica sugerida: El 'Círculo de la Palabra' para resolver conflictos recientes detectados en los grados superiores.",
-    tip: "Tip: Refuerza el valor de la 'Minga' como forma de trabajo colaborativo en el aula.",
-    icon: Sparkles,
-    color: "text-amber-600"
-  },
-  "FÍSICA": {
-    title: "Física del Entorno",
-    news: "Usa el ejemplo del funcionamiento del trapiche para explicar torque y fuerza centrífuga en la sesión de hoy.",
-    tip: "Tip: La caída del agua en las quebradas cercanas es perfecta para introducir energía potencial.",
-    icon: Activity,
-    color: "text-rose-600"
-  },
-  "DEFAULT": {
-    title: "Inspiración Docente",
-    news: "La educación contextualizada es la clave del éxito en el IETABA. Cada clase es un tejido de saberes.",
-    tip: "Tip: Recuerda que tu rol como guía es fundamental para el fortalecimiento de la identidad Awá.",
-    icon: BrainCircuit,
-    color: "text-primary"
-  }
-};
 
 export default function Home() {
   const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents } = useApp();
@@ -228,15 +190,20 @@ export default function Home() {
     };
   }, [criticalAbsences.length, pendingTasks.length, daysLeft]);
 
-  const subjectNews = useMemo(() => {
-    if (!nextClass) return SUBJECT_SUPPORT.DEFAULT;
-    const normalized = nextClass.subject.toUpperCase();
-    if (normalized.includes("TECNOLOGÍA") || normalized.includes("INFORMÁTICA")) return SUBJECT_SUPPORT.TECNOLOGÍA;
-    if (normalized.includes("MATEMÁTICAS")) return SUBJECT_SUPPORT.MATEMÁTICAS;
-    if (normalized.includes("ÉTICA")) return SUBJECT_SUPPORT.ÉTICA;
-    if (normalized.includes("FÍSICA")) return SUBJECT_SUPPORT.FÍSICA;
-    return SUBJECT_SUPPORT.DEFAULT;
-  }, [nextClass]);
+  // Filtro para excluir notas de tareas, talleres o actividades del inicio
+  const filteredRecentAgendaNotes = useMemo(() => {
+    return agendaNotes.filter(n => {
+      if (n.type === "TASK") return false;
+      const content = (n.content || "").toLowerCase();
+      const isActivityOrTaller = content.includes("taller") || 
+                                 content.includes("actividad") || 
+                                 content.includes("tarea") || 
+                                 content.includes("evaluación") || 
+                                 content.includes("evaluacion") || 
+                                 content.includes("examen");
+      return !isActivityOrTaller;
+    });
+  }, [agendaNotes]);
 
   const quickStats = useMemo(() => [
     {
@@ -428,7 +395,7 @@ export default function Home() {
           </section>
 
           {/* ── RECENT AGENDA (BITÁCORA) ── */}
-          {!profile.isSuperAdmin && agendaNotes.length > 0 && (
+          {!profile.isSuperAdmin && filteredRecentAgendaNotes.length > 0 && (
             <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                <div className="flex items-center justify-between mb-6 px-2">
                   <div className="flex items-center gap-3">
@@ -440,7 +407,7 @@ export default function Home() {
                   <Link href="/agenda" className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Ver Historial Completo</Link>
                </div>
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {agendaNotes.slice(0, 3).map((note, i) => (
+                  {filteredRecentAgendaNotes.slice(0, 3).map((note, i) => (
                     <Link key={note.id || i} href="/agenda" className="group bg-white p-6 rounded-[2rem] border border-outline-variant shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
                        <div className="flex items-center justify-between mb-4">
                           <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${note.type === 'NO_CLASS' ? 'bg-rose-50 text-rose-600' : note.type === 'TASK' ? 'bg-amber-50 text-amber-600' : 'bg-primary/10 text-primary'}`}>
@@ -741,7 +708,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* AGENDA PENDIENTE */}
+              {/* AGENDA PENDIENTE - Ocultado para evitar que las notas de tareas/talleres queden fijas en la pantalla de inicio 
               {!profile.isSuperAdmin && pendingTasks.length > 0 && (
                 <div className="rounded-[2rem] p-6 relative overflow-hidden bg-emerald-50 border border-emerald-100 shadow-xl shadow-emerald-500/5">
                   <div className="flex items-center gap-3 mb-4">
@@ -769,7 +736,7 @@ export default function Home() {
                      ))}
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* ALERTAS CRÍTICAS DE AUSENTISMO */}
               {!profile.isSuperAdmin && criticalAbsences.length > 0 && (
