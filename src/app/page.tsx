@@ -851,7 +851,7 @@ export default function Home() {
           {/* FOOTER COOPERATIVO */}
           <div className="mt-12 mb-4 text-center">
             <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.25em]">
-              © {new Date().getFullYear()} @sinapcode • v 1.3.0
+              © {new Date().getFullYear()} @sinapcode • v 2.5.0
             </p>
           </div>
         </main>

@@ -5,7 +5,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
-## [1.3.0] — 2026-08-04 · Auditoría Profunda & Performance
+## [2.5.0] — 2026-08-04 · Auditoría Profunda & Performance
 
 ### 🔴 Corregido (Crítico)
 

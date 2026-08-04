@@ -13,7 +13,7 @@ Esta versión incluye cambios significativos: las API, convenciones y la estruct
 
 ---
 
-## Estado del Proyecto — v1.3.0 (2026-08-04)
+## Estado del Proyecto — v2.5.0 (2026-08-04)
 
 ### Arranque
 - El servidor de desarrollo se lanza SIEMPRE con: `scratch/run_dev.ps1`
@@ -21,7 +21,7 @@ Esta versión incluye cambios significativos: las API, convenciones y la estruct
 
 ### Arquitectura Central
 - **`AppContext.tsx`** es la única fuente de verdad. Gestiona Firestore (`onSnapshot`) y localStorage.
-- **`calculateDetailedFinal`** — Usa pesos proporcionales (v1.3.0). Solo los pilares con datos contribuyen al promedio. **NO revertir a pesos fijos sin consenso.**
+- **`calculateDetailedFinal`** — Usa pesos proporcionales (v2.5.0). Solo los pilares con datos contribuyen al promedio. **NO revertir a pesos fijos sin consenso.**
 - **`addGradesBatch`** — Para guardar N notas en modo lista. Usar SIEMPRE en lugar de N llamadas a `addGrade`.
 - **`updateSingleDetailedGrade`** — Para actualizar la Planilla Oficial (detailedGrades). Hace deep copy seguro.
 
