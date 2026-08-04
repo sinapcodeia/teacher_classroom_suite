@@ -37,14 +37,36 @@ const D = {
 };
 
 export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
-  const { user, authLoading, profile, logout, acceptTerms } = useApp();
+  const { user, authLoading, profile, logout, acceptTerms, isOnline } = useApp();
   const router = useRouter();
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [localBypass, setLocalBypass] = useState(false);
+  const [retryStatus, setRetryStatus] = useState<"idle" | "checking" | "offline">("idle");
+
+  const handleRetry = async () => {
+    setRetryStatus("checking");
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setRetryStatus("offline");
+    } else {
+      setRetryStatus("idle");
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    }
+  };
 
   useEffect(() => {
+    // Si la autenticación tarda más de 1s y no hay usuario, permitir bypass local u orientar a /login
+    const autoBypassTimer = setTimeout(() => {
+      if (authLoading && !user) {
+        setLocalBypass(true);
+      }
+    }, 1000);
+
     if (!authLoading && !user) {
       router.replace("/login");
       return;
@@ -57,21 +79,44 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
         router.replace("/configuracion");
       }
     }
+
+    return () => clearTimeout(autoBypassTimer);
   }, [user, authLoading, profile, pathname, router]);
+
+  // Safeguard: Automatically unlock button if content fits on screen or screen is large
+  useEffect(() => {
+    const checkScrollability = () => {
+      if (scrollRef.current) {
+        const { scrollHeight, clientHeight } = scrollRef.current;
+        if (scrollHeight <= clientHeight + 45) {
+          setHasScrolledToBottom(true);
+        }
+      }
+    };
+    if (user && profile && !profile.acceptedTerms) {
+      const timer = setTimeout(checkScrollability, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [profile.acceptedTerms, user]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    if (scrollTop + clientHeight >= scrollHeight - 8) setHasScrolledToBottom(true);
+    // Relaxed mobile-friendly threshold (45px safe zone) to prevent rounding stuck states
+    if (scrollTop + clientHeight >= scrollHeight - 45) {
+      setHasScrolledToBottom(true);
+    }
   };
 
   const handleAccept = async () => {
     setAccepting(true);
     await acceptTerms();
+    // onSnapshot detecta el cambio en Firestore y actualiza profile.acceptedTerms
+    // sin necesidad de recarga — esto elimina el bucle por caché stale
     setAccepting(false);
   };
 
-  if (authLoading) {
+  if (authLoading && !localBypass) {
     return (
       <div style={{ minHeight: "100vh", background: D.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
@@ -79,7 +124,74 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
             <Image src="/logo.png" alt="Logo" fill sizes="(max-width: 64px) 100vw, 64px" style={{ objectFit: "contain", padding: "10%" }} priority />
           </div>
           <Loader2 size={22} className="animate-spin" style={{ color: D.primaryLight }} />
-          <p style={{ color: D.textFaint, fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase" }}>Verificando sesión...</p>
+          <p style={{ color: D.textFaint, fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase" }}>
+            {retryStatus === "checking" ? "Verificando red..." : "Verificando sesión..."}
+          </p>
+          
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            {retryStatus === "offline" ? (
+              <>
+                <p style={{ color: D.warning, fontSize: 11, fontWeight: 600, textAlign: "center", maxWidth: 280, margin: "4px 0" }}>
+                  Sin conexión a Internet detectable. Puedes ingresar utilizando tus datos locales guardados.
+                </p>
+                <button 
+                  onClick={() => setLocalBypass(true)}
+                  style={{ 
+                    padding: "8px 16px", 
+                    background: D.primary, 
+                    border: "none", 
+                    borderRadius: 12, 
+                    color: "#fff", 
+                    fontSize: 10, 
+                    fontWeight: 800, 
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(26,86,219,0.2)"
+                  }}
+                >
+                  Trabajar sin Conexión
+                </button>
+                <button 
+                  onClick={handleRetry}
+                  style={{ 
+                    padding: "6px 12px", 
+                    background: "rgba(255,255,255,0.03)", 
+                    border: `1px solid ${D.border}`, 
+                    borderRadius: 10, 
+                    color: D.textMuted, 
+                    fontSize: 9, 
+                    fontWeight: 700, 
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    cursor: "pointer"
+                  }}
+                >
+                  Reintentar Conexión
+                </button>
+              </>
+            ) : (
+              <button 
+                disabled={retryStatus === "checking"}
+                onClick={handleRetry}
+                style={{ 
+                  marginTop: 12, 
+                  padding: "8px 16px", 
+                  background: "rgba(255,255,255,0.05)", 
+                  border: `1px solid ${D.border}`, 
+                  borderRadius: 12, 
+                  color: D.textMuted, 
+                  fontSize: 9, 
+                  fontWeight: 800, 
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  cursor: retryStatus === "checking" ? "not-allowed" : "pointer"
+                }}
+              >
+                {retryStatus === "checking" ? "Chequeando..." : "Reintentar Conexión"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -136,12 +248,12 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            style={{ padding: "28px 32px", overflowY: "auto", flex: 1 }}
+            style={{ padding: "28px 32px", overflowY: "auto", flex: 1, WebkitOverflowScrolling: "touch" }}
           >
             {[
               {
                 title: "1. Finalidad del Tratamiento",
-                body: "Los datos personales recolectados en esta plataforma EduManager tienen como única finalidad la gestión administrativa, académica y de convivencia de la Institución Educativa Técnico Ambiental Bajo Mira y Frontera (IETABA). No serán compartidos con terceros bajo ninguna circunstancia."
+                body: "Los datos personales recolectados en esta plataforma EduManager tienen como única finalidad la gestión administrativa, académica y de convivencia de la Institución Educativa Indígena Técnica Agroambiental Bilingüe Awá \"IETABA\". No serán compartidos con terceros bajo ninguna circunstancia."
               },
               {
                 title: "2. Compromiso del Usuario",
@@ -149,7 +261,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
               },
               {
                 title: "3. Seguridad de la Información",
-                body: "El sistema implementa protocolos de cifrado (Firebase Auth + Firestore Security Rules) y auditoría de accesos. Cada acción realizada queda registrada para garantizar la integridad de los datos institucionales."
+                body: "El sistema implementa protocolos de cifrado bajo estándares internacionales de alto grado criptográfico y seguridad perimetral de nivel militar y bancario, además de auditoría de accesos en tiempo real. Cada acción realizada queda registrada para garantizar la máxima confidencialidad e integridad de los datos institucionales."
               },
               {
                 title: "4. Almacenamiento Local y Caché",

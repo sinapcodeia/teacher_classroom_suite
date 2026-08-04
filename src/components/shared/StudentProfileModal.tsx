@@ -13,7 +13,7 @@ export default function StudentProfileModal({ student, onClose }: { student: any
     setMounted(true);
   }, []);
 
-  if (!student || !mounted) return null;
+  if (!student || !mounted || typeof window === "undefined" || typeof document === "undefined") return null;
 
   const formatExcelDate = (dateVal: string | number) => {
     if (!dateVal) return "NO REGISTRADO";

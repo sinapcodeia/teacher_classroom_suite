@@ -1,17 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+export const dynamic = 'force-dynamic';
+
+import { useState, useMemo, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { useApp } from "@/context/AppContext";
+import { useApp, normalizeGrade } from "@/context/AppContext";
 import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
-  CheckCircle2, AlertCircle, Activity, ClipboardList, AlertTriangle,
-  BrainCircuit, Trophy, CalendarDays, UploadCloud, Target, Sparkles
+  CheckCircle2, AlertCircle, Activity, ClipboardList, AlertTriangle, FileText,
+  Trophy, CalendarDays, UploadCloud, Target, Sparkles, Filter, Loader2
 } from "lucide-react";
 import Link from "next/link";
+import nextDynamic from "next/dynamic";
+
+
+const CriticalAlerts = nextDynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
+const EduAISentinel = nextDynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
+const PredictiveTrends = nextDynamic(() => import("@/components/analytics/PredictiveTrends"), { ssr: false });
+const PedagogicalControlPanel = nextDynamic(() => import("@/components/dashboard/PedagogicalControlPanel"), { ssr: false });
+const QuickResourceHub = nextDynamic(() => import("@/components/dashboard/QuickResourceHub"), { ssr: false });
+const GovernanceKPIs = nextDynamic(() => import("@/components/dashboard/GovernanceKPIs"), { ssr: false });
 
 const GREETINGS = ["¡Buenos días", "¡Buenas tardes", "¡Buenas noches"];
 function getGreeting() {
@@ -21,54 +32,95 @@ function getGreeting() {
   return GREETINGS[2];
 }
 
-export default function Home() {
-  const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote } = useApp();
+const QUICK_ACTIONS = (isSuperAdmin: boolean) => isSuperAdmin
+  ? [
+      { label: "Administración", icon: ShieldCheck, href: "/admin", color: "#f43f5e" },
+      { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#3b82f6" },
+      { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
+      { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
+    ]
+  : [
+      { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
+      { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
+      { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
+      { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
+    ];
 
+export default function Home() {
+  const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents } = useApp();
+  
   const formattedDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long", day: "numeric", month: "long",
   });
 
   const firstName = profile.name.split(" ")[0];
+
+  const [gradoFilter, setGradoFilter] = useState("TODOS");
+  const [cursoFilter, setCursoFilter] = useState("TODOS");
+
+  // Opciones de filtro dinámicas basadas en los datos del docente
+  const gradoOptions = useMemo(() => {
+    const list = profile.isSuperAdmin ? students : myStudents;
+    return [...new Set(list.map(s => normalizeGrade(s.grado)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [students, myStudents, profile.isSuperAdmin]);
+
+  const cursoOptions = useMemo(() => {
+    const list = profile.isSuperAdmin ? students : myStudents;
+    const base = gradoFilter === "TODOS"
+      ? list
+      : list.filter(s => normalizeGrade(s.grado) === gradoFilter);
+    return [...new Set(base.map(s => s.curso))].filter(Boolean).sort();
+  }, [students, myStudents, gradoFilter, profile.isSuperAdmin]);
   
-  // Memoize courses and students
-  const { effectiveCourses, myStudents, activeStudents } = useMemo(() => {
-    const courses = profile.isSuperAdmin
-      ? null
-      : (profile.teachingCourses?.length ?? 0) > 0
-        ? profile.teachingCourses
-        : [...new Set((profile.weeklySchedule || []).map(b => b.course))];
+  // Lista filtrada globalmente que afecta a TODO el dashboard
+  const filteredDashboardStudents = useMemo(() => {
+    return myStudents.filter(s => {
+      const matchGrado = gradoFilter === "TODOS" || normalizeGrade(s.grado) === gradoFilter;
+      const matchCurso = cursoFilter === "TODOS" || s.curso === cursoFilter;
+      return matchGrado && matchCurso;
+    });
+  }, [myStudents, gradoFilter, cursoFilter]);
 
-    const filtered = profile.isSuperAdmin
-      ? students
-      : students.filter(s => courses?.includes(s.curso));
-    
-    return {
-      effectiveCourses: courses,
-      myStudents: filtered,
-      activeStudents: filtered.filter((s) => s.isActive !== false).length
-    };
-  }, [profile, students]);
+  const activeStudentsCount = useMemo(() => 
+    filteredDashboardStudents.filter((s) => s.isActive !== false).length
+  , [filteredDashboardStudents]);
 
-  const todaySchedule = useMemo(() => schedule.slice(0, 5), [schedule]);
+  const effectiveCourses = useMemo(() => {
+    if (profile.isSuperAdmin) return null;
+    const courses = (profile.teachingCourses?.length ?? 0) > 0
+      ? profile.teachingCourses
+      : [...new Set((schedule || []).map(b => b.group))];
+    return courses;
+  }, [profile, schedule]);
+
+  const todaySchedule = useMemo(() => {
+    const days = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+    const currentDay = days[new Date().getDay()];
+    // Filtrar por el día de hoy. Si es fin de semana o no hay clases, mostrará vacío.
+    return schedule.filter(s => s.day?.toUpperCase() === currentDay).slice(0, 5);
+  }, [schedule]);
+
+  const nextClass = useMemo(() => {
+    return todaySchedule.length > 0 ? todaySchedule[0] : schedule[0] || null;
+  }, [todaySchedule, schedule]);
 
   // Memoize critical absences and high performance
   const { criticalAbsences, highPerf, atRisk } = useMemo(() => {
-    const critical = myStudents.filter((s) => {
+    const critical = filteredDashboardStudents.filter((s) => {
       if (!s.attendanceRecord) return false;
       const absCount = Object.values(s.attendanceRecord).filter(v => v === 'absent').length;
       return absCount >= 3 && s.isActive !== false;
     });
 
-    const high = myStudents.filter((s) => s.avgGrade >= 4.0).length;
+    const high = filteredDashboardStudents.filter((s) => s.avgGrade >= 4.0).length;
 
     return {
       criticalAbsences: critical,
       highPerf: high,
       atRisk: critical.length
     };
-  }, [myStudents]);
+  }, [filteredDashboardStudents]);
 
-  // Tareas pendientes
   // Tareas pendientes (filtradas por los cursos que dicta el docente)
   const pendingTasks = useMemo(() => {
     return agendaNotes.filter(n => {
@@ -82,10 +134,10 @@ export default function Home() {
   }, [agendaNotes, profile.isSuperAdmin, effectiveCourses]);
 
   // Top 5 Estudiantes (Cuadro de Honor)
-  const topStudents = useMemo(() => [...myStudents]
+  const topStudents = useMemo(() => [...filteredDashboardStudents]
     .filter(s => s.isActive !== false && s.avgGrade)
     .sort((a, b) => b.avgGrade - a.avgGrade)
-    .slice(0, 5), [myStudents]);
+    .slice(0, 5), [filteredDashboardStudents]);
 
   // Fechas SAPRED
   const { periodEndDate, daysLeft } = useMemo(() => {
@@ -138,10 +190,25 @@ export default function Home() {
     };
   }, [criticalAbsences.length, pendingTasks.length, daysLeft]);
 
+  // Filtro para excluir notas de tareas, talleres o actividades del inicio
+  const filteredRecentAgendaNotes = useMemo(() => {
+    return agendaNotes.filter(n => {
+      if (n.type === "TASK") return false;
+      const content = (n.content || "").toLowerCase();
+      const isActivityOrTaller = content.includes("taller") || 
+                                 content.includes("actividad") || 
+                                 content.includes("tarea") || 
+                                 content.includes("evaluación") || 
+                                 content.includes("evaluacion") || 
+                                 content.includes("examen");
+      return !isActivityOrTaller;
+    });
+  }, [agendaNotes]);
+
   const quickStats = useMemo(() => [
     {
       label: "Estudiantes",
-      value: activeStudents || students.length,
+      value: activeStudentsCount || myStudents.length,
       icon: Users,
       color: "#3b82f6",
       bg: "rgba(59,130,246,0.1)",
@@ -156,6 +223,10 @@ export default function Home() {
       bg: "rgba(139,92,246,0.1)",
       link: "/curriculo",
       trend: `${subjects.length} Planificadas`,
+      isNew: curriculum.some(c => {
+        const created = parseInt(c.id?.split("-")[1] || "0");
+        return Date.now() - created < 60000; // Creado en el último minuto
+      })
     },
     {
       label: "Nivel Superior",
@@ -164,7 +235,7 @@ export default function Home() {
       color: "#10b981",
       bg: "rgba(16,185,129,0.1)",
       link: "/reportes/asistencia",
-      trend: `${activeStudents ? Math.round((highPerf / activeStudents) * 100) : 0}% con 4.0+`,
+      trend: `${activeStudentsCount ? Math.round((highPerf / activeStudentsCount) * 100) : 0}% con 4.0+`,
     },
     {
       label: "En Alerta",
@@ -175,20 +246,20 @@ export default function Home() {
       link: "/estudiantes",
       trend: atRisk > 0 ? "Requiere Atención" : "Asistencia Óptima",
     },
-  ], [activeStudents, students.length, subjects.length, highPerf, atRisk]);
+  ], [activeStudentsCount, students.length, subjects.length, highPerf, atRisk]);
 
-  const quickActions = useMemo(() => profile.isSuperAdmin
-    ? [
-        { label: "Administración", icon: ShieldCheck, href: "/admin", color: "#f43f5e" },
-        { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#3b82f6" },
-        { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
-        { label: "Currículo", icon: BookOpen, href: "/curriculo", color: "#8b5cf6" },
-      ]
-    : [
-        { label: "Tomar Asistencia", icon: CheckCircle2, href: "/clase-en-vivo", color: "#3b82f6" },
-        { label: "Ver Estudiantes", icon: Users, href: "/estudiantes", color: "#8b5cf6" },
-        { label: "Reportes", icon: BarChart3, href: "/reportes/asistencia", color: "#10b981" },
-      ], [profile.isSuperAdmin]);
+  const quickActions = useMemo(() => QUICK_ACTIONS(!!profile.isSuperAdmin), [profile.isSuperAdmin]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   return (
     <RoleGuard>
@@ -203,7 +274,7 @@ export default function Home() {
           {/* ── HERO HEADER ── */}
           <section className="mt-8 mb-10">
             <div
-              className="relative overflow-hidden rounded-[2.5rem] p-8 md:p-12"
+              className="relative overflow-hidden rounded-[2.5rem] p-6 md:p-12"
               style={{
                 background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%)",
                 boxShadow: "0 32px 80px rgba(29,78,216,0.35)",
@@ -266,16 +337,110 @@ export default function Home() {
                       Panel de Control
                     </Link>
                   ) : (
-                    <Link href="/clase-en-vivo"
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105"
-                      style={{ background: "#3b82f6", color: "#fff", boxShadow: "0 8px 24px rgba(59,130,246,0.4)" }}>
-                      <Zap size={16} />
-                      Clase en Vivo
-                    </Link>
+                    <div className="flex gap-3">
+                      <Link href="/agenda"
+                        className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105 bg-white/10 text-white border border-white/20">
+                        <FileText size={16} />
+                        Ver Agenda
+                      </Link>
+                      <Link href="/clase-en-vivo"
+                        className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105"
+                        style={{ background: "#3b82f6", color: "#fff", boxShadow: "0 8px 24px rgba(59,130,246,0.4)" }}>
+                        <Zap size={16} />
+                        Clase en Vivo
+                      </Link>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
+          </section>
+
+
+          {/* ── GLOBAL DASHBOARD FILTERS ── */}
+          <section className="mb-10 animate-in fade-in zoom-in duration-500">
+             <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-[2.5rem] p-4 shadow-xl flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-3 px-6 py-3 bg-on-surface text-white rounded-[1.5rem] shadow-lg">
+                   <Filter size={18} />
+                   <span className="text-[10px] font-black uppercase tracking-widest">Filtro de Control</span>
+                </div>
+                
+                <div className="flex-1 flex gap-3">
+                   <select 
+                      value={gradoFilter}
+                      onChange={(e) => { setGradoFilter(e.target.value); setCursoFilter("TODOS"); }}
+                      className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                   >
+                      <option value="TODOS">Todos los Grados</option>
+                      {gradoOptions.map(g => <option key={g} value={g}>Grado {g}</option>)}
+                   </select>
+
+                   <select 
+                      value={cursoFilter}
+                      onChange={(e) => setCursoFilter(e.target.value)}
+                      className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                   >
+                      <option value="TODOS">Todos los Cursos</option>
+                      {cursoOptions.map(c => <option key={c} value={c}>Curso {c}</option>)}
+                   </select>
+                </div>
+
+                <div className="hidden md:flex items-center gap-2 px-6 py-3 bg-primary/5 border border-primary/10 rounded-[1.5rem]">
+                   <Users size={16} className="text-primary" />
+                   <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                      {filteredDashboardStudents.length} <span className="opacity-40">Registros</span>
+                   </span>
+                </div>
+             </div>
+          </section>
+
+          {/* ── RECENT AGENDA (BITÁCORA) ── */}
+          {!profile.isSuperAdmin && filteredRecentAgendaNotes.length > 0 && (
+            <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="flex items-center justify-between mb-6 px-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                      <CalendarDays size={20} />
+                    </div>
+                    <h2 className="text-xl font-black text-on-surface tracking-tighter uppercase italic">Bitácora Reciente</h2>
+                  </div>
+                  <Link href="/agenda" className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Ver Historial Completo</Link>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {filteredRecentAgendaNotes.slice(0, 3).map((note, i) => (
+                    <Link key={note.id || i} href="/agenda" className="group bg-white p-6 rounded-[2rem] border border-outline-variant shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
+                       <div className="flex items-center justify-between mb-4">
+                          <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${note.type === 'NO_CLASS' ? 'bg-rose-50 text-rose-600' : note.type === 'TASK' ? 'bg-amber-50 text-amber-600' : 'bg-primary/10 text-primary'}`}>
+                             {note.type === 'NO_CLASS' ? 'Excepción' : note.type === 'TASK' ? 'Tarea' : 'Bitácora'}
+                          </span>
+                          <span className="text-[8px] font-bold text-on-surface-variant opacity-40 uppercase">{new Date(note.date).toLocaleDateString()}</span>
+                       </div>
+                       <p className="text-[11px] font-black text-on-surface leading-snug uppercase line-clamp-3 group-hover:text-primary transition-colors">
+                         {note.content}
+                       </p>
+                        <div className="mt-4 pt-4 border-t border-outline-variant/30 flex items-center gap-2">
+                           <span className="text-[8px] font-black text-on-surface-variant opacity-60 uppercase tracking-widest">
+                             {note.subject} · GRADO: {note.grade || "TODOS"} · CURSO: {note.course || "TODOS"}
+                           </span>
+                        </div>
+                    </Link>
+                  ))}
+               </div>
+            </section>
+          )}
+
+          {/* ── CONTROL PEDAGÓGICO (ALERTAS Y SEGUIMIENTO) ── */}
+          {!profile.isSuperAdmin && <PedagogicalControlPanel />}
+
+          {/* ── RECURSOS DE CLASE INTUITIVOS ── */}
+          {!profile.isSuperAdmin && <QuickResourceHub />}
+
+          {/* ── ALERTA CRÍTICA PARA DIRECTIVOS ── */}
+          <CriticalAlerts />
+
+          {/* ── KPI DE GOBERNANZA E INTELIGENCIA DE POBLACIÓN ── */}
+          <section className="mb-10">
+            <GovernanceKPIs grado={gradoFilter} curso={cursoFilter} />
           </section>
 
           {/* ── KPI STATS ── */}
@@ -308,6 +473,11 @@ export default function Home() {
                     <p className="text-[9px] font-semibold mt-1" style={{ color: stat.color }}>
                       {stat.trend}
                     </p>
+                    {stat.isNew && (
+                      <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[7px] font-black uppercase px-2 py-1 rounded-full animate-bounce shadow-lg">
+                        ¡Recién Cargado!
+                      </div>
+                    )}
                     {/* Accent corner */}
                     <div className="absolute bottom-0 right-0 w-16 h-16 rounded-tl-[2rem] opacity-5 group-hover:opacity-10 transition-all"
                       style={{ background: stat.color }} />
@@ -317,30 +487,11 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── ASISTENTE IA ── */}
-          {!profile.isSuperAdmin && (
-             <section className="mb-10">
-                <div className={`rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border shadow-sm transition-all hover:shadow-md ${aiInsight.bg} ${aiInsight.border}`}>
-                  <div className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center ${aiInsight.iconBg} ${aiInsight.color}`}>
-                     <BrainCircuit size={28} />
-                  </div>
-                  <div className="flex-1">
-                     <div className="flex items-center gap-2 mb-1">
-                        <aiInsight.icon size={16} className={aiInsight.color} />
-                        <h3 className={`text-[11px] font-black uppercase tracking-widest ${aiInsight.color}`}>Asistente IA · {aiInsight.title}</h3>
-                     </div>
-                     <p className="text-sm font-medium text-slate-700 leading-relaxed max-w-3xl">
-                       {aiInsight.message}
-                     </p>
-                  </div>
-                  <div className="shrink-0">
-                     <button className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white border shadow-sm hover:scale-105 transition-all ${aiInsight.color} ${aiInsight.border}`}>
-                        Descartar
-                     </button>
-                  </div>
-                </div>
-             </section>
-          )}
+          {/* ── ANALÍTICA DE ÚLTIMA GENERACIÓN ── */}
+          <PredictiveTrends />
+
+          {/* ── EDUAI SENTINEL (IA PROFESIONAL) ── */}
+          <EduAISentinel grado={gradoFilter} curso={cursoFilter} />
 
           {/* ── MAIN GRID ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -392,7 +543,7 @@ export default function Home() {
                     </div>
                   ) : todaySchedule.length > 0 ? todaySchedule.map((session, i) => (
                     <Link key={i} href="/clase-en-vivo"
-                      className="flex items-center gap-5 p-4 rounded-2xl group transition-all hover:bg-slate-50">
+                      className="flex items-center gap-3 md:gap-5 p-3 md:p-4 rounded-2xl group transition-all hover:bg-slate-50">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black shrink-0 ${session.color}`}>
                         {session.time.split(":")[0]}h
                       </div>
@@ -401,7 +552,7 @@ export default function Home() {
                           {session.subject}
                         </p>
                         <p className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "#94a3b8" }}>
-                          Grado {session.group} · {session.time}
+                          Grado {session.grade} · Curso {session.group} · {session.time}
                         </p>
                       </div>
                       <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-all shrink-0"
@@ -485,7 +636,7 @@ export default function Home() {
               </div>
 
               {/* NEXT CLASS CARD — Solo para docentes */}
-              {schedule[0] && !profile.isSuperAdmin && (
+              {nextClass && !profile.isSuperAdmin && (
                 <div className="rounded-[2rem] p-7 relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg, #0f172a, #1e3a8a)",
@@ -496,10 +647,10 @@ export default function Home() {
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] mb-3"
                     style={{ color: "rgba(147,197,253,0.7)" }}>Próxima Sesión</p>
                   <h4 className="text-2xl font-black uppercase tracking-tight italic mb-1" style={{ color: "#fff" }}>
-                    {schedule[0].subject}
+                    {nextClass.subject}
                   </h4>
                   <p className="text-[10px] font-bold uppercase mb-6" style={{ color: "rgba(191,219,254,0.6)" }}>
-                    Grado {schedule[0].group} · {schedule[0].time}
+                    Grado {nextClass.grade} · Curso {nextClass.group} · {nextClass.time}
                   </p>
                   <Link href="/clase-en-vivo"
                     className="flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-[1.02]"
@@ -533,11 +684,18 @@ export default function Home() {
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black ${isFirst ? 'bg-amber-400 text-amber-900 shadow-sm' : 'bg-slate-200 text-slate-600'}`}>
                               #{idx + 1}
                             </div>
-                            <div>
+                            <div className="flex flex-col">
                               <p className={`text-[11px] font-black uppercase ${isFirst ? 'text-amber-900' : 'text-slate-700'}`}>
                                 {student.primerApellido} {student.primerNombre}
                               </p>
-                              <p className="text-[9px] font-bold text-slate-400 uppercase">Grado {student.curso}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest ${isFirst ? 'bg-amber-200/50 text-amber-900' : 'bg-slate-200/50 text-slate-500'}`}>
+                                  Grado {student.grado}
+                                </span>
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest ${isFirst ? 'bg-amber-200/50 text-amber-900' : 'bg-slate-200/50 text-slate-500'}`}>
+                                  Curso {student.curso}
+                                </span>
+                              </div>
                             </div>
                           </div>
                           <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${isFirst ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
@@ -550,7 +708,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* AGENDA PENDIENTE */}
+              {/* AGENDA PENDIENTE - Ocultado para evitar que las notas de tareas/talleres queden fijas en la pantalla de inicio 
               {!profile.isSuperAdmin && pendingTasks.length > 0 && (
                 <div className="rounded-[2rem] p-6 relative overflow-hidden bg-emerald-50 border border-emerald-100 shadow-xl shadow-emerald-500/5">
                   <div className="flex items-center gap-3 mb-4">
@@ -578,7 +736,7 @@ export default function Home() {
                      ))}
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* ALERTAS CRÍTICAS DE AUSENTISMO */}
               {!profile.isSuperAdmin && criticalAbsences.length > 0 && (
@@ -599,7 +757,7 @@ export default function Home() {
                          <div key={student.id} className="bg-white p-3 rounded-2xl shadow-sm border border-rose-50/50 flex justify-between items-center">
                            <div>
                              <p className="text-[11px] font-black uppercase text-slate-800">{student.primerApellido} {student.primerNombre}</p>
-                             <p className="text-[9px] font-bold text-slate-400">Curso {student.curso}</p>
+                             <p className="text-[9px] font-bold text-slate-400">Grado {student.grado} · Curso {student.curso}</p>
                            </div>
                            <span className="text-xs font-black text-rose-600 bg-rose-100 px-2 py-1 rounded-lg">{fallas} faltas</span>
                          </div>

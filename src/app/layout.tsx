@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -29,6 +31,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+import OfflineToast from "@/components/shared/OfflineToast";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,6 +43,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-on-background font-inter">
         <AppProvider>
           {children}
+          <OfflineToast />
         </AppProvider>
       </body>
     </html>

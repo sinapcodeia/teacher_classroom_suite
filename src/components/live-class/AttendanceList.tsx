@@ -8,14 +8,17 @@ import {
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
-export default function AttendanceList() {
-  const { students, subjects, profile, addGrade, saveDailyAttendance, addAgendaNote, agendaNotes, updateAgendaNote } = useApp();
+interface AttendanceListProps {
+  subjectId: string;
+  grade: string;
+  course: string;
+}
+
+export default function AttendanceList({ subjectId, grade, course }: AttendanceListProps) {
+  const { myStudents, subjects, profile, addGrade, saveDailyAttendance, addAgendaNote, agendaNotes, updateAgendaNote } = useApp();
   const [isAlreadySaved, setIsAlreadySaved] = useState(false);
   const [existingNoteId, setExistingNoteId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [selectedGrado, setSelectedGrado] = useState<string>("TODOS");
-  const [selectedCurso, setSelectedCurso] = useState<string>("TODOS");
-  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent' | 'late'>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -28,6 +31,18 @@ export default function AttendanceList() {
   const [participationModal, setParticipationModal] = useState<{ studentId: string, name: string } | null>(null);
   const [partTitle, setPartTitle] = useState("Participación en Clase");
   const [partScore, setPartScore] = useState("5.0");
+  const filteredStudents = useMemo(() => {
+    return myStudents.filter(s => {
+      if (s.isActive === false) return false;
+      const matchGrado = grade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(grade);
+      const matchCurso = course === "TODOS" || s.curso === course;
+      return matchGrado && matchCurso;
+    }).sort((a, b) => {
+      const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
+      const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [myStudents, grade, course]);
 
   const playAlertSound = () => {
     try {
@@ -45,7 +60,6 @@ export default function AttendanceList() {
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 1);
-      // Cerrar el contexto después de que el sonido termine para liberar recursos
       setTimeout(() => ctx.close(), 1500);
     } catch (e) {
       console.warn("Audio no soportado o bloqueado por el navegador");
@@ -66,7 +80,6 @@ export default function AttendanceList() {
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     if (hasUnsavedChanges) {
-      // Activar advertencia si pasan 2 minutos sin guardar cambios
       timeout = setTimeout(() => {
         setShowIdleWarning(true);
         playAlertSound();
@@ -75,77 +88,15 @@ export default function AttendanceList() {
     return () => clearTimeout(timeout);
   }, [hasUnsavedChanges, attendance]);
 
-  // Carga automática de información de clase desde la URL (si se navega desde el Horario)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlSubject = params.get("subject");
-      const urlCurso = params.get("curso");
-
-      if (urlSubject) {
-        // Búsqueda robusta (ignorando mayúsculas, tildes y espacios)
-        const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-        const matchedSubject = subjects.find(s => normalize(s.name) === normalize(urlSubject));
-        
-        if (matchedSubject) {
-          setSelectedSubject(matchedSubject.id);
-        } else if (subjects.length > 0) {
-          setSelectedSubject(subjects[0].id);
-        }
-      } else if (subjects.length > 0 && !selectedSubject) {
-        setSelectedSubject(subjects[0].id);
-      }
-
-      if (urlCurso) {
-        // "8-3" -> Grado: "8", Curso: "8-3" o "3" dependiendo de cómo se importó
-        const parts = urlCurso.split("-");
-        const gradePart = parts[0]?.trim();
-        const coursePart = parts[1]?.trim();
-        
-        if (gradePart) setSelectedGrado(normalizeGrade(gradePart));
-
-        // Si el curso importado es "3" en lugar de "8-3", intentamos coincidir
-        const allCursos = students.map(s => s.curso);
-        if (allCursos.includes(urlCurso)) {
-          setSelectedCurso(urlCurso); // ej: "8-3"
-        } else if (coursePart && allCursos.includes(coursePart)) {
-          setSelectedCurso(coursePart); // ej: "3"
-        } else {
-          setSelectedCurso(urlCurso); // Fallback
-        }
-      }
-    }
-  }, [subjects, students]);
-
-  const gradoOptions = useMemo(() => {
-    return [...new Set(students.map(s => normalizeGrade(s.grado)))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-  }, [students]);
-
-  const cursoOptions = useMemo(() => {
-    const studentsInGrado = selectedGrado === "TODOS" ? students : students.filter(s => normalizeGrade(s.grado) === selectedGrado);
-    return [...new Set(studentsInGrado.map(s => s.curso))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-  }, [students, selectedGrado]);
-
-  const filteredStudents = useMemo(() => {
-    return students.filter(s => {
-      // Ignorar estudiantes eliminados lógicamente
-      if (s.isActive === false) return false;
-
-      const matchGrado = selectedGrado === "TODOS" || normalizeGrade(s.grado) === selectedGrado;
-      const matchCurso = selectedCurso === "TODOS" || s.curso === selectedCurso;
-      return matchGrado && matchCurso;
-    });
-  }, [students, selectedGrado, selectedCurso]);
-
-  // Efecto para cargar asistencia existente y verificar si ya se guardó
+  // Efecto único para sincronizar sesión y asistencia
   useEffect(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
+    const subjectName = subjects.find(s => s.id === subjectId)?.name || "";
     
     // 1. Verificar si hay una nota de agenda para esta clase hoy
-    const subjectName = subjects.find(s => s.id === selectedSubject)?.name || "";
     const existingNote = agendaNotes.find(n => 
       n.date === todayStr && 
-      n.course === selectedCurso && 
+      n.course === course && 
       n.subject === subjectName
     );
 
@@ -160,8 +111,6 @@ export default function AttendanceList() {
     }
 
     // 2. Cargar asistencia desde los registros de los estudiantes
-    // CRÍTICO: Si el usuario ya empezó a tomar asistencia localmente (hasUnsavedChanges),
-    // NO sobreescribimos con los datos de Firestore para evitar que se borre lo que lleva.
     if (hasUnsavedChanges) return;
 
     const loadedAttendance: Record<string, 'present' | 'absent' | 'late'> = {};
@@ -180,7 +129,7 @@ export default function AttendanceList() {
     } else {
       setAttendance({});
     }
-  }, [selectedSubject, selectedCurso, filteredStudents, agendaNotes, subjects, hasUnsavedChanges]);
+  }, [subjectId, course, filteredStudents, agendaNotes, subjects, hasUnsavedChanges]);
 
   const stats = useMemo(() => ({
     total: filteredStudents.length,
@@ -201,7 +150,7 @@ export default function AttendanceList() {
     if (!phone) return alert("Sin teléfono registrado.");
     
     let message = "";
-    const subjectName = subjects.find(s => s.id === selectedSubject)?.name || "clase";
+    const subjectName = subjects.find(s => s.id === subjectId)?.name || "clase";
 
     if (type === 'absent') {
       message = `Hola, informamos desde IETABA que el estudiante ${student.primerNombre} ${student.primerApellido} no asistió hoy a la clase de ${subjectName}. Favor confirmar motivo.`;
@@ -216,37 +165,24 @@ export default function AttendanceList() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-outline-variant rounded-[2.5rem] p-8 shadow-2xl space-y-6 relative overflow-hidden no-print">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 relative z-10">
-          <div className="lg:col-span-4 space-y-2">
-             <label className="text-[10px] font-black text-primary uppercase tracking-widest ml-2 flex items-center gap-2"><User size={14} /> Docente / Materia</label>
-             <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className="w-full bg-surface-container-low px-5 py-3 rounded-xl border border-outline-variant text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-primary">
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-             </select>
-          </div>
-          <div className="lg:col-span-4 space-y-2">
-             <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-2 flex items-center gap-2"><GraduationCap size={14} /> Grado</label>
-             <select value={selectedGrado} onChange={(e) => { setSelectedGrado(e.target.value); setSelectedCurso("TODOS"); }} className="w-full h-14 bg-surface-container-low px-6 rounded-2xl border border-outline-variant text-[11px] font-black uppercase outline-none">
-                <option value="TODOS">TODOS</option>
-                {gradoOptions.map(g => <option key={g} value={g}>GRADO {g}</option>)}
-              </select>
-          </div>
-          <div className="lg:col-span-4 space-y-2">
-             <label className="text-[10px] font-black text-tertiary uppercase tracking-widest ml-2 flex items-center gap-2"><Layers size={14} /> Curso</label>
-             <select value={selectedCurso} onChange={(e) => setSelectedCurso(e.target.value)} className="w-full h-14 bg-surface-container-low px-6 rounded-2xl border border-outline-variant text-[11px] font-black uppercase outline-none">
-                <option value="TODOS">TODOS</option>
-                {cursoOptions.map(c => <option key={c} value={c}>CURSO {c}</option>)}
-              </select>
-          </div>
+      {grade === "TODOS" || course === "TODOS" ? (
+        <div className="bg-white border border-outline-variant rounded-[3rem] p-16 flex flex-col items-center justify-center text-center shadow-2xl">
+           <div className="w-24 h-24 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center mb-6">
+             <Filter size={48} />
+           </div>
+           <h3 className="text-xl font-black uppercase tracking-tighter italic text-on-surface mb-2">Selecciona un Curso</h3>
+           <p className="text-[11px] font-bold text-on-surface-variant max-w-md mx-auto uppercase tracking-widest leading-relaxed">
+             Para tomar asistencia y registrar notas de clase, debes seleccionar un grado y un curso específico en los filtros superiores.
+           </p>
         </div>
-      </div>
-
-      <div className="bg-white border border-outline-variant rounded-[3rem] overflow-hidden shadow-2xl no-print">
-        <div className="bg-surface-container-low px-8 py-5 border-b border-outline-variant flex items-center justify-between">
-           <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-on-surface-variant">Panel de Control de Aula</h3>
-           <div className="flex items-center gap-3">
-             <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); setHasUnsavedChanges(true); }} className="px-6 py-3 bg-secondary/10 text-secondary rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={16} /> Todos Presentes</button>
-             <button onClick={() => setShowEndClassModal(true)} className="px-8 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={16} /> {isAlreadySaved ? "Actualizar Clase" : "Finalizar Clase"}</button>
+      ) : (
+      <>
+        <div className="bg-white border border-outline-variant rounded-[3rem] overflow-hidden shadow-2xl no-print">
+        <div className="bg-surface-container-low px-4 md:px-8 py-4 md:py-5 border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-on-surface-variant text-center md:text-left">Panel de Control de Aula</h3>
+           <div className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-3">
+             <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); setHasUnsavedChanges(true); }} className="flex-1 md:flex-none justify-center px-3 md:px-6 py-3 bg-secondary/10 text-secondary rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={14} /> Todos Presentes</button>
+             <button onClick={() => setShowEndClassModal(true)} className="flex-1 md:flex-none justify-center px-3 md:px-8 py-3 bg-primary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={14} /> {isAlreadySaved ? "Actualizar" : "Finalizar"}</button>
            </div>
         </div>
 
@@ -296,7 +232,7 @@ export default function AttendanceList() {
                       <div className="flex items-center gap-4">
                         <div className="relative">
                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs border ${isFailing ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-primary/5 text-primary border-primary/10'}`}>
-                              {student.primerApellido[0]}{student.primerNombre[0]}
+                              {(student.primerApellido || "")[0] || ""}{(student.primerNombre || "")[0] || ""}
                            </div>
                            {isBday && <div className="absolute -top-2 -right-2 bg-secondary text-white p-1 rounded-full animate-bounce shadow-lg"><Cake size={12} /></div>}
                            {isStar && <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-on-surface p-1 rounded-full shadow-lg"><Star size={12} /></div>}
@@ -304,10 +240,15 @@ export default function AttendanceList() {
                         </div>
                         <div>
                           <p className={`text-[12px] font-black uppercase leading-tight ${isFailing ? 'text-rose-700' : 'text-on-surface'}`}>
-                            {student.primerApellido} {student.primerNombre}
+                            {student.primerApellido || ""} {student.segundoApellido || ""}{student.primerApellido ? "," : ""} {student.primerNombre || ""} {student.segundoNombre || ""}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="text-[9px] font-bold text-on-surface-variant uppercase opacity-60 tracking-tighter">ID: {student.nroDocumento}</p>
+                            {student.grades && student.grades.length > 0 && (
+                              <span className="text-[8px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 uppercase">
+                                {student.grades.length} {student.grades.length === 1 ? 'Actividad' : 'Actividades'}
+                              </span>
+                            )}
                             {isFailing && <span className="text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 uppercase">Bajo Rendimiento</span>}
                           </div>
                         </div>
@@ -423,7 +364,7 @@ export default function AttendanceList() {
 
              <div className="flex w-full gap-3">
                <button onClick={() => setShowEndClassModal(false)} className="flex-1 py-4 rounded-2xl bg-slate-100 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 transition-all">Volver</button>
-               <button onClick={async () => {
+             <button onClick={async () => {
                  setIsSaving(true);
                  try {
                    const todayStr = new Date().toISOString().slice(0, 10);
@@ -431,8 +372,9 @@ export default function AttendanceList() {
                    
                    const noteData = {
                      date: todayStr,
-                     course: selectedCurso,
-                     subject: subjects.find(s => s.id === selectedSubject)?.name || "Clase",
+                     course: course,
+                     grade: grade,
+                     subject: subjects.find(s => s.id === subjectId)?.name || "Clase",
                      type: endClassType,
                      content: endClassNote || (endClassType === 'NO_CLASS' ? 'Clase cancelada/no dictada' : 'Gestión de clase completada'),
                      isCompleted: false
@@ -440,7 +382,7 @@ export default function AttendanceList() {
 
                    if (existingNoteId) {
                      await updateAgendaNote(existingNoteId, noteData);
-                   } else if (endClassNote.trim() !== "" || endClassType !== "GENERAL") {
+                   } else {
                      await addAgendaNote(noteData);
                    }
 
@@ -511,23 +453,27 @@ export default function AttendanceList() {
 
              <div className="flex w-full gap-3">
                <button onClick={() => setParticipationModal(null)} className="flex-1 py-3 rounded-xl bg-surface-container text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-high transition-all">Cancelar</button>
-               <button onClick={() => {
-                 addGrade(participationModal.studentId, {
-                   title: partTitle,
-                   score: parseFloat(partScore),
-                   type: 'participation',
-                   date: new Date().toISOString()
-                 });
-                 setParticipationModal(null);
-                 setPartTitle("Participación en Clase");
-                 setPartScore("5.0");
-               }} className="flex-1 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-500/30">Guardar</button>
+                <button onClick={async () => {
+                  setHasUnsavedChanges(true);
+                  await addGrade(participationModal.studentId, {
+                    title: partTitle,
+                    score: parseFloat(partScore),
+                    type: 'participation',
+                    date: new Date().toISOString()
+                  });
+                  setParticipationModal(null);
+                  setPartTitle("Participación en Clase");
+                  setPartScore("5.0");
+                }} className="flex-1 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-500/30">Guardar</button>
              </div>
           </div>
         </div>
       )}
 
-      <style jsx global>{` @media print { .no-print { display: none !important; } } `}</style>
+      {/* Cierre del condicional de Grade===TODOS */}
+      </>
+      )}
+
     </div>
   );
 }

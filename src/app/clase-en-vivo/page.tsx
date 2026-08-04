@@ -1,35 +1,155 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
-import AttendanceList from "@/components/live-class/AttendanceList";
-import TopicSelector from "@/components/live-class/TopicSelector";
-import SessionNotes from "@/components/live-class/SessionNotes";
-import ActivityGrader from "@/components/live-class/ActivityGrader";
-import ClassInsights from "@/components/live-class/ClassInsights";
-import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid } from "lucide-react";
+import nextDynamic from "next/dynamic";
+
+const AttendanceList = nextDynamic(() => import("@/components/live-class/AttendanceList"), { ssr: false });
+const TopicSelector = nextDynamic(() => import("@/components/live-class/TopicSelector"), { ssr: false });
+const SessionNotes = nextDynamic(() => import("@/components/live-class/SessionNotes"), { ssr: false });
+const ActivityGrader = nextDynamic(() => import("@/components/live-class/ActivityGrader"), { ssr: false });
+const ClassInsights = nextDynamic(() => import("@/components/live-class/ClassInsights"), { ssr: false });
+const GradebookManager = nextDynamic(() => import("@/components/live-class/GradebookManager"), { ssr: false });
+const SessionReminders = nextDynamic(() => import("@/components/live-class/SessionReminders"), { ssr: false });
+import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useApp, normalizeGrade } from "@/context/AppContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function LiveClassPage() {
-  const { subjects, schedule } = useApp();
-  const [displaySubject, setDisplaySubject] = useState("MATERIA");
-  const [displayGrado, setDisplayGrado] = useState("GRADO");
+function LiveClassPageContent() {
+  const { subjects, masterData, myStudents, studentsLoading, profile } = useApp();
+  const searchParams = useSearchParams();
+  const [mounted, setMounted] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedGrado, setSelectedGrado] = useState("TODOS");
+  const [selectedCurso, setSelectedCurso] = useState("TODOS");
+  const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
+  const [initialSyncDone, setInitialSyncDone] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlSubject = params.get("subject");
-      const urlCurso = params.get("curso");
-      
-      if (urlSubject) setDisplaySubject(urlSubject);
-      if (urlCurso) setDisplayGrado(urlCurso);
-    }
+    setMounted(true);
   }, []);
 
-  const subject = subjects.find(s => s.name === displaySubject);
-  const normalizedGradeForCurriculum = normalizeGrade(displayGrado.split('-')[0]);
+  useEffect(() => {
+    if (mounted && subjects.length > 0 && !initialSyncDone) {
+      const urlSubject = searchParams.get("subject");
+      const urlCurso = searchParams.get("curso");
+      const urlGrado = searchParams.get("grado");
+
+      if (urlSubject) {
+        const found = subjects.find(s => s.name.toLowerCase() === urlSubject.toLowerCase());
+        if (found) setSelectedSubject(found.id);
+      } else {
+        setSelectedSubject(subjects[0].id);
+      }
+
+      if (urlGrado) {
+        setSelectedGrado(normalizeGrade(urlGrado));
+      } else if (urlCurso && urlCurso.includes('-')) {
+        const parts = urlCurso.split('-');
+        setSelectedGrado(normalizeGrade(parts[0]));
+      }
+
+      if (urlCurso) {
+        const parts = urlCurso.split('-');
+        const actualCurso = parts.length > 1 ? parts[1] : urlCurso;
+        setSelectedCurso(actualCurso);
+      }
+      
+      setInitialSyncDone(true);
+    }
+  }, [mounted, subjects, searchParams, initialSyncDone]);
+
+  const hasSchedule = useMemo(() => {
+    return profile && profile.weeklySchedule && profile.weeklySchedule.length > 0;
+  }, [profile]);
+
+  const filteredSubjects = useMemo(() => {
+    if (!hasSchedule) return subjects;
+    
+    let result = subjects;
+    if (selectedGrado !== "TODOS") {
+      const subjectsInGrade = new Set(
+        profile.weeklySchedule
+          .filter(b => normalizeGrade(b.grade) === selectedGrado)
+          .map(b => b.subject.toUpperCase())
+      );
+      result = subjects.filter(s => subjectsInGrade.has(s.name.toUpperCase()));
+    } else {
+      const subjectsInSchedule = new Set(
+        profile.weeklySchedule.map(b => b.subject.toUpperCase())
+      );
+      result = subjects.filter(s => subjectsInSchedule.has(s.name.toUpperCase()));
+    }
+    return result.length > 0 ? result : subjects;
+  }, [subjects, profile, selectedGrado, hasSchedule]);
+
+  const gradeOptions = useMemo(() => {
+    const allGrades = Array.from(new Set(myStudents.map(s => normalizeGrade(s.grado)))).sort();
+    if (!hasSchedule) return allGrades;
+
+    const currentSubName = subjects.find(s => s.id === selectedSubject)?.name;
+    if (!currentSubName) return allGrades;
+
+    const gradesForSubject = new Set(
+      profile.weeklySchedule
+        .filter(b => b.subject.toUpperCase() === currentSubName.toUpperCase())
+        .map(b => normalizeGrade(b.grade))
+    );
+
+    const filtered = allGrades.filter(g => gradesForSubject.has(g));
+    return filtered.length > 0 ? filtered : allGrades;
+  }, [myStudents, subjects, selectedSubject, profile, hasSchedule]);
+
+  const cursoOptions = useMemo(() => {
+    let base = myStudents;
+    if (selectedGrado !== "TODOS") {
+      base = base.filter(s => normalizeGrade(s.grado) === selectedGrado);
+    }
+    const allCourses = Array.from(new Set(base.map(s => s.curso))).sort();
+    if (!hasSchedule) return allCourses;
+
+    const currentSubName = subjects.find(s => s.id === selectedSubject)?.name;
+    if (!currentSubName) return allCourses;
+
+    const coursesForSubAndGrade = new Set(
+      profile.weeklySchedule
+        .filter(b => {
+          const matchSub = b.subject.toUpperCase() === currentSubName.toUpperCase();
+          const matchGrade = selectedGrado === "TODOS" || normalizeGrade(b.grade) === selectedGrado;
+          return matchSub && matchGrade;
+        })
+        .map(b => b.course.toString().trim().toUpperCase())
+    );
+
+    const filtered = allCourses.filter(c => coursesForSubAndGrade.has(c.toString().trim().toUpperCase()));
+    return filtered.length > 0 ? filtered : allCourses;
+  }, [myStudents, selectedGrado, subjects, selectedSubject, profile, hasSchedule]);
+
+  useEffect(() => {
+    if (initialSyncDone && gradeOptions.length > 0) {
+      if (selectedGrado !== "TODOS" && !gradeOptions.includes(selectedGrado)) {
+        setSelectedGrado(gradeOptions[0]);
+        setSelectedCurso("TODOS");
+      }
+    }
+  }, [gradeOptions, selectedGrado, initialSyncDone]);
+
+  useEffect(() => {
+    if (initialSyncDone && cursoOptions.length > 0) {
+      if (selectedCurso !== "TODOS" && !cursoOptions.includes(selectedCurso)) {
+        setSelectedCurso("TODOS");
+      }
+    }
+  }, [cursoOptions, selectedCurso, initialSyncDone]);
+
+  const currentSubjectName = subjects.find(s => s.id === selectedSubject)?.name || "MATERIA";
+  const normalizedGradeForCurriculum = normalizeGrade(selectedGrado === "TODOS" ? "1" : selectedGrado);
+
+  if (!mounted) return null;
 
   return (
     <div className="flex flex-col min-h-screen bg-surface-container-lowest">
@@ -37,89 +157,135 @@ export default function LiveClassPage() {
       
       <main className="pt-20 px-6 max-w-[1600px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 pb-24 md:pb-8">
         
-        {/* Header Section */}
-        <div className="lg:col-span-12 mb-2">
-          <div className="flex justify-between items-center mb-6">
-            <Link href="/horario" className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-all group px-4 py-2 bg-white rounded-xl border border-outline-variant/30 shadow-sm">
-              <LayoutDashboard size={18} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-xs font-bold uppercase tracking-widest">Volver al Horario</span>
-            </Link>
-            <div className="flex items-center gap-2 px-4 py-2 bg-secondary/10 text-secondary rounded-xl font-black text-[10px] tracking-widest">
-              <span className="animate-pulse w-2 h-2 rounded-full bg-secondary"></span>
-              CENTRO DE MANDO EN VIVO
-            </div>
-          </div>
-          
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-10 rounded-[3rem] border border-outline-variant shadow-2xl relative overflow-hidden">
-            {/* Elemento de diseño de fondo */}
+        {/* Filtros Globales de Aula */}
+        <div className="lg:col-span-12 mb-2 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 bg-white p-6 md:p-8 rounded-3xl md:rounded-[3rem] border border-outline-variant shadow-2xl relative overflow-hidden mb-6 md:mb-8">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
             
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="px-4 py-1.5 bg-primary text-white text-[10px] font-black rounded-full uppercase tracking-[0.2em] shadow-lg shadow-primary/20">
-                  MATRÍCULA {displayGrado}
-                </span>
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                <span className="text-[10px] font-black text-on-surface-variant uppercase opacity-40 tracking-widest">Sesión de Hoy</span>
-              </div>
-              <h1 className="text-5xl font-black text-on-surface tracking-tighter uppercase italic leading-none">{displaySubject}</h1>
-              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-[0.5em] mt-3 opacity-60">
-                Aula de Clase Interactiva
-              </p>
+            <div className="space-y-2 relative z-10">
+              <label className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><LayoutGrid size={14} /> Docente / Materia</label>
+              <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-primary transition-all appearance-none cursor-pointer">
+                {filteredSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
             </div>
 
-            <div className="flex items-center gap-3 relative z-10">
-              <button className="h-16 px-8 bg-slate-50 border border-slate-200 rounded-[1.5rem] flex items-center gap-3 text-slate-700 hover:bg-slate-100 transition-all text-[11px] font-black uppercase tracking-widest active:scale-95 shadow-sm">
-                <LayoutGrid size={20} />
-                <span>Recursos</span>
-              </button>
-              <button className="h-16 px-12 bg-primary text-white rounded-[1.5rem] flex items-center gap-3 hover:opacity-90 shadow-2xl shadow-primary/30 transition-all text-[11px] font-black uppercase tracking-widest active:scale-95">
-                <CheckCircle size={22} />
-                <span>Finalizar Clase</span>
+            <div className="space-y-2 relative z-10">
+              <label className="text-[9px] md:text-[10px] font-black text-secondary uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><GraduationCap size={14} /> Grado</label>
+              <select value={selectedGrado} onChange={(e) => { setSelectedGrado(e.target.value); setSelectedCurso("TODOS"); }} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-secondary transition-all appearance-none cursor-pointer">
+                <option value="TODOS">TODOS LOS GRADOS</option>
+                {gradeOptions.map(g => <option key={g} value={g}>GRADO {g}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-2 relative z-10">
+              <label className="text-[9px] md:text-[10px] font-black text-orange-500 uppercase tracking-widest ml-1 md:ml-2 flex items-center gap-2"><Layers size={14} /> Curso</label>
+              <select value={selectedCurso} onChange={(e) => setSelectedCurso(e.target.value)} className="w-full h-12 md:h-14 bg-surface-container-low px-4 md:px-6 rounded-xl md:rounded-2xl border-2 border-outline-variant text-[10px] md:text-[11px] font-black uppercase outline-none focus:border-orange-500 transition-all appearance-none cursor-pointer">
+                <option value="TODOS">TODOS LOS CURSOS</option>
+                {cursoOptions.map(c => <option key={c} value={c}>CURSO {c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 gap-3">
+            <Link href="/horario" className="flex items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all group px-4 py-3 md:px-5 bg-white rounded-xl md:rounded-2xl border border-outline-variant/30 shadow-sm md:shadow-lg">
+              <LayoutDashboard size={18} className="group-hover:-translate-x-1 transition-transform" />
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Panel de Horario</span>
+            </Link>
+            <div className="flex items-stretch md:items-center gap-3">
+              <button 
+                onClick={() => setViewMode(v => v === "live" ? "gradebook" : "live")}
+                className={`flex-1 flex items-center justify-center gap-2 md:gap-3 px-4 py-3 md:px-8 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] tracking-widest transition-all shadow-sm md:shadow-xl ${viewMode === "gradebook" ? "bg-primary text-white" : "bg-white text-on-surface-variant border border-outline-variant hover:bg-slate-50"}`}
+              >
+                <FileSpreadsheet size={18} />
+                {viewMode === "live" ? "PLANILLA" : "EN VIVO"}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Contenido Principal (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <AttendanceList />
-          
-          {/* Dashboard de Calificaciones */}
-          <ActivityGrader course={displayGrado} subject={displaySubject} />
-        </div>
-
-        {/* Barra Lateral (4 cols) */}
-        <aside className="lg:col-span-4 flex flex-col gap-6">
-          <ClassInsights course={displayGrado} subject={displaySubject} />
-          <TopicSelector subjectId={displaySubject} grade={normalizedGradeForCurriculum} />
-          <SessionNotes />
-          
-          <div className="p-8 bg-surface-container rounded-[2.5rem] border border-outline-variant relative overflow-hidden group shadow-inner">
-            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:rotate-12 transition-transform duration-500">
-              <HardDrive size={80} />
-            </div>
-            <div className="flex items-center justify-between mb-4 relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                   <HardDrive size={20} className="text-on-surface" />
-                </div>
-                <span className="text-[11px] font-black text-on-surface uppercase tracking-widest">Estado Local</span>
-              </div>
-              <span className="text-[10px] text-emerald-600 font-black px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100">94% ÓPTIMO</span>
-            </div>
-            <div className="w-full bg-outline-variant h-3 rounded-full overflow-hidden relative z-10 shadow-inner">
-              <div className="bg-emerald-500 h-full w-[94%] rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]"></div>
-            </div>
-            <p className="mt-6 text-xs text-on-surface-variant font-medium leading-relaxed relative z-10">
-              La protección 360 activa está guardando cada acción en tu memoria local. No necesitas internet para continuar tu labor docente.
+        {studentsLoading ? (
+          <div className="lg:col-span-12 py-32 flex flex-col items-center gap-4">
+             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">Sincronizando Aula...</p>
+          </div>
+        ) : myStudents.length === 0 && (
+          <div className="lg:col-span-12 p-12 bg-amber-50 border-2 border-amber-200 rounded-[3rem] text-center space-y-4 animate-fade-in">
+            <AlertCircle size={48} className="mx-auto text-amber-600" />
+            <h3 className="text-xl font-black text-amber-900 uppercase">No tienes cursos asignados</h3>
+            <p className="text-sm text-amber-800 font-medium max-w-md mx-auto italic">
+              Para ver tu lista de estudiantes y tomar asistencia, primero debes configurar tus grados y cursos asignados en tu <strong>Perfil de Docente</strong>.
             </p>
+            <Link href="/configuracion" className="inline-block px-8 py-4 bg-amber-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-xl shadow-amber-200">
+              CONFIGURAR MI PERFIL
+            </Link>
           </div>
-        </aside>
+        )}
+
+        {myStudents.length > 0 && (viewMode === "live" ? (
+          <>
+            <div className="lg:col-span-8 flex flex-col gap-8">
+              <AttendanceList 
+                subjectId={selectedSubject}
+                grade={selectedGrado}
+                course={selectedCurso}
+              />
+              <ActivityGrader 
+                subject={currentSubjectName}
+                course={selectedCurso}
+                grade={selectedGrado}
+              />
+            </div>
+
+            <aside className="lg:col-span-4 flex flex-col gap-8">
+              <SessionReminders course={selectedCurso} subject={currentSubjectName} />
+              <ClassInsights course={selectedCurso} subject={currentSubjectName} />
+              <TopicSelector subjectId={currentSubjectName} grade={normalizedGradeForCurriculum} />
+              <SessionNotes subject={currentSubjectName} course={selectedCurso} />
+              
+              <div className="p-8 bg-surface-container rounded-[3rem] border border-outline-variant relative overflow-hidden group shadow-2xl">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform duration-500">
+                  <HardDrive size={100} />
+                </div>
+                <div className="flex items-center justify-between mb-6 relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
+                       <HardDrive size={24} className="text-on-surface" />
+                    </div>
+                    <span className="text-[12px] font-black text-on-surface uppercase tracking-widest">Sincronización</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-600 font-black px-4 py-1.5 bg-emerald-50 rounded-full border border-emerald-100">PROTECCIÓN ACTIVA</span>
+                </div>
+                <div className="w-full bg-outline-variant h-4 rounded-full overflow-hidden relative z-10 shadow-inner">
+                  <div className="bg-emerald-500 h-full w-[94%] rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"></div>
+                </div>
+                <p className="mt-8 text-xs text-on-surface-variant font-bold leading-relaxed relative z-10 opacity-70">
+                  Respaldo automático local activo. Cada nota y asistencia se guarda instantáneamente.
+                </p>
+              </div>
+            </aside>
+          </>
+        ) : (
+          <div className="lg:col-span-12">
+            <GradebookManager grade={selectedGrado} course={selectedCurso} subject={currentSubjectName} />
+          </div>
+        ))}
       </main>
 
       <BottomNavBar />
     </div>
+  );
+}
+
+export default function LiveClassPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen bg-surface-container-lowest justify-center items-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-primary">Cargando aula...</p>
+      </div>
+    }>
+      <LiveClassPageContent />
+    </Suspense>
   );
 }
 

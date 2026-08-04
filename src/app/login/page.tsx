@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from "react";
 import { auth, googleProvider } from "@/lib/firebase";
 import { signInWithPopup } from "firebase/auth";
@@ -180,6 +182,17 @@ export default function LoginPage() {
               <>
                 {/* Header */}
                 <div style={{ textAlign: "center", marginBottom: 36 }}>
+                  {/* Mobile Logo */}
+                  <div className="lg:hidden flex justify-center mb-6">
+                    <div style={{
+                      width: 50, height: 50, borderRadius: 14,
+                      background: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: "0 8px 32px rgba(26,86,219,0.3)"
+                    }}>
+                      <img src="/logo.png" alt="IETABA" style={{ width: "80%", height: "80%", objectFit: "contain" }} />
+                    </div>
+                  </div>
                   <h2 style={{ color: "#fff", fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em", textTransform: "uppercase", fontStyle: "italic" }}>Acceso</h2>
                   <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 600, marginTop: 8, letterSpacing: "0.05em" }}>Ingresa con tu identidad institucional</p>
                 </div>
@@ -189,6 +202,74 @@ export default function LoginPage() {
                   <div style={{ background: "rgba(186,26,26,0.15)", border: "1px solid rgba(186,26,26,0.4)", borderRadius: 12, padding: "12px 16px", marginBottom: 20, color: "#ff6b6b", fontSize: 12, fontWeight: 700, textAlign: "center" }}>
                     {error}
                   </div>
+                )}
+
+                {/* Sandbox / Demo Access Buttons */}
+                {(process.env.NODE_ENV === "development" || (typeof window !== "undefined" && !navigator.onLine)) && (
+                  <>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", textAlign: "center", margin: "0 0 4px" }}>
+                        Modo Sandbox / Demostración
+                      </p>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem("demo_role", "docente");
+                            window.location.reload();
+                          }}
+                          style={{
+                            padding: "12px 14px",
+                            background: "rgba(79,140,255,0.12)",
+                            border: "1px solid rgba(79,140,255,0.3)",
+                            borderRadius: 12,
+                            color: "#4f8cff",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(79,140,255,0.2)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(79,140,255,0.12)")}
+                        >
+                          Demo Docente
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem("demo_role", "superadmin");
+                            window.location.reload();
+                          }}
+                          style={{
+                            padding: "12px 14px",
+                            background: "rgba(244,63,94,0.12)",
+                            border: "1px solid rgba(244,63,94,0.3)",
+                            borderRadius: 12,
+                            color: "#fb7185",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(244,63,94,0.2)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(244,63,94,0.12)")}
+                        >
+                          Demo Rector
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Separator */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "16px 0 24px" }}>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, fontWeight: 700, letterSpacing: "0.15em" }}>O ACCESO REAL</span>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                    </div>
+                  </>
                 )}
 
                 {/* Google Button */}

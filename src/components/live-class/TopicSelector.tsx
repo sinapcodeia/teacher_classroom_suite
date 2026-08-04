@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { BookOpen, ChevronDown, Target, TrendingUp, Calendar } from "lucide-react";
+import { BookOpen, ChevronDown, Target, TrendingUp, Calendar, Sparkles, ArrowRight, BrainCircuit, Lightbulb } from "lucide-react";
 
 interface TopicSelectorProps {
   subjectId?: string; // e.g. "Matemáticas"
@@ -13,16 +13,39 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
   const { curriculum, updateTopicStatus } = useApp();
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
 
-  // Encontrar el currículo que coincida con la materia y el grado
   const activeCurriculum = useMemo(() => {
-    if (!subjectId) return curriculum[0];
-    const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    const targetSubject = normalize(subjectId);
+    if (!curriculum.length || !subjectId) return null;
     
-    return curriculum.find(c => {
-      const cSubject = normalize(c.subjectId);
-      return (cSubject.includes(targetSubject) || targetSubject.includes(cSubject)) && c.grade === grade;
-    }) || curriculum.find(c => c.grade === grade) || curriculum[0];
+    const normStr = (s: string) => s
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    
+    const targetSubject = normStr(subjectId);
+    const gradeNum = (grade || "").replace(/[^\d]/g, "");
+    
+    const candidates = curriculum.filter(c => {
+      const cGradeNum = c.grade.replace(/[^\d]/g, "");
+      return gradeNum && cGradeNum === gradeNum;
+    });
+
+    if (candidates.length === 0) return null;
+
+    // Prioridad 1: Coincidencia exacta normalizada
+    const exactMatch = candidates.find(c => normStr(c.subjectId) === targetSubject);
+    if (exactMatch) return exactMatch;
+
+    // Prioridad 2: El currículo guardado EMPIEZA con el nombre de la materia buscada
+    // (ej: busco "tecnologia", el currículo dice "tecnologiaeinformatica" → válido)
+    const startsWithMatch = candidates.find(c => normStr(c.subjectId).startsWith(targetSubject));
+    if (startsWithMatch) return startsWithMatch;
+
+    // Prioridad 3: La materia buscada EMPIEZA con el nombre del currículo
+    // (ej: currículo dice "tecnologia", yo busco "tecnologia e informatica" → válido)
+    const reverseStartsWithMatch = candidates.find(c => targetSubject.startsWith(normStr(c.subjectId)));
+    if (reverseStartsWithMatch) return reverseStartsWithMatch;
+
+    // Sin coincidencia: no mezclar con otras materias
+    return null;
   }, [curriculum, subjectId, grade]);
 
   // Aplanar todos los temas con su ID de unidad para el selector
@@ -34,8 +57,21 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
   }, [activeCurriculum]);
 
   const selectedTopic = useMemo(() => {
-    return allTopics.find(t => t.id === selectedTopicId) || allTopics.find(t => t.status === "active") || allTopics[0];
+    // Si hay uno seleccionado por el usuario, ese manda
+    if (selectedTopicId) return allTopics.find(t => t.id === selectedTopicId);
+    
+    // Si no, buscar el primero que NO esté cubierto (Pendiente o Activo)
+    const nextPending = allTopics.find(t => t.status !== "covered");
+    return nextPending || allTopics[0];
   }, [allTopics, selectedTopicId]);
+
+  const isCurrentTopicCovered = selectedTopic?.status === "covered";
+  
+  const nextSuggestedTopic = useMemo(() => {
+    if (!isCurrentTopicCovered) return null;
+    const currentIndex = allTopics.findIndex(t => t.id === selectedTopic?.id);
+    return allTopics[currentIndex + 1] || null;
+  }, [allTopics, selectedTopic, isCurrentTopicCovered]);
 
   // Calcular progreso del periodo (Simulado: estamos a mitad del 2do periodo)
   const periodProgress = 65; 
@@ -131,26 +167,83 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
           </div>
 
           {selectedTopic && (
-            <div className="p-5 bg-blue-50/50 rounded-[1.5rem] border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center gap-2 mb-4">
-                <Target size={14} className="text-primary" />
-                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Objetivos de Aprendizaje</h4>
+            <div className="space-y-4">
+              {/* Card Pedagógica IA */}
+              <div className="p-6 bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute -right-4 -top-4 opacity-10 group-hover:scale-125 transition-transform duration-700">
+                    <BrainCircuit size={120} />
+                 </div>
+                 <div className="relative z-10">
+                   <div className="flex items-center gap-2 mb-3">
+                      <Sparkles size={16} className="text-yellow-300 animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80">Recomendación Pedagógica</span>
+                   </div>
+                   <h5 className="text-sm font-black uppercase italic mb-3 leading-tight pr-8">
+                     {isCurrentTopicCovered ? "Siguiente Hilo del Saber" : "Enfoque de Hoy: Higra del Conocimiento"}
+                   </h5>
+                   <p className="text-[11px] font-bold opacity-90 leading-relaxed mb-6 uppercase">
+                     {isCurrentTopicCovered 
+                       ? `Ya cubriste "${selectedTopic.title}". ¿Iniciamos con "${nextSuggestedTopic?.title || 'Fin del Currículo'}"?`
+                       : selectedTopic.tuhPutkamna || "Inicia el desarrollo del núcleo temático con actividades prácticas."}
+                   </p>
+                   
+                   {isCurrentTopicCovered && nextSuggestedTopic ? (
+                     <button 
+                       onClick={() => setSelectedTopicId(nextSuggestedTopic.id)}
+                       className="w-full py-4 bg-white text-indigo-700 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-300 hover:text-black transition-all"
+                     >
+                       Cargar Siguiente Tema <ArrowRight size={16} />
+                     </button>
+                   ) : (
+                     <div className="flex gap-2 flex-wrap">
+                        <div className="px-3 py-1.5 bg-white/10 rounded-full flex items-center gap-2">
+                           <Lightbulb size={12} className="text-yellow-300" />
+                           <span className="text-[8px] font-black uppercase tracking-tighter">Saberes Propios: {selectedTopic.panapain?.substring(0, 30)}...</span>
+                        </div>
+                        {selectedTopic.hijosSaber && (
+                           <div className="px-3 py-1.5 bg-yellow-300/20 rounded-full flex items-center gap-2 border border-yellow-300/30">
+                              <Sparkles size={12} className="text-yellow-300" />
+                              <span className="text-[8px] font-black uppercase tracking-tighter text-yellow-100">Incluye Hijos del Saber</span>
+                           </div>
+                        )}
+                     </div>
+                   )}
+                 </div>
               </div>
-              <ul className="space-y-3">
-                {selectedTopic.objectives?.map((obj, i) => (
-                  <li key={i} className="flex gap-3 items-start">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                    <span className="text-[11px] font-bold text-slate-700 uppercase leading-tight">{obj}</span>
-                  </li>
-                )) || <li className="text-[10px] italic opacity-50 uppercase font-bold">No hay objetivos definidos</li>}
-              </ul>
-              
-              <button 
-                onClick={() => updateTopicStatus(activeCurriculum.id!, selectedTopic.unitId, selectedTopic.id, "covered")}
-                className="w-full mt-6 py-3 bg-white border border-blue-200 text-blue-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-              >
-                Marcar como Tema Cubierto
-              </button>
+
+              {/* Detalle del Tema */}
+              <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2 mb-4">
+                  <Target size={14} className="text-primary" />
+                  <h4 className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Objetivos Específicos</h4>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-[8px] font-black text-primary uppercase block mb-1">Pianaizpa Competencias Sabidurías</span>
+                    <p className="text-[11px] font-bold text-slate-700 uppercase leading-relaxed italic pr-4">
+                      {selectedTopic.panapain || "No definido"} | {selectedTopic.nanpaskas || "No definido"}
+                    </p>
+                  </div>
+                  
+                  <div className="h-px bg-slate-200" />
+                  
+                  <div>
+                    <span className="text-[8px] font-black text-emerald-600 uppercase block mb-1">Tejiendo Aprendo (Metodología)</span>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase leading-relaxed">
+                      {selectedTopic.satIshkit || "No definido"}
+                    </p>
+                  </div>
+                </div>
+                
+                {!isCurrentTopicCovered && (
+                  <button 
+                    onClick={() => updateTopicStatus(activeCurriculum.id!, selectedTopic.unitId, selectedTopic.id, "covered")}
+                    className="w-full mt-6 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
+                  >
+                    Marcar como Tema Cubierto
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -158,4 +251,3 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
     </div>
   );
 }
-

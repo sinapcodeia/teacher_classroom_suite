@@ -1,10 +1,13 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import { useApp } from "@/context/AppContext";
-import { Calendar, Clock, BookOpen, GraduationCap, ArrowLeft, Printer, Download } from "lucide-react";
+import { Calendar, Clock, BookOpen, GraduationCap, ArrowLeft, Printer, Download, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 const TIME_SLOTS = [
@@ -19,6 +22,17 @@ const TIME_SLOTS = [
 
 export default function HorarioPage() {
   const { schedule, profile } = useApp();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return (
+    <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+    </div>
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-surface-container-lowest font-inter">
@@ -49,13 +63,13 @@ export default function HorarioPage() {
         </div>
 
         {/* Schedule Grid */}
-        <div className="bg-white border border-outline-variant rounded-[3rem] shadow-2xl overflow-hidden overflow-x-auto">
-          <table className="w-full border-collapse min-w-[1000px]">
+        <div className="bg-white border border-outline-variant rounded-2xl md:rounded-[3rem] shadow-2xl overflow-x-auto w-full max-w-full">
+          <table className="w-full border-collapse min-w-[600px] md:min-w-[1000px]">
             <thead>
-              <tr className="bg-surface-container text-on-surface-variant text-[10px] font-black uppercase tracking-[0.3em]">
-                <th className="px-8 py-6 border-r border-outline-variant/30 text-left w-48">HORA / DÍA</th>
+              <tr className="bg-surface-container text-on-surface-variant text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em]">
+                <th className="px-4 md:px-8 py-4 md:py-6 border-r border-outline-variant/30 text-left w-32 md:w-48">HORA / DÍA</th>
                 {DAYS.map(day => (
-                  <th key={day} className="px-8 py-6 border-r border-outline-variant/30 text-center">{day}</th>
+                  <th key={day} className="px-4 md:px-8 py-4 md:py-6 border-r border-outline-variant/30 text-center">{day}</th>
                 ))}
               </tr>
             </thead>
@@ -65,13 +79,13 @@ export default function HorarioPage() {
                 
                 return (
                   <tr key={slot} className={`group ${isDescanso ? 'bg-surface-container-low' : 'hover:bg-surface-container-lowest'}`}>
-                    <td className="px-8 py-6 border-r border-outline-variant/30 font-black text-[11px] text-on-surface-variant flex items-center gap-3">
-                       <Clock size={16} className="opacity-40" /> {slot}
+                    <td className="px-4 md:px-8 py-4 md:py-6 border-r border-outline-variant/30 font-black text-[10px] md:text-[11px] text-on-surface-variant flex items-center gap-2 md:gap-3">
+                       <Clock size={14} className="opacity-40" /> {slot}
                     </td>
                     {DAYS.map(day => {
                       if (isDescanso) {
                         return (
-                          <td key={day} className="px-8 py-6 border-r border-outline-variant/30 text-center">
+                          <td key={day} className="px-4 md:px-8 py-4 md:py-6 border-r border-outline-variant/30 text-center">
                             <span className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.5em] italic">DESCANSO</span>
                           </td>
                         );
@@ -80,22 +94,24 @@ export default function HorarioPage() {
                       const entry = schedule.find(s => s.day === day && s.time === slot);
                       
                       return (
-                        <td key={day} className="p-2 border-r border-outline-variant/30 align-top h-32">
+                        <td key={day} className="p-1 md:p-2 border-r border-outline-variant/30 align-top h-24 md:h-32">
                           {entry ? (
                             <Link 
-                              href={`/clase-en-vivo?subject=${encodeURIComponent(entry.subject)}&curso=${encodeURIComponent(entry.group)}`}
-                              className={`h-full p-4 rounded-2xl border-2 shadow-sm flex flex-col justify-between transition-all hover:shadow-lg hover:-translate-y-1 block cursor-pointer ${entry.color}`}
+                              href={`/clase-en-vivo?subject=${encodeURIComponent(entry.subject)}&grado=${encodeURIComponent(entry.grade)}&curso=${encodeURIComponent(entry.group)}`}
+                              className={`h-full p-2 md:p-4 rounded-xl border border-black/5 shadow-sm flex flex-col justify-between transition-all hover:shadow-lg block cursor-pointer ${entry.color}`}
                             >
                                <div className="space-y-1">
                                   <div className="flex items-center justify-between">
                                      <BookOpen size={14} className="opacity-40" />
-                                     <span className="text-[8px] font-black uppercase opacity-60">Matrícula {entry.group}</span>
+                                     <span className="text-[8px] font-black uppercase opacity-60">Grupo {entry.group}</span>
                                   </div>
                                   <p className="font-black text-[11px] leading-tight mt-1">{entry.subject}</p>
                                </div>
                                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-black/5">
                                   <GraduationCap size={14} className="opacity-40" />
-                                  <span className="text-[10px] font-black">GRADO {entry.group}</span>
+                                  <span className="text-[10px] font-black uppercase">
+                                    {entry.grade} — {entry.group}
+                                  </span>
                                </div>
                             </Link>
                           ) : (
