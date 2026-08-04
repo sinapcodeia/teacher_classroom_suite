@@ -848,12 +848,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         setUser(firebaseUser);
       } else {
-        // Si no hay firebaseUser pero estamos offline y tenemos sesión cacheada, la preservamos
-        const hasOfflineUser = typeof window !== "undefined" && localStorage.getItem("offline_user");
-        if (typeof window !== "undefined" && !navigator.onLine && hasOfflineUser) {
-          console.log("Preservando sesión offline debido a la falta de red");
-          setAuthLoading(false);
-          return;
+        // Si no hay firebaseUser pero tenemos sesión cacheada (útil si falla indexedDB o auth timeout)
+        const hasOfflineUser = typeof window !== "undefined" ? localStorage.getItem("offline_user") : null;
+        const hasOfflineProfile = typeof window !== "undefined" ? localStorage.getItem("offline_profile") : null;
+        
+        if (hasOfflineUser && hasOfflineProfile) {
+          try {
+            console.log("Restaurando sesión offline desde localStorage (Fallback de seguridad)");
+            setUser(JSON.parse(hasOfflineUser));
+            const offlineProfile = JSON.parse(hasOfflineProfile);
+            setProfile(offlineProfile);
+            if (offlineProfile.weeklySchedule && offlineProfile.weeklySchedule.length > 0) {
+              setSchedule(blocksToEntries(offlineProfile.weeklySchedule));
+            }
+            setAuthLoading(false);
+            return;
+          } catch (e) {
+            console.error("Error al parsear usuario offline:", e);
+          }
         }
 
         setUser(null);
