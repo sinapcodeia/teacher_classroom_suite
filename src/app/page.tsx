@@ -23,6 +23,7 @@ const PredictiveTrends = nextDynamic(() => import("@/components/analytics/Predic
 const PedagogicalControlPanel = nextDynamic(() => import("@/components/dashboard/PedagogicalControlPanel"), { ssr: false });
 const QuickResourceHub = nextDynamic(() => import("@/components/dashboard/QuickResourceHub"), { ssr: false });
 const GovernanceKPIs = nextDynamic(() => import("@/components/dashboard/GovernanceKPIs"), { ssr: false });
+const DatabaseBackup = nextDynamic(() => import("@/components/shared/DatabaseBackup"), { ssr: false });
 
 const GREETINGS = ["¡Buenos días", "¡Buenas tardes", "¡Buenas noches"];
 function getGreeting() {
@@ -293,8 +294,6 @@ export default function Home() {
                     style={{ color: "rgba(147,197,253,0.8)" }}>
                     {formattedDate}
                   </p>
-
-                  {/* Saludo */}
                   <h1 className="font-black tracking-tighter leading-none mb-2"
                     style={{
                       fontSize: "clamp(28px, 5vw, 52px)",
