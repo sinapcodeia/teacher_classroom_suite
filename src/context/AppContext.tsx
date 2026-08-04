@@ -86,6 +86,17 @@ export interface Subtopic {
   status: "pending" | "next" | "completed";
 }
 
+export interface Slide {
+  id: string;
+  type: "title" | "split" | "flipcard" | "quiz";
+  title: string;
+  content: string;
+  imageUrl?: string; // Para las imágenes CGI Isométricas
+  imagePrompt?: string; // Super Prompt de referencia
+  quizOptions?: { text: string; isCorrect: boolean }[];
+  flipContent?: string;
+}
+
 export interface Topic {
   id: string;
   title: string; // piankammuMi (Hilos del Saber - Núcleo Temático)
@@ -99,6 +110,9 @@ export interface Topic {
   katkinAizpa?: string; // Ayudas Pedagógicas
   satIshkit?: string;   // Metodología (Tejiendo Aprendo)
   hijosSaber?: string;  // Hijos del Saber (Subtemas específicos)
+  
+  // Novedad: Presentación Interactiva
+  slides?: Slide[];
   
   objectives?: string[]; // (Mantenido por compatibilidad)
   subtopics?: Subtopic[]; // (Mantenido por compatibilidad)
@@ -348,6 +362,7 @@ interface AppContextType {
   // CURRICULUM
   curriculum: Curriculum[];
   updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
+  updateTopicSlides: (curriculumId: string, unitId: string, topicId: string, slides: Slide[]) => Promise<void>;
   saveCurriculumLocal: (data: Curriculum) => void;
 }
 
@@ -1821,6 +1836,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateTopicSlides = async (curriculumId: string, unitId: string, topicId: string, slides: Slide[]) => {
+    try {
+      const cur = curriculum.find(c => c.id === curriculumId);
+      if (!cur) return;
+
+      const newUnits = cur.units.map(u => {
+        if (u.id === unitId) {
+          return {
+            ...u,
+            topics: u.topics.map(t => t.id === topicId ? { ...t, slides } : t)
+          };
+        }
+        return u;
+      });
+
+      // Optimistic local update
+      setCurriculum(prev => prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c));
+      await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
+    } catch (err) {
+      console.error("Error al guardar slides del tema:", err);
+      throw err;
+    }
+  };
+
   const saveCurriculumLocal = (data: Curriculum) => {
     setCurriculum(prev => {
       const idx = prev.findIndex(c => c.id === data.id);
@@ -1898,7 +1937,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       agendaNotes, addAgendaNote, updateAgendaNote, updateAgendaNotesBatch, deleteAgendaNotesBatch, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, resetPassword, acceptTerms,
-      curriculum, updateTopicStatus, saveCurriculumLocal,
+      curriculum, updateTopicStatus, updateTopicSlides, saveCurriculumLocal,
       governanceStats,
       studentsLoading,
       isOnline

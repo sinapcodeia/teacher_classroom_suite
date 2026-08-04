@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { BookOpen, ChevronDown, Target, TrendingUp, Calendar, Sparkles, ArrowRight, BrainCircuit, Lightbulb } from "lucide-react";
+import { BookOpen, ChevronDown, Target, TrendingUp, Calendar, Sparkles, ArrowRight, BrainCircuit, Lightbulb, PenLine } from "lucide-react";
+import SlideViewer from "@/components/presentation/SlideViewer";
+import SlideEditor from "@/components/presentation/SlideEditor";
 
 interface TopicSelectorProps {
   subjectId?: string; // e.g. "Matemáticas"
@@ -10,8 +12,10 @@ interface TopicSelectorProps {
 }
 
 export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) {
-  const { curriculum, updateTopicStatus } = useApp();
+  const { curriculum, updateTopicStatus, updateTopicSlides } = useApp();
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
+  const [isPresenting, setIsPresenting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const activeCurriculum = useMemo(() => {
     if (!curriculum.length || !subjectId) return null;
@@ -211,8 +215,30 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
                  </div>
               </div>
 
-              {/* Detalle del Tema */}
+              {/* Detalle del Tema y Botón de Proyección */}
               <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                
+                {/* ACCIONES DE PRESENTACIÓN */}
+                <div className="flex gap-2 mb-6">
+                  {/* Botón Crear/Editar Clase */}
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-purple-500/20 border border-purple-400"
+                  >
+                    <PenLine size={16} />
+                    {selectedTopic.slides && selectedTopic.slides.length > 0 ? "Editar Clase" : "Crear Clase"}
+                  </button>
+
+                  {/* Botón Proyectar */}
+                  <button 
+                    onClick={() => setIsPresenting(true)}
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 border border-emerald-400"
+                  >
+                    <Sparkles size={16} className="text-yellow-300" />
+                    Proyectar
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-2 mb-4">
                   <Target size={14} className="text-primary" />
                   <h4 className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Objetivos Específicos</h4>
@@ -248,6 +274,34 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
           )}
         </div>
       </section>
+
+      {/* EDITOR DE PRESENTACIONES */}
+      {isEditing && selectedTopic && activeCurriculum && (
+        <SlideEditor
+          key={`editor-${selectedTopic.id}`}
+          topic={selectedTopic}
+          curriculumId={activeCurriculum.id!}
+          onClose={() => setIsEditing(false)}
+          onSave={async (slides) => {
+            await updateTopicSlides(activeCurriculum.id!, selectedTopic.unitId, selectedTopic.id, slides);
+          }}
+          onPreview={(slides) => {
+            setIsEditing(false);
+            // Inject slides into the topic temporarily for preview
+            setIsPresenting(true);
+          }}
+        />
+      )}
+
+      {/* VISOR DE PRESENTACIONES */}
+      {/* key=topic.id fuerza React a destruir y recrear el componente cuando cambia el tema */}
+      {isPresenting && selectedTopic && (
+        <SlideViewer 
+          key={selectedTopic.id}
+          topic={selectedTopic} 
+          onClose={() => setIsPresenting(false)} 
+        />
+      )}
     </div>
   );
 }
