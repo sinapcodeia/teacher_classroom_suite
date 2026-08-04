@@ -229,7 +229,7 @@ export default function TopAppBar() {
               {/* Version Info */}
               <div className="mt-3 pt-3 border-t border-outline-variant/10 text-center">
                  <p className="text-[8px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em]">
-                   v 2.4.0 • Enterprise Edition
+                   v 1.3.0 • Enterprise Edition
                  </p>
               </div>
             </div>
