@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { BookOpen, ChevronDown, Target, TrendingUp, Calendar, Sparkles, ArrowRight, BrainCircuit, Lightbulb, PenLine } from "lucide-react";
+import { BookOpen, ChevronDown, Target, TrendingUp, Calendar, Sparkles, ArrowRight, BrainCircuit, Lightbulb, Wand2, Play } from "lucide-react";
 import SlideViewer from "@/components/presentation/SlideViewer";
-import SlideEditor from "@/components/presentation/SlideEditor";
+import GeniallyWizard from "@/components/presentation/GeniallyWizard";
 
 interface TopicSelectorProps {
   subjectId?: string; // e.g. "Matemáticas"
@@ -15,7 +15,7 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
   const { curriculum, updateTopicStatus, updateTopicSlides } = useApp();
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const [isPresenting, setIsPresenting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   const activeCurriculum = useMemo(() => {
     if (!curriculum.length || !subjectId) return null;
@@ -218,24 +218,24 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
               {/* Detalle del Tema y Botón de Proyección */}
               <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
                 
-                {/* ACCIONES DE PRESENTACIÓN */}
-                <div className="flex gap-2 mb-6">
-                  {/* Botón Crear/Editar Clase */}
+                {/* ACCIONES DIDÁCTICAS DE PRESENTACIÓN */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                  {/* Botón 1: Crear clase respondiendo 3 preguntas */}
                   <button 
-                    onClick={() => setIsEditing(true)}
-                    className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-purple-500/20 border border-purple-400"
+                    onClick={() => setShowWizard(true)}
+                    className="py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2.5 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-indigo-500/20 border border-indigo-400 group"
                   >
-                    <PenLine size={16} />
-                    {selectedTopic.slides && selectedTopic.slides.length > 0 ? "Editar Clase" : "Crear Clase"}
+                    <Wand2 size={18} className="text-yellow-300 group-hover:rotate-12 transition-transform" />
+                    Generar Clase (3 preguntas)
                   </button>
 
-                  {/* Botón Proyectar */}
+                  {/* Botón 2: Proyectar directo */}
                   <button 
                     onClick={() => setIsPresenting(true)}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 border border-emerald-400"
+                    className="py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2.5 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 border border-emerald-400"
                   >
-                    <Sparkles size={16} className="text-yellow-300" />
-                    Proyectar
+                    <Play size={18} className="fill-current text-white" />
+                    Proyectar Clase
                   </button>
                 </div>
 
@@ -275,20 +275,15 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
         </div>
       </section>
 
-      {/* EDITOR DE PRESENTACIONES */}
-      {isEditing && selectedTopic && activeCurriculum && (
-        <SlideEditor
-          key={`editor-${selectedTopic.id}`}
+      {/* ASISTENTE WIZARD (3 PREGUNTAS) */}
+      {showWizard && selectedTopic && activeCurriculum && (
+        <GeniallyWizard
           topic={selectedTopic}
-          curriculumId={activeCurriculum.id!}
-          onClose={() => setIsEditing(false)}
-          onSave={async (slides) => {
+          onClose={() => setShowWizard(false)}
+          onGenerate={async (slides) => {
             await updateTopicSlides(activeCurriculum.id!, selectedTopic.unitId, selectedTopic.id, slides);
-          }}
-          onPreview={(slides) => {
-            setIsEditing(false);
-            // Inject slides into the topic temporarily for preview
-            setIsPresenting(true);
+            setShowWizard(false);
+            setIsPresenting(true); // Abre la clase proyectada inmediatamente
           }}
         />
       )}
