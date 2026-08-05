@@ -18,51 +18,56 @@ export default function SlideViewer({ topic, customSlides, onClose }: SlideViewe
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Usa las diapositivas personalizadas pasadas directamente, las guardadas en topic, o el fallback contextual
-  const slides: Slide[] = (customSlides && customSlides.length > 0)
-    ? customSlides
-    : (topic.slides && topic.slides.length > 0 ? topic.slides : [
-    {
-      id: `${topic.id}-slide-title`,
-      type: "title",
-      title: topic.title,
-      content: topic.tuhPutkamna
-        ? `Higra del Conocimiento: ${topic.tuhPutkamna}`
-        : `Hilo del Saber – Periodo Académico IETABA`,
-    },
-    {
-      id: `${topic.id}-slide-split`,
-      type: "split",
-      title: "Sabidurías y Competencias",
-      content: topic.panapain
-        ? `Saberes Propios: ${topic.panapain}. ${topic.nanpaskas ? `Saberes Interculturales: ${topic.nanpaskas}` : ''}`
-        : `Exploraremos "${topic.title}" desde los saberes propios del pueblo Awá y su articulación con los conocimientos interculturales.`,
-      imageUrl: "/mock-isometric.png",
-      imagePrompt: `Infografía técnica isométrica CGI fotorrealista sobre el concepto: "${topic.title}".`,
-    },
-    {
-      id: `${topic.id}-slide-flip`,
-      type: "flipcard",
-      title: topic.katkinAizpa ? "Ayudas Pedagógicas" : "Concepto Clave del Tema",
-      content: topic.katkinAizpa
-        ? `¿Qué herramientas pedagógicas usaremos para "${topic.title}"?`
-        : `¿Cuál es la idea central de "${topic.title}" en nuestra malla curricular?`,
-      flipContent: topic.katkinAizpa
-        ? topic.katkinAizpa
-        : (topic.satIshkit || `"${topic.title}" se aborda desde la metodología Tejiendo Aprendo, integrando el territorio y la identidad cultural Awá.`),
-    },
-    {
-      id: `${topic.id}-slide-quiz`,
-      type: "quiz",
-      title: "Tejiendo Aprendo: Verificación",
-      content: topic.satIshkit
-        ? `Metodología: ${topic.satIshkit}`
-        : `¿Estás listo para trabajar el tema "${topic.title}"?`,
-      quizOptions: [
-        { text: "¡Sí, comencemos!", isCorrect: true },
-        { text: "Necesito un repaso previo", isCorrect: false }
-      ]
-    }
-  ];
+  let slides: Slide[] = [];
+  if (customSlides && customSlides.length > 0) {
+    slides = customSlides;
+  } else if (topic.slides && topic.slides.length > 0) {
+    slides = topic.slides;
+  } else {
+    slides = [
+      {
+        id: `${topic.id}-slide-title`,
+        type: "title",
+        title: topic.title,
+        content: topic.tuhPutkamna
+          ? `Higra del Conocimiento: ${topic.tuhPutkamna}`
+          : `Hilo del Saber – Periodo Académico IETABA`,
+      },
+      {
+        id: `${topic.id}-slide-split`,
+        type: "split",
+        title: "Sabidurías y Competencias",
+        content: topic.panapain
+          ? `Saberes Propios: ${topic.panapain}. ${topic.nanpaskas ? `Saberes Interculturales: ${topic.nanpaskas}` : ''}`
+          : `Exploraremos "${topic.title}" desde los saberes propios del pueblo Awá y su articulación con los conocimientos interculturales.`,
+        imageUrl: "/mock-isometric.png",
+        imagePrompt: `Infografía técnica isométrica CGI fotorrealista sobre el concepto: "${topic.title}".`,
+      },
+      {
+        id: `${topic.id}-slide-flip`,
+        type: "flipcard",
+        title: topic.katkinAizpa ? "Ayudas Pedagógicas" : "Concepto Clave del Tema",
+        content: topic.katkinAizpa
+          ? `¿Qué herramientas pedagógicas usaremos para "${topic.title}"?`
+          : `¿Cuál es la idea central de "${topic.title}" en nuestra malla curricular?`,
+        flipContent: topic.katkinAizpa
+          ? topic.katkinAizpa
+          : (topic.satIshkit || `"${topic.title}" se aborda desde la metodología Tejiendo Aprendo, integrando el territorio y la identidad cultural Awá.`),
+      },
+      {
+        id: `${topic.id}-slide-quiz`,
+        type: "quiz",
+        title: "Tejiendo Aprendo: Verificación",
+        content: topic.satIshkit
+          ? `Metodología: ${topic.satIshkit}`
+          : `¿Estás listo para trabajar el tema "${topic.title}"?`,
+        quizOptions: [
+          { text: "¡Sí, comencemos!", isCorrect: true },
+          { text: "Necesito un repaso previo", isCorrect: false }
+        ]
+      }
+    ];
+  }
 
   const currentSlide = slides[currentSlideIdx];
 
