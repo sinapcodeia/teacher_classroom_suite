@@ -5,7 +5,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
-## [2.5.0] — 2026-08-04 · Auditoría Profunda & Performance
+## [2.5.0] — 2026-08-04 · Motor de Clases Interactivas (Genially) & Auditoría
+
+### 🚀 Agregado (Nuevo Motor Didáctico Genially)
+
+- **Visor de Diapositivas a Pantalla Completa (`SlideViewer.tsx`)** — Motor de presentaciones inmersivo en modo oscuro (Dark Mode), diseñado para proyectar en el aula sin distracciones de navegación.
+- **Tipos de Diapositivas Interactivas**:
+  - *Portada*: Título de la clase con gradientes de alto contraste.
+  - *Visual + Concepto*: Split-screen con integración de infografías isométricas CGI fotorrealistas.
+  - *Tarjetas Giratorias 3D (Flip-Cards)*: Reto en el frente y revelación interactiva de respuesta/saberes al hacer clic.
+  - *Quizzes Gamificados*: Verificación de aprendizaje con retroalimentación inmediata (verde/rojo).
+- **Asistente Didáctico de 3 Preguntas (`GeniallyWizard.tsx`)** — Permite a los docentes generar clases interactivas personalizadas respondiendo solo 3 preguntas sencillas:
+  1. Objetivo principal de la sesión.
+  2. Estilo de interacción deseado (Flip-Cards / Quiz / Infografía).
+  3. Énfasis pedagógico (Saberes Propios Awá, Tecnología o Evaluación).
+- **Editor Avanzado de Clases (`SlideEditor.tsx`)** — Panel para crear, modificar, reordenar (↑↓) y eliminar diapositivas de cada Hilo del Saber de forma manual.
+- **Integración de Super Prompt CGI Isométrico** — Inyección de imagen renderizada con IA (`public/mock-isometric.png`) en calidad KeyShot / Unreal Engine.
+- **Resguardo Offline & Apertura Instantánea** — Apertura a pantalla completa en 0ms; sincronización con Firestore en segundo plano (`updateTopicSlides`) sin bloquear la interfaz ni requerir internet activo.
 
 ### 🔴 Corregido (Crítico)
 
