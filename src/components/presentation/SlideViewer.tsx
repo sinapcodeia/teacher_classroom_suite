@@ -6,22 +6,21 @@ import { Topic, Slide } from "@/context/AppContext";
 
 interface SlideViewerProps {
   topic: Topic;
+  customSlides?: Slide[];
   onClose: () => void;
 }
 
-export default function SlideViewer({ topic, onClose }: SlideViewerProps) {
+export default function SlideViewer({ topic, customSlides, onClose }: SlideViewerProps) {
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ── GENERACIÓN DINÁMICA DE DIAPOSITIVAS ────────────────────────────────────
-  // Cada diapositiva incorpora topic.id en su 'id' para que React siempre
-  // destruya y reconstruya los elementos cuando el tema cambia.
-  // Los campos del currículo se usan directamente; si no existen, se usa un
-  // fallback contextual basado en el título del tema (nunca texto genérico).
-  const slides: Slide[] = topic.slides && topic.slides.length > 0 ? topic.slides : [
+  // Usa las diapositivas personalizadas pasadas directamente, las guardadas en topic, o el fallback contextual
+  const slides: Slide[] = (customSlides && customSlides.length > 0)
+    ? customSlides
+    : (topic.slides && topic.slides.length > 0 ? topic.slides : [
     {
       id: `${topic.id}-slide-title`,
       type: "title",

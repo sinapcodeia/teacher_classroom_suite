@@ -16,6 +16,7 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const [isPresenting, setIsPresenting] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [activeCustomSlides, setActiveCustomSlides] = useState<Slide[] | undefined>(undefined);
 
   const activeCurriculum = useMemo(() => {
     if (!curriculum.length || !subjectId) return null;
@@ -281,20 +282,25 @@ export default function TopicSelector({ subjectId, grade }: TopicSelectorProps) 
           topic={selectedTopic}
           onClose={() => setShowWizard(false)}
           onGenerate={async (slides) => {
-            await updateTopicSlides(activeCurriculum.id!, selectedTopic.unitId, selectedTopic.id, slides);
+            setActiveCustomSlides(slides);
             setShowWizard(false);
-            setIsPresenting(true); // Abre la clase proyectada inmediatamente
+            setIsPresenting(true); // Abre la clase proyectada inmediatamente sin esperar la red
+            // Guarda en segundo plano
+            updateTopicSlides(activeCurriculum.id!, selectedTopic.unitId, selectedTopic.id, slides).catch(() => {});
           }}
         />
       )}
 
       {/* VISOR DE PRESENTACIONES */}
-      {/* key=topic.id fuerza React a destruir y recrear el componente cuando cambia el tema */}
       {isPresenting && selectedTopic && (
         <SlideViewer 
-          key={selectedTopic.id}
-          topic={selectedTopic} 
-          onClose={() => setIsPresenting(false)} 
+          key={`${selectedTopic.id}-${activeCustomSlides ? 'custom' : 'default'}`}
+          topic={selectedTopic}
+          customSlides={activeCustomSlides}
+          onClose={() => {
+            setIsPresenting(false);
+            setActiveCustomSlides(undefined);
+          }} 
         />
       )}
     </div>

@@ -1853,10 +1853,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Optimistic local update
       setCurriculum(prev => prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c));
-      await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
+      
+      try {
+        await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
+      } catch (dbErr) {
+        console.warn("Advertencia: No se pudo sincronizar en la nube (modo offline activo):", dbErr);
+      }
     } catch (err) {
       console.error("Error al guardar slides del tema:", err);
-      throw err;
     }
   };
 
