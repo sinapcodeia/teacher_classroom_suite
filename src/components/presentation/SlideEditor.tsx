@@ -308,7 +308,7 @@ export default function SlideEditor({ topic, onClose, onSave, onPreview }: Slide
                 <SlideForm slide={activeSlide} onChange={updateSlide} />
               </div>
 
-              <p className="text-center text-white/20 text-[10px] mt-6 uppercase tracking-widest">Los cambios se guardan al presionar "Guardar Clase"</p>
+              <p className="text-center text-white/20 text-[10px] mt-6 uppercase tracking-widest">Los cambios se guardan al presionar &quot;Guardar Clase&quot;</p>
             </div>
           </div>
         )}
