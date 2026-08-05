@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useApp } from "@/context/AppContext";
+import { useApp, Slide } from "@/context/AppContext";
 import { BookOpen, ChevronDown, Target, TrendingUp, Calendar, Sparkles, ArrowRight, BrainCircuit, Lightbulb, Wand2, Play } from "lucide-react";
 import SlideViewer from "@/components/presentation/SlideViewer";
 import GeniallyWizard from "@/components/presentation/GeniallyWizard";
