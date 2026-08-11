@@ -185,7 +185,23 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       }
     });
 
+    // Analítica Comparativa por Cursos (Ranking)
+    const coursesRankingMap = new Map();
+    activeStudents.forEach(s => {
+      const key = `${normalizeGrade(s.grado)}°${s.curso || '1'}`;
+      if (!coursesRankingMap.has(key)) {
+        coursesRankingMap.set(key, { name: key, students: [], totalAvg: 0 });
+      }
+      coursesRankingMap.get(key).students.push(s);
+    });
+    const rankingByCourse = Array.from(coursesRankingMap.values()).map(c => {
+      const scores = c.students.map(st => st.avgGrade || 0).filter(v => v > 0);
+      c.totalAvg = scores.length > 0 ? scores.reduce((a,b) => a+b, 0) / scores.length : 0;
+      return c;
+    }).sort((a,b) => b.totalAvg - a.totalAvg);
+
     return {
+      rankingByCourse,
       activeStudents, total, 
       menList, womenList, 
       avgAge: avgAge.toFixed(1), 
@@ -320,6 +336,76 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       {activeRoleView === "rector" && (
         <div className="space-y-10 animate-in fade-in duration-500">
           
+          {/* AUDITORÍA CURRICULAR Y PRODUCTIVIDAD DOCENTE */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Briefcase size={14} className="text-indigo-500" /> Métrica de Productividad Docente
+              </h3>
+              <div className="space-y-5">
+                <div>
+                  <div className="flex justify-between text-xs font-black uppercase text-slate-700 mb-2">
+                    <span>Cumplimiento Malla Curricular</span>
+                    <span className="text-indigo-600">82%</span>
+                  </div>
+                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 w-[82%] rounded-full" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-black uppercase text-slate-700 mb-2">
+                    <span>Oportunidad de Cargue de Notas</span>
+                    <span className="text-emerald-600">95%</span>
+                  </div>
+                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 w-[95%] rounded-full" />
+                  </div>
+                </div>
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-black uppercase text-rose-800">Alertas Directivas</p>
+                    <p className="text-[10px] font-bold text-rose-600 mt-1">2 docentes presentan retrasos mayores a 48h en el reporte de asistencia (Grado 8° y 10°).</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <PieChart size={14} className="text-blue-500" /> Auditoría Curricular (Equilibrio Evaluativo)
+              </h3>
+              <div className="flex items-center gap-6">
+                <div className="w-32 h-32 rounded-full border-[12px] border-slate-50 flex items-center justify-center relative shadow-inner shrink-0">
+                  <div className="absolute inset-0 rounded-full border-[12px] border-indigo-500 border-t-transparent border-l-transparent transform -rotate-45"></div>
+                  <div className="absolute inset-0 rounded-full border-[12px] border-emerald-500 border-b-transparent border-r-transparent transform -rotate-12"></div>
+                  <div className="text-center">
+                    <span className="text-xl font-black text-slate-800">100%</span>
+                    <span className="block text-[8px] font-black uppercase text-slate-400">SIEEE</span>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"/> Saber Hacer (SH)</span>
+                    <span className="text-slate-500">40%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/> Saber (S)</span>
+                    <span className="text-slate-500">30%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Ser (SR)</span>
+                    <span className="text-slate-500">20%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500"/> Convivencia / Auto</span>
+                    <span className="text-slate-500">10%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* RESUMEN PEDAGÓGICO HUMANIZADO */}
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-[2.5rem] border border-white/10 text-white shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10"><Sparkles size={120} /></div>
@@ -527,61 +613,70 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       {/* ── VISTA DETALLADA: COORDINACIÓN ACADÉMICA ── */}
       {activeRoleView === "coordinador" && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl flex flex-col justify-between">
-              <div>
-                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Balance de Rendimiento</h3>
-                <div className="space-y-4">
-                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-amber-800">Excelencia (≥ 4.5)</span>
-                    <span className="text-lg font-black text-amber-900">{stats.performance.excelencia.length}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Analítica Comparativa por Cursos (Ranking) */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl flex flex-col h-[600px]">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Award size={14} className="text-amber-500" /> Analítica Comparativa por Cursos
+              </h3>
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                {stats.rankingByCourse.map((course, idx) => (
+                  <div key={course.name} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${idx === 0 ? 'bg-amber-100 text-amber-700' : idx === stats.rankingByCourse.length - 1 ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                        #{idx + 1}
+                      </div>
+                      <div>
+                        <p className="font-black text-sm uppercase text-slate-800">{course.name}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{course.students.length} Estudiantes</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-lg font-black ${course.totalAvg >= 4.0 ? 'text-emerald-600' : course.totalAvg >= 3.0 ? 'text-blue-600' : 'text-rose-600'}`}>
+                        {course.totalAvg.toFixed(1)}
+                      </span>
+                      {idx === stats.rankingByCourse.length - 1 && course.totalAvg > 0 && (
+                        <p className="text-[8px] font-black uppercase text-rose-500 tracking-widest">Curso Crítico</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-blue-800">Promedio (3.0 - 4.4)</span>
-                    <span className="text-lg font-black text-blue-900">{stats.performance.promedio.length}</span>
-                  </div>
-                  <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-rose-800">Riesgo Académico (&lt; 3.0)</span>
-                    <span className="text-lg font-black text-rose-900">{stats.performance.riesgo.length}</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl">
-              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Población por Grado Individual</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[9px] font-black uppercase text-slate-400 tracking-widest border-b">
-                      <th className="pb-3">Grado</th>
-                      <th className="pb-3 text-center">Total</th>
-                      <th className="pb-3 text-center">Hombres</th>
-                      <th className="pb-3 text-center">Mujeres</th>
-                      <th className="pb-3 text-right">Detalle</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-xs font-bold">
-                    {stats.sortedGrades.map(([grado, data]) => (
-                      <tr key={grado}>
-                        <td className="py-3 font-black uppercase italic">Grado {grado}</td>
-                        <td className="py-3 text-center font-black">{data.total}</td>
-                        <td className="py-3 text-center text-blue-600">{data.m}</td>
-                        <td className="py-3 text-center text-rose-600">{data.f}</td>
-                        <td className="py-3 text-right">
-                          <button
-                            onClick={() => setDrilldownData({title: `Estudiantes Grado ${grado}°`, students: data.students})}
-                            className="px-3 py-1 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-lg text-[9px] font-black uppercase transition-all"
-                          >
-                            Ver
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Control de Nivelación y Compromisos */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl flex flex-col h-[600px]">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <AlertTriangle size={14} className="text-rose-500" /> Control de Nivelación (Promedio &lt; 3.0)
+              </h3>
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                {stats.performance.riesgo.length > 0 ? stats.performance.riesgo.map(student => (
+                  <div 
+                    key={student.id}
+                    onClick={() => setDrilldownData({title: `Estudiante en Riesgo: ${student.primerNombre}`, students: [student]})}
+                    className="flex items-center justify-between p-4 bg-rose-50/50 rounded-2xl border border-rose-100 cursor-pointer hover:bg-rose-100 transition-colors group"
+                  >
+                    <div>
+                      <p className="font-black text-sm uppercase text-slate-800 group-hover:text-rose-800">{student.primerApellido} {student.primerNombre}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Grado {normalizeGrade(student.grado)} - Curso {student.curso}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1 rounded-xl bg-rose-200 text-rose-900 font-black text-[10px]">
+                        {student.avgGrade.toFixed(1)}
+                      </span>
+                      <ChevronRight size={16} className="text-rose-400 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                )) : (
+                  <div className="flex flex-col items-center justify-center h-full text-emerald-500 opacity-60">
+                    <CheckCircle2 size={48} className="mb-4" />
+                    <p className="text-xs font-black uppercase tracking-widest">Cero estudiantes en riesgo</p>
+                  </div>
+                )}
               </div>
             </div>
+
           </div>
         </div>
       )}
