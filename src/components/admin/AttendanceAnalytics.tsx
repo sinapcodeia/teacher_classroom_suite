@@ -79,7 +79,9 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
       }
       coursesStatus[key].total++;
 
-      const rec = s.attendanceRecord ? s.attendanceRecord[selectedDate] : null;
+      const recRaw = s.attendanceRecord ? s.attendanceRecord[selectedDate] : null;
+      const rec = recRaw === 'present' ? 'P' : recRaw === 'absent' ? 'A' : recRaw === 'late' ? 'T' : recRaw === 'excused' ? 'E' : recRaw;
+
       if (rec === "P") {
         presentes++;
         coursesStatus[key].presentes++;
@@ -133,8 +135,9 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
       let mExcusas = 0;
       let mRetardos = 0;
 
-      Object.entries(recs).forEach(([date, st]) => {
+      Object.entries(recs).forEach(([date, stRaw]) => {
         if (date.startsWith(selectedMonth)) {
+          const st = stRaw === 'present' ? 'P' : stRaw === 'absent' ? 'A' : stRaw === 'late' ? 'T' : stRaw === 'excused' ? 'E' : stRaw;
           if (st === "P") mPresentes++;
           else if (st === "A") mAusentes++;
           else if (st === "E") mExcusas++;
