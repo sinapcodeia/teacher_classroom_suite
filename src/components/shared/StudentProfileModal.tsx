@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { X, User, BarChart3, Cake, Phone, Calendar, BookOpen, } from "lucide-react"; // existing imports
 import { normalizeGrade } from "@/context/AppContext";
 
@@ -42,6 +42,17 @@ export default function StudentProfileModal({ student, onClose }: { student: any
       setTimeout(() => setPrintMode("all"), 500);
     }, 100);
   };
+
+  const absentRecords = useMemo(() => {
+    if (!student.attendanceRecord) return [];
+    return Object.entries(student.attendanceRecord)
+      .map(([date, status]) => {
+        const st = (status as string) === 'present' ? 'P' : (status as string) === 'absent' ? 'A' : (status as string) === 'late' ? 'T' : (status as string) === 'excused' ? 'E' : status as string;
+        return { date, status: st };
+      })
+      .filter(r => r.status !== 'P')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [student.attendanceRecord]);
 
   const modal = (
     <div className={`fixed inset-0 z-[200] flex items-center justify-center p-4 student-modal-portal print-mode-${printMode}`}>
@@ -150,14 +161,40 @@ export default function StudentProfileModal({ student, onClose }: { student: any
                 <Calendar size={13} /> Reporte de Ausentismo
               </h4>
               <div className="space-y-2">
-                <div className="flex justify-between items-center bg-surface-container-low px-4 py-3 rounded-xl border border-outline-variant">
-                  <span className="text-[11px] font-black uppercase text-on-surface">15 de Abril, 2026</span>
-                  <span className="text-[9px] font-bold uppercase bg-error/10 text-error px-2 py-1 rounded">Inasistencia Injustificada</span>
-                </div>
-                <div className="flex justify-between items-center bg-surface-container-low px-4 py-3 rounded-xl border border-outline-variant">
-                  <span className="text-[11px] font-black uppercase text-on-surface">02 de Mayo, 2026</span>
-                  <span className="text-[9px] font-bold uppercase bg-tertiary/10 text-tertiary px-2 py-1 rounded">Llegada Tarde</span>
-                </div>
+                {absentRecords.length > 0 ? (
+                  absentRecords.map(record => {
+                    const dateObj = new Date(record.date);
+                    // Asegurar que la fecha se muestre localmente, sumando zona horaria si es necesario para evitar off-by-one,
+                    // pero dado que date es YYYY-MM-DD, se usa UTC para parsear.
+                    const formattedDateObj = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+                    const formattedDate = formattedDateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+                    
+                    let label = "Desconocido";
+                    let colorClass = "bg-slate-100 text-slate-600";
+                    
+                    if (record.status === 'A') {
+                      label = "Inasistencia Injustificada";
+                      colorClass = "bg-rose-50 text-rose-600 border border-rose-100";
+                    } else if (record.status === 'E') {
+                      label = "Excusa Médica / Justificada";
+                      colorClass = "bg-amber-50 text-amber-600 border border-amber-100";
+                    } else if (record.status === 'T') {
+                      label = "Llegada Tarde";
+                      colorClass = "bg-blue-50 text-blue-600 border border-blue-100";
+                    }
+
+                    return (
+                      <div key={record.date} className="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-slate-200">
+                        <span className="text-[11px] font-black uppercase text-slate-700">{formattedDate}</span>
+                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md ${colorClass}`}>{label}</span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-200 border-dashed">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estudiante sin reportes de ausentismo</p>
+                  </div>
+                )}
               </div>
             </section>
 
