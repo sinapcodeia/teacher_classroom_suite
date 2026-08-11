@@ -1638,13 +1638,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const validScores = newGrades.filter(g => g.type !== 'participation').map(g => g.score);
+      const validScores = newGrades.map(g => g.score);
       let newAvg = validScores.length > 0
         ? validScores.reduce((a, b) => a + b, 0) / validScores.length
         : 0;
-      // Bonificación por participación: +0.02 por nota (máx 5.0)
-      const bonus = newGrades.filter(g => g.type === 'participation').reduce((a, b) => a + (b.score * 0.02), 0);
-      newAvg = Math.min(5.0, newAvg + bonus);
 
       const updates = { grades: newGrades, avgGrade: Number(newAvg.toFixed(2)) };
 
@@ -1718,12 +1715,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const validScores = newGrades.filter(g => g.type !== 'participation').map(g => g.score);
+      const validScores = newGrades.map(g => g.score);
       let newAvg = validScores.length > 0
         ? validScores.reduce((a, b) => a + b, 0) / validScores.length
         : 0;
-      const bonus = newGrades.filter(g => g.type === 'participation').reduce((a, b) => a + (b.score * 0.02), 0);
-      newAvg = Math.min(5.0, newAvg + bonus);
 
       allUpdates.push({ studentId, updates: { grades: newGrades, avgGrade: Number(newAvg.toFixed(2)) } });
     }

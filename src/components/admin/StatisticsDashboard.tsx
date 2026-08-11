@@ -7,7 +7,7 @@ import {
   BarChart3, PieChart, TrendingDown, MapPin, 
   ChevronRight, AlertCircle, Calendar, X, GraduationCap,
   Sparkles, FileText, CheckCircle2, AlertTriangle, ShieldCheck,
-  Building2, Briefcase, HeartHandshake, Eye, ArrowRight, User
+  Building2, Briefcase, HeartHandshake, Eye, ArrowRight, User, Search
 } from "lucide-react";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
