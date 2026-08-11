@@ -7,7 +7,7 @@ import {
   Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, 
   Users, UserCheck, Search, ChevronRight, FileSpreadsheet,
   AlertCircle, ShieldAlert, Award, ArrowUpRight, Filter,
-  ChevronLeft, ArrowRight, UserCheck2, UserX, Sparkles
+  ChevronLeft, ArrowRight, UserCheck2, UserX, Sparkles, X
 } from "lucide-react";
 
 interface AttendanceAnalyticsProps {
@@ -65,11 +65,11 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
     if (selectedGradoFilter !== "TODOS") target = target.filter(s => normalizeGrade(s.grado) === selectedGradoFilter);
     if (selectedCursoFilter !== "TODOS") target = target.filter(s => s.curso === selectedCursoFilter);
 
-    let presentes = 0; let presentesList: any[] = [];
-    let ausentes = 0; let ausentesList: any[] = [];
-    let excusas = 0; let excusasList: any[] = [];
-    let retardos = 0; let retardosList: any[] = [];
-    let sinRegistro = 0; let sinRegistroList: any[] = [];
+    let presentes = 0; const presentesList: any[] = [];
+    let ausentes = 0; const ausentesList: any[] = [];
+    let excusas = 0; const excusasList: any[] = [];
+    let retardos = 0; const retardosList: any[] = [];
+    let sinRegistro = 0; const sinRegistroList: any[] = [];
 
     const coursesStatus: Record<string, { total: number; presentes: number; ausentes: number; excusas: number; retardos: number; sinRegistro: number; teacher: string }> = {};
 

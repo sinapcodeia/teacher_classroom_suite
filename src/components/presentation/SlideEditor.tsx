@@ -5,7 +5,7 @@ import { Topic, Slide } from "@/context/AppContext";
 import {
   X, Plus, Trash2, Save, ChevronUp, ChevronDown,
   Type, Layout, RotateCcw, HelpCircle, Eye, Loader2,
-  GripVertical, Image, BookOpen
+  GripVertical, Image as ImageIcon, BookOpen
 } from "lucide-react";
 
 interface SlideEditorProps {
@@ -18,7 +18,7 @@ interface SlideEditorProps {
 
 const SLIDE_TYPES: { value: Slide["type"]; label: string; icon: React.ReactNode; desc: string }[] = [
   { value: "title",    label: "Portada",      icon: <Type size={18} />,      desc: "Diapositiva de título del tema" },
-  { value: "split",    label: "Visual + Texto",icon: <Image size={18} />,     desc: "Imagen CGI con texto al lado" },
+  { value: "split",    label: "Visual + Texto",icon: <ImageIcon size={18} />,     desc: "Imagen CGI con texto al lado" },
   { value: "flipcard", label: "Tarjeta Giro",  icon: <RotateCcw size={18} />, desc: "Pregunta con respuesta oculta" },
   { value: "quiz",     label: "Quiz Rápido",   icon: <HelpCircle size={18} />,desc: "Pregunta de opción múltiple" },
 ];

@@ -375,31 +375,34 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
               <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                 <PieChart size={14} className="text-blue-500" /> Auditoría Curricular (Equilibrio Evaluativo)
               </h3>
-              <div className="flex items-center gap-6">
-                <div className="w-32 h-32 rounded-full border-[12px] border-slate-50 flex items-center justify-center relative shadow-inner shrink-0">
-                  <div className="absolute inset-0 rounded-full border-[12px] border-indigo-500 border-t-transparent border-l-transparent transform -rotate-45"></div>
-                  <div className="absolute inset-0 rounded-full border-[12px] border-emerald-500 border-b-transparent border-r-transparent transform -rotate-12"></div>
-                  <div className="text-center">
-                    <span className="text-xl font-black text-slate-800">100%</span>
-                    <span className="block text-[8px] font-black uppercase text-slate-400">SIEEE</span>
+              <div className="flex flex-col sm:flex-row items-center gap-8">
+                <div 
+                  className="w-32 h-32 rounded-full flex items-center justify-center relative shadow-inner shrink-0"
+                  style={{
+                    background: "conic-gradient(#6366f1 0% 40%, #3b82f6 40% 70%, #10b981 70% 90%, #f59e0b 90% 100%)"
+                  }}
+                >
+                  <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center shadow-sm">
+                    <span className="text-xl font-black text-slate-800 leading-none">100%</span>
+                    <span className="text-[8px] font-black uppercase text-slate-400 mt-1 tracking-widest">SIEEE</span>
                   </div>
                 </div>
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 space-y-3 w-full">
                   <div className="flex justify-between items-center text-[10px] font-black uppercase">
                     <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"/> Saber Hacer (SH)</span>
-                    <span className="text-slate-500">40%</span>
+                    <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">40%</span>
                   </div>
                   <div className="flex justify-between items-center text-[10px] font-black uppercase">
                     <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/> Saber (S)</span>
-                    <span className="text-slate-500">30%</span>
+                    <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">30%</span>
                   </div>
                   <div className="flex justify-between items-center text-[10px] font-black uppercase">
                     <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Ser (SR)</span>
-                    <span className="text-slate-500">20%</span>
+                    <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">20%</span>
                   </div>
                   <div className="flex justify-between items-center text-[10px] font-black uppercase">
                     <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500"/> Convivencia / Auto</span>
-                    <span className="text-slate-500">10%</span>
+                    <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">10%</span>
                   </div>
                 </div>
               </div>
