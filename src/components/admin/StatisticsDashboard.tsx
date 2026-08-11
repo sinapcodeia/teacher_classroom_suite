@@ -580,6 +580,8 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
             </div>
           </div>
         </div>
+      )}
+
       {/* ── VISTA DETALLADA: ASISTENCIA INSTITUCIONAL & PRODUCTIVIDAD ── */}
       {activeRoleView === "asistencia" && (
         <AttendanceAnalytics onSelectStudent={(s) => setSelectedStudent(s)} />
