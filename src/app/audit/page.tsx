@@ -70,7 +70,7 @@ export default function AuditPage() {
       setProgress(50);
 
       // Actualizar estado local INMEDIATAMENTE (No necesitamos internet para que la UI reaccione)
-      setStudents(prev => prev.map(s => {
+      setStudents((prev: any[]) => prev.map((s: any) => {
         if (updatesMap.has(s.id)) {
           return { ...s, ...updatesMap.get(s.id) };
         }
