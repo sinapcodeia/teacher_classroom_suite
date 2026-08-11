@@ -1,0 +1,202 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Presentacion Ejecutiva - EduManager v2.5.0</title>
+<!--[if gte mso 9]>
+<xml>
+ <w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+ </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  body {
+    font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1e293b;
+    margin: 40pt;
+  }
+  h1 {
+    font-size: 22pt;
+    color: #0f172a;
+    border-bottom: 3pt solid #2563eb;
+    padding-bottom: 6pt;
+    margin-top: 0;
+    font-weight: 800;
+  }
+  h2 {
+    font-size: 16pt;
+    color: #1e40af;
+    margin-top: 20pt;
+    border-left: 4pt solid #2563eb;
+    padding-left: 8pt;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 13pt;
+    color: #0369a1;
+    margin-top: 14pt;
+    font-weight: 700;
+  }
+  .subtitle {
+    font-size: 12pt;
+    color: #475569;
+    font-style: italic;
+    margin-bottom: 20pt;
+  }
+  .author-box {
+    background-color: #f0f9ff;
+    border: 1pt solid #bae6fd;
+    border-left: 5pt solid #0284c7;
+    padding: 12pt 16pt;
+    margin: 15pt 0;
+    border-radius: 4pt;
+  }
+  .author-title {
+    font-weight: bold;
+    color: #0369a1;
+    font-size: 11pt;
+  }
+  .highlight-box {
+    background-color: #f8fafc;
+    border: 1pt solid #e2e8f0;
+    padding: 12pt;
+    margin: 12pt 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15pt 0;
+  }
+  th {
+    background-color: #1e3a8a;
+    color: #ffffff;
+    padding: 8pt 10pt;
+    text-align: left;
+    font-size: 10pt;
+    font-weight: bold;
+  }
+  td {
+    border: 1pt solid #cbd5e1;
+    padding: 8pt 10pt;
+    font-size: 10pt;
+  }
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+  ul, ol {
+    margin-top: 4pt;
+    margin-bottom: 10pt;
+  }
+  li {
+    margin-bottom: 4pt;
+  }
+  .badge {
+    display: inline-block;
+    background-color: #dbeafe;
+    color: #1e40af;
+    font-weight: bold;
+    padding: 2pt 6pt;
+    border-radius: 3pt;
+    font-size: 9pt;
+  }
+  .footer {
+    margin-top: 30pt;
+    border-top: 1pt solid #cbd5e1;
+    padding-top: 10pt;
+    font-size: 9pt;
+    color: #64748b;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎓 PRESENTACIÓN EJECUTIVA DEL PROYECTO</h1>
+<div class="subtitle">EduManager – Teacher Classroom Suite (v2.5.0)<br>Plataforma de Gobernanza Institucional, Analítica Administrativa, Aula en Vivo e Innovación Pedagógica</div>
+
+<div class="author-box">
+  <div class="author-title">🏛️ Dirección de Ingeniería & Desarrollo Tecnológico</div>
+  <div>Diseño, Arquitectura de Software y Desarrollo Liderados por el <strong>Ing. Antonio Rodríguez</strong> bajo el sello y firma tecnológica <strong>SinapCode</strong>.</div>
+</div>
+
+<h2>1. Resumen Ejecutivo & Impacto Institucional</h2>
+<p><strong>EduManager v2.5.0</strong> es una suite tecnológica de gobernanza educativa concebida para transformar la toma de decisiones estratégicas a nivel institucional. Desarrollada de manera experta por el <strong>Ing. Antonio Rodríguez</strong> bajo la marca <strong>SinapCode</strong>, la plataforma integra en tiempo real la operación pedagógica del aula con los tableros de control directivos de la Rectoría y las Coordinaciones Académicas.</p>
+<p>Con un enfoque de <strong>Operación 100% Offline (PWA)</strong> y <strong>Analítica Predictiva de Datos</strong>, EduManager consolida la información demográfica, académica y convivencial de toda la población estudiantil, permitiendo un monitoreo exhaustivo sobre la deserción, el ausentismo, el rendimiento por pilares evaluativos y el cumplimiento de las mallas curriculares.</p>
+
+<h2>2. Módulos de Informes y Tableros Directivos</h2>
+
+<h3>👑 A. Módulo del Rector: Dashboard Estratégico & Gobernanza Institucional</h3>
+<p>Diseñado para la toma de decisiones ejecutivas y rendición de cuentas ante Secretarías de Educación y SIMAT.</p>
+<ul>
+  <li><strong>Caracterización Demográfica 360°:</strong> Censo poblacional estudiantil completo desglosado por <strong>Edad, Sexo, Sede, Jornada, Grado y Curso</strong>, con indicadores de vulnerabilidad social.</li>
+  <li><strong>Tablero Macro de Ausentismo & Alerta Temprana:</strong> Alertas automáticas para estudiantes con &gt;15% de inasistencias sin justificar para prevenir la deserción escolar.</li>
+  <li><strong>Índice de Rendimiento Académico Global:</strong> Porcentaje de estudiantes aprobados, en riesgo (&lt; 3.0) y reprobados por periodo, con históricos por asignatura.</li>
+  <li><strong>Métrica de Productividad Docente:</strong> Cumplimiento real de la Malla Curricular (Temas dictados vs. Tiempo del periodo), oportunidad en el cargue de notas y control de carga horaria.</li>
+</ul>
+
+<h3>📋 B. Módulo de Coordinadores: Gestión Académica, Convivencial y Supervisión</h3>
+<p>Diseñado para auditar la labor didáctica diaria, el rendimiento por materias y el clima escolar de cada sede.</p>
+<ul>
+  <li><strong>Analítica Comparativa por Cursos:</strong> Ranking de rendimiento por salones, detección de <em>"Asignaturas Críticas"</em> y sábanas de notas consolidadas en formato horizontal.</li>
+  <li><strong>Mapa de Ausentismo y Convivencia:</strong> Mapa de calor de faltas por día/hora, faltas justificadas vs. no justificadas e historial del Observador del Estudiante (Leves, Graves, Gravísimas).</li>
+  <li><strong>Control de Nivelación y Compromisos:</strong> Seguimiento a planes de recuperación para estudiantes con promedio &lt; 3.0.</li>
+  <li><strong>Auditoría Curricular:</strong> Verificación del equilibrio evaluativo en los 5 pilares institucionales (SB, SBH, SR, CV, AUT).</li>
+</ul>
+
+<h3>👨‍🏫 C. Módulo de Docentes: Operación Didáctica & Aula en Vivo</h3>
+<p>Diseñado para eliminar la sobrecarga de trámites y entregar herramientas pedagógicas de alto impacto visual.</p>
+<ul>
+  <li><strong>Ficha 360° del Estudiante:</strong> Hoja de vida digital con foto, datos de acudientes, historial acumulado de notas por pilar e inasistencias.</li>
+  <li><strong>Registro de Aula y Asistencia:</strong> Marcación en 1 clic y calificador masivo con atajos de teclado (Enter / Tab) respaldado en lotes WriteBatch.</li>
+  <li><strong>Motor Didáctico de Clases Interactivas (Estilo Genially):** Generador en 3 preguntas (Genially Wizard), proyección en pantalla completa con Infografías Isométricas CGI 3D, Tarjetas Giratorias (Flip-Cards) y Quizzes gamificados.</li>
+  <li><strong>Marcación Curricular:</strong> Registro de Hilos del Saber cubiertos en clase con actualización automática hacia el tablero directivo del Rector.</li>
+</ul>
+
+<h2>3. Arquitectura Tecnológica & Impacto Administrativo</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Factor Tecnológico</th>
+      <th>Detalle Técnico</th>
+      <th>Impacto Directivo Institucional</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Operación 100% Offline (PWA)</strong></td>
+      <td>Caché local persistente en localStorage + sincronización con Firebase Firestore.</td>
+      <td>Cero frenos en la operación por caídas de luz o internet en sedes rurales.</td>
+    </tr>
+    <tr>
+      <td><strong>Gobernanza Multinivel</strong></td>
+      <td>Control de acceso por roles (Rector, Coordinador, Docente, SuperAdmin).</td>
+      <td>Seguridad, privacidad e integridad de la información institucional.</td>
+    </tr>
+    <tr>
+      <td><strong>Trazabilidad y Respaldos</strong></td>
+      <td>Copias de seguridad automáticas en ZIP (backup_code.ps1) y versión firmada (v2.5.0).</td>
+      <td>Total respaldo de actas y sábanas de notas para comités de evaluación.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>4. Resumen del Impacto Administrativo para la Rectoría</h2>
+<ol>
+  <li><strong>Visibilidad 360° en Tiempo Real:</strong> El Rector conoce al instante el ausentismo, la reprobación y la demografía por edad/sexo de cada sede y salón.</li>
+  <li><strong>Reducción del 70% en Tiempos de Reporte:</strong> Generación inmediata de sábanas consolidables para reuniones de consejo académico o reportes oficiales (SIMAT).</li>
+  <li><strong>Cero Deserción Silenciosa:</strong> Detección temprana de ausentismo recurrente antes de que el estudiante abandone el sistema educativo.</li>
+  <li><strong>Supervisión Docente Transparente:</strong> Medición objetiva del avance de la malla curricular y del cumplimiento de registros de notas.</li>
+</ol>
+
+<div class="footer">
+  Diseñado y Desarrollado por el <strong>Ing. Antonio Rodríguez</strong> bajo el sello tecnológico <strong>SinapCode</strong><br>
+  Versión 2.5.0 – Todos los derechos reservados · 2026
+</div>
+
+</body>
+</html>

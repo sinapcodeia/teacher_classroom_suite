@@ -165,54 +165,72 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Top Quick Stats - Rediseño Minimalista/Premium */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8">
+      {/* Top Quick Stats - Rediseño Profesional & Simétrico */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+        {/* CARD 1: Población Total */}
         <div 
           onClick={() => setDrilldownData({title: "Población Estudiantil", students: stats.activeStudents})}
-          className="bg-white p-8 rounded-[2rem] border border-outline-variant/30 shadow-[0_10px_30px_rgba(0,0,0,0.04)] relative overflow-hidden group hover:shadow-2xl transition-all cursor-pointer border-b-4 border-b-blue-500"
+          className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-blue-500"
         >
-          <div className="absolute top-0 right-0 p-6 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Users size={80} /></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Población Total</p>
-          <p className="text-4xl font-black text-on-surface leading-none">{stats.total}</p>
-          <div className="mt-6 flex items-center gap-2">
+          <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Users size={70} /></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Población Total</p>
+          <p className="text-3xl lg:text-4xl font-black text-on-surface leading-none">{stats.total}</p>
+          <div className="mt-5 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Activos en Firestore</span>
           </div>
         </div>
 
+        {/* CARD 2: Equidad de Género (Corregido desbordamiento) */}
         <div 
           onClick={() => setDrilldownData({title: "Distribución por Género", students: [...stats.womenList, ...stats.menList]})}
-          className="bg-white p-8 rounded-[2rem] border border-outline-variant/30 shadow-[0_10px_30px_rgba(0,0,0,0.04)] relative overflow-hidden group hover:shadow-2xl transition-all cursor-pointer border-b-4 border-b-indigo-500"
+          className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-indigo-500"
         >
-          <div className="absolute top-0 right-0 p-6 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><UserCheck size={80} /></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Equidad de Género</p>
-          <div className="flex items-baseline gap-3">
-            <p className="text-4xl font-black text-on-surface">{stats.menList.length}</p>
-            <span className="text-[10px] font-black text-slate-300">H</span>
-            <span className="text-slate-200 px-1 font-light text-2xl">|</span>
-            <p className="text-4xl font-black text-on-surface">{stats.womenList.length}</p>
-            <span className="text-[10px] font-black text-pink-400">M</span>
+          <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><UserCheck size={70} /></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Equidad de Género</p>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl lg:text-3xl font-black text-blue-600">{stats.menList.length}</span>
+              <span className="text-[10px] font-black text-blue-500 uppercase">H</span>
+            </div>
+            <span className="text-slate-300 font-light text-xl">/</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl lg:text-3xl font-black text-rose-600">{stats.womenList.length}</span>
+              <span className="text-[10px] font-black text-rose-500 uppercase">M</span>
+            </div>
+          </div>
+          <div className="mt-5 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest">Distribución por Sexo</span>
           </div>
         </div>
 
+        {/* CARD 3: Mayores de Edad */}
         <div 
           onClick={() => setDrilldownData({title: "Mayores de Edad (18+)", students: stats.majorities})}
-          className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-outline-variant shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+          className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-amber-500"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-110 transition-transform"><Award size={60} /></div>
-          <p className="text-[9px] md:text-[10px] font-black text-on-surface-variant uppercase tracking-wider md:tracking-widest truncate">Mayores de Edad</p>
-          <p className="text-2xl md:text-3xl font-black text-on-surface mt-1 md:mt-2">{stats.majorities.length}</p>
-          <p className="text-[8px] font-bold text-on-surface-variant mt-3 md:mt-4 uppercase tracking-wider truncate">Alumnos con 18+ años</p>
+          <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Award size={70} /></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Mayores de Edad</p>
+          <p className="text-3xl lg:text-4xl font-black text-on-surface leading-none">{stats.majorities.length}</p>
+          <div className="mt-5 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Alumnos con 18+ años</span>
+          </div>
         </div>
 
+        {/* CARD 4: Riesgo Académico */}
         <div 
           onClick={() => setDrilldownData({title: "Riesgo Académico", students: stats.performance.riesgo})}
-          className="bg-error/5 p-5 md:p-6 rounded-2xl md:rounded-3xl border border-error/20 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+          className="bg-rose-50/30 p-6 rounded-[2rem] border border-rose-200/60 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-rose-500"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-110 transition-transform"><TrendingDown size={60} /></div>
-          <p className="text-[9px] md:text-[10px] font-black text-error uppercase tracking-wider md:tracking-widest truncate">Riesgo Académico</p>
-          <p className="text-2xl md:text-3xl font-black text-error mt-1 md:mt-2">{stats.lowPerformance}</p>
-          <p className="text-[8px] font-bold text-error/60 mt-3 md:mt-4 uppercase tracking-wider truncate">Bajo promedio mín.</p>
+          <div className="absolute top-0 right-0 p-4 opacity-[0.08] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><TrendingDown size={70} /></div>
+          <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.15em] mb-2">Riesgo Académico</p>
+          <p className="text-3xl lg:text-4xl font-black text-rose-600 leading-none">{stats.lowPerformance}</p>
+          <div className="mt-5 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span className="text-[8px] font-black text-rose-600 uppercase tracking-widest">Bajo promedio mín.</span>
+          </div>
         </div>
       </div>
             {/* NIVEL ACADÉMICO GRID */}
