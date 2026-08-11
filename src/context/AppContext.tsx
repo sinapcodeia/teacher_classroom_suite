@@ -277,6 +277,8 @@ export const calculateStudentAcademicSummary = (
     periodSubjectAverages
   };
 };
+
+export interface Subject {
   id: string;
   name: string;
   courses: string;
