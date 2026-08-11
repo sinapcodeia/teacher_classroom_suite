@@ -45,8 +45,9 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
     const map: Record<string, string[]> = {};
     
     (allUsers || []).forEach(u => {
-      if (u.weeklySchedule && Array.isArray(u.weeklySchedule)) {
-        u.weeklySchedule.forEach((b: any) => {
+      const user = u as any;
+      if (user.weeklySchedule && Array.isArray(user.weeklySchedule)) {
+        user.weeklySchedule.forEach((b: any) => {
           const key = `${normalizeGrade(b.grade)}-${b.course}`;
           if (!map[key]) map[key] = [];
           if (!map[key].includes(u.name || u.email)) {
