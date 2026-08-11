@@ -358,7 +358,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     const periodId = getActivePeriod();
     const prefix = `[${subject.toUpperCase()}]`;
     const fullTitle = activityTitle.startsWith('[') ? activityTitle : `${prefix} ${activityTitle}`;
-    const gradeType = targetCategory === 'sb' ? 'exam' : (targetCategory === 'sbh' ? 'participation' : 'activity');
+    const gradeType = targetCategory === 'sb' ? 'exam' : 'activity';
 
     try {
       // PASO 1: Actualizar la Planilla Oficial (detailedGrades) — una escritura por estudiante
@@ -418,7 +418,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
       await addGrade(currentStudent.id, {
         title: fullTitle,
         score,
-        type: targetCategory === 'sb' ? 'exam' : (targetCategory === 'sbh' ? 'participation' : 'activity'),
+        type: targetCategory === 'sb' ? 'exam' : 'activity',
         date: today,
         periodId,
         category: targetCategory,
