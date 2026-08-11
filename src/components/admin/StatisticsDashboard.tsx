@@ -12,6 +12,7 @@ import {
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
 import AttendanceAnalytics from "@/components/admin/AttendanceAnalytics";
+import { calculateStudentAcademicSummary } from "@/context/AppContext";
 
 const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
@@ -19,6 +20,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo" | "asistencia">("rector");
   const [gradeSearchQuery, setGradeSearchQuery] = useState<string>("");
+  const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<"acumulado" | "p1" | "p2" | "p3">("acumulado");
 
   const stats = useMemo(() => {
     // Solo procesar estudiantes activos

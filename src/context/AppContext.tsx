@@ -197,7 +197,86 @@ export const calculateDetailedFinal = (detailed: DetailedGrades): number => {
   return Number(final.toFixed(2));
 };
 
-interface Subject {
+export interface StudentAcademicSummary {
+  overallAvg: number; // Definitiva Acumulada del Año (Promedio Ponderado Multi-Periodo)
+  periodAvg: number;  // Promedio del Periodo Activo Seleccionado
+  subjectAverages: Record<string, number>; // subjectId -> Definitiva Acumulada de la Asignatura
+  periodSubjectAverages: Record<string, Record<string, number>>; // subjectId -> periodId -> nota del periodo
+}
+
+/**
+ * CÁLCULO MASTER AUDITADO MULTI-PERIODO Y ACUMULADO INSTITUCIONAL (SIEEE / SIFEE)
+ * Genera la verdadera nota acumulada ponderando las notas de todos los periodos registrados.
+ */
+export const calculateStudentAcademicSummary = (
+  student: Partial<Student>, 
+  activePeriod: string = "p1"
+): StudentAcademicSummary => {
+  const detailedGrades = student.detailedGrades || {};
+  const subjectIds = Object.keys(detailedGrades);
+
+  if (subjectIds.length === 0) {
+    const defaultAvg = student.avgGrade || 0;
+    return {
+      overallAvg: defaultAvg,
+      periodAvg: defaultAvg,
+      subjectAverages: {},
+      periodSubjectAverages: {}
+    };
+  }
+
+  const periodSubjectAverages: Record<string, Record<string, number>> = {};
+  const subjectAverages: Record<string, number> = {};
+  const periodTotals: Record<string, number[]> = {};
+
+  let totalCumulativeSum = 0;
+  let totalCumulativeCount = 0;
+
+  subjectIds.forEach(subId => {
+    const pGrades = detailedGrades[subId] || {};
+    periodSubjectAverages[subId] = {};
+    const subPeriodNotes: number[] = [];
+
+    Object.entries(pGrades).forEach(([pId, detailed]) => {
+      if (detailed) {
+        const note = calculateDetailedFinal(detailed);
+        if (note > 0) {
+          periodSubjectAverages[subId][pId] = note;
+          subPeriodNotes.push(note);
+
+          if (!periodTotals[pId]) periodTotals[pId] = [];
+          periodTotals[pId].push(note);
+        }
+      }
+    });
+
+    if (subPeriodNotes.length > 0) {
+      const subAvg = subPeriodNotes.reduce((a, b) => a + b, 0) / subPeriodNotes.length;
+      subjectAverages[subId] = Number(subAvg.toFixed(2));
+      totalCumulativeSum += subAvg;
+      totalCumulativeCount++;
+    }
+  });
+
+  let periodAvg = 0;
+  if (activePeriod && periodTotals[activePeriod] && periodTotals[activePeriod].length > 0) {
+    const sum = periodTotals[activePeriod].reduce((a, b) => a + b, 0);
+    periodAvg = Number((sum / periodTotals[activePeriod].length).toFixed(2));
+  } else {
+    periodAvg = totalCumulativeCount > 0 ? Number((totalCumulativeSum / totalCumulativeCount).toFixed(2)) : (student.avgGrade || 0);
+  }
+
+  const overallAvg = totalCumulativeCount > 0 
+    ? Number((totalCumulativeSum / totalCumulativeCount).toFixed(2)) 
+    : (student.avgGrade || 0);
+
+  return {
+    overallAvg,
+    periodAvg,
+    subjectAverages,
+    periodSubjectAverages
+  };
+};
   id: string;
   name: string;
   courses: string;
@@ -1405,11 +1484,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      const finalNote = calculateDetailedFinal(detailed);
+      const tempStudent = { ...student, detailedGrades: newDetailedGrades };
+      const summary = calculateStudentAcademicSummary(tempStudent, periodId);
       
       const updates = { 
         detailedGrades: newDetailedGrades,
-        avgGrade: finalNote 
+        avgGrade: summary.periodAvg 
       };
 
       await updateDoc(doc(db, "students", studentId), updates);
@@ -1438,10 +1518,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         };
 
-        const finalNote = calculateDetailedFinal(item.detailed);
+        const tempStudent = { ...student, detailedGrades: newDetailedGrades };
+        const summary = calculateStudentAcademicSummary(tempStudent, periodId);
         const updates = { 
           detailedGrades: newDetailedGrades,
-          avgGrade: finalNote 
+          avgGrade: summary.periodAvg 
         };
         allUpdates.push({ studentId: item.studentId, updates });
       }
