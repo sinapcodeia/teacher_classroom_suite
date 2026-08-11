@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import { 
   Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, 
@@ -15,7 +16,12 @@ interface AttendanceAnalyticsProps {
 
 export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnalyticsProps) {
   const { students, allUsers } = useApp();
+  const [mounted, setMounted] = useState(false);
   
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -484,7 +490,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
       </div>
 
       {/* ── MODAL DE DRILLDOWN (360 GRADOS) ── */}
-      {drilldownData && (
+      {drilldownData && mounted && document.body && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 md:p-6 overflow-hidden">
           <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-outline-variant/40 overflow-hidden">
             
@@ -562,7 +568,8 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, memo } from "react";
+import { useMemo, useState, memo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useApp, normalizeGrade } from "@/context/AppContext";
 import { 
   Users, UserCheck, UserX, Cake, Award, 
@@ -16,8 +17,13 @@ import { calculateStudentAcademicSummary } from "@/context/AppContext";
 
 const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
+  const [mounted, setMounted] = useState(false);
   const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo" | "asistencia">("rector");
   const [gradeSearchQuery, setGradeSearchQuery] = useState<string>("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<"acumulado" | "p1" | "p2" | "p3">("acumulado");
@@ -635,7 +641,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       )}
 
       {/* ── MODAL DE DRILLDOWN (TOTALMENTE REDISEÑADO & SIN DESBORDAMIENTO) ── */}
-      {drilldownData && (
+      {drilldownData && mounted && document.body && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 md:p-6 overflow-hidden">
           <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-outline-variant/40 overflow-hidden">
             
@@ -662,7 +668,10 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
                 drilldownData.students.map((student) => (
                   <div 
                     key={student.id} 
-                    onClick={() => setSelectedStudent(student)}
+                    onClick={() => {
+                      setDrilldownData(null);
+                      setSelectedStudent(student);
+                    }}
                     className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-lg transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
                   >
                     <div className="flex items-center gap-4">
@@ -670,36 +679,31 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
                         {student.primerApellido?.[0] || "E"}{student.primerNombre?.[0] || "A"}
                       </div>
                       <div>
-                        <p className="font-black text-sm uppercase text-slate-900">
+                        <h4 className="text-sm font-black text-on-surface uppercase group-hover:text-indigo-700 transition-colors">
                           {student.primerApellido} {student.segundoApellido || ""} {student.primerNombre} {student.segundoNombre || ""}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-3 mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          <span>Doc: {student.nroDocumento || "N/A"}</span>
-                          <span>•</span>
-                          <span>Grado {normalizeGrade(student.grado)} - Curso {student.curso}</span>
-                          <span>•</span>
-                          <span className={student.genero === "M" ? "text-blue-600 font-black" : "text-rose-600 font-black"}>
-                            {student.genero === "M" ? "Hombre (M)" : "Mujer (F)"}
+                        </h4>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            DOC: {student.nroDocumento}
+                          </span>
+                          <div className="w-1 h-1 rounded-full bg-slate-300" />
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            Grado {normalizeGrade(student.grado)} - Curso {student.curso}
                           </span>
                         </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3 self-end sm:self-center">
-                      {student.avgGrade && (
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black ${student.avgGrade < 3.0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          Prom: {Number(student.avgGrade).toFixed(1)}
-                        </span>
-                      )}
-                      <span className="text-[10px] font-black text-indigo-600 group-hover:translate-x-1 transition-transform flex items-center gap-1 uppercase">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase text-indigo-600 group-hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-xl">
                         Ficha 360° <ChevronRight size={14} />
                       </span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-16 text-center text-slate-400 font-bold italic">
-                  No se encontraron estudiantes para este filtro.
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                  <UserCheck size={48} className="mb-4 opacity-20" />
+                  <p className="text-sm font-bold uppercase tracking-widest">No se encontraron registros</p>
                 </div>
               )}
             </div>
@@ -715,7 +719,8 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL FICHA 360 DEL ESTUDIANTE */}
