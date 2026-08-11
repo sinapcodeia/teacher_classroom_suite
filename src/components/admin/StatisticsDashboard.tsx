@@ -5,7 +5,9 @@ import { useApp, normalizeGrade } from "@/context/AppContext";
 import { 
   Users, UserCheck, UserX, Cake, Award, 
   BarChart3, PieChart, TrendingDown, MapPin, 
-  ChevronRight, AlertCircle, Calendar, X, GraduationCap
+  ChevronRight, AlertCircle, Calendar, X, GraduationCap,
+  Sparkles, FileText, CheckCircle2, AlertTriangle, ShieldCheck,
+  Building2, Briefcase, HeartHandshake, Eye, ArrowRight, User
 } from "lucide-react";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
@@ -13,6 +15,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
   const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo">("rector");
 
   const stats = useMemo(() => {
     // Solo procesar estudiantes activos
@@ -53,6 +56,36 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
     });
 
     const avgAge = agesList.length ? agesList.reduce((a, b) => a + b, 0) / agesList.length : 0;
+
+    // --- ANÁLISIS DE POBLACIÓN ADULTA (18+ AÑOS) ---
+    const adults = ageDemographics.adultos;
+    const adultsByGrade: Record<string, { total: number; m: number; f: number; riskCount: number; students: any[] }> = {};
+    
+    adults.forEach(s => {
+      const g = normalizeGrade(s.grado);
+      if (!adultsByGrade[g]) {
+        adultsByGrade[g] = { total: 0, m: 0, f: 0, riskCount: 0, students: [] };
+      }
+      adultsByGrade[g].total++;
+      adultsByGrade[g].students.push(s);
+      if (s.genero === "M") adultsByGrade[g].m++;
+      if (s.genero === "F") adultsByGrade[g].f++;
+      if (s.avgGrade && s.avgGrade < 3.0) adultsByGrade[g].riskCount++;
+    });
+
+    const sortedAdultsGrades = Object.entries(adultsByGrade).sort((a, b) => {
+      if (a[0] === "PREESCOLAR") return -1;
+      if (b[0] === "PREESCOLAR") return 1;
+      const ga = parseInt(a[0]);
+      const gb = parseInt(b[0]);
+      if (isNaN(ga)) return 1;
+      if (isNaN(gb)) return -1;
+      return ga - gb;
+    });
+
+    const adultMenCount = adults.filter(s => s.genero === "M").length;
+    const adultWomenCount = adults.filter(s => s.genero === "F").length;
+    const adultRiskCount = adults.filter(s => s.avgGrade < 3.0).length;
 
     // --- NIVEL ACADÉMICO (Primaria vs Bachillerato) ---
     const primaria = activeStudents.filter(s => {
@@ -124,7 +157,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       return monthDay === todayStr;
     });
 
-    // Cálculo de curso con más mujeres
+    // Curso con mayor población femenina
     const courseStats: Record<string, any[]> = {};
     activeStudents.forEach(s => {
       const c = s.curso || "N/A";
@@ -133,9 +166,9 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
     });
     
     let topFemaleCourse = { course: "N/A", ratio: 0, count: 0, students: [] as any[] };
-    Object.entries(courseStats).forEach(([course, students]) => {
-      const women = students.filter(s => s.genero === "F");
-      const ratio = women.length / students.length;
+    Object.entries(courseStats).forEach(([course, stList]) => {
+      const women = stList.filter(s => s.genero === "F");
+      const ratio = stList.length ? women.length / stList.length : 0;
       if (ratio > topFemaleCourse.ratio || (ratio === topFemaleCourse.ratio && women.length > topFemaleCourse.count)) {
         topFemaleCourse = { course, ratio, count: women.length, students: women };
       }
@@ -146,6 +179,8 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       menList, womenList, 
       avgAge: avgAge.toFixed(1), 
       majorities: ageDemographics.adultos,
+      adultMenCount, adultWomenCount, adultRiskCount,
+      sortedAdultsGrades,
       primariaStats, bachilleratoStats, 
       sortedGrades,
       topFemaleCourse, ageDemographics, 
@@ -165,11 +200,41 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Top Quick Stats - Rediseño Profesional & Simétrico */}
+
+      {/* ── NAVEGACIÓN DE VISTAS POR ROL DIRECTIVO (MODERNO & DIDÁCTICO) ── */}
+      <div className="bg-white p-3 rounded-[2.5rem] border border-outline-variant/40 shadow-lg flex flex-wrap gap-2 justify-between items-center">
+        <div className="flex items-center gap-2 px-4 py-2">
+          <Sparkles className="text-amber-500 animate-pulse" size={20} />
+          <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">Analítica Directiva Asistida por IA</span>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/60">
+          <button
+            onClick={() => setActiveRoleView("rector")}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeRoleView === "rector" ? "bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 scale-[1.02]" : "text-slate-600 hover:text-slate-900"}`}
+          >
+            <Building2 size={16} /> Rectoría & Gerencia
+          </button>
+          <button
+            onClick={() => setActiveRoleView("coordinador")}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeRoleView === "coordinador" ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30 scale-[1.02]" : "text-slate-600 hover:text-slate-900"}`}
+          >
+            <Briefcase size={16} /> Coordinación Académica
+          </button>
+          <button
+            onClick={() => setActiveRoleView("apoyo")}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeRoleView === "apoyo" ? "bg-rose-600 text-white shadow-xl shadow-rose-600/30 scale-[1.02]" : "text-slate-600 hover:text-slate-900"}`}
+          >
+            <HeartHandshake size={16} /> Personal de Apoyo
+          </button>
+        </div>
+      </div>
+
+      {/* ── TOP KPI STATS - REDISEÑO PROFESIONAL & SIMÉTRICO (SIN TRUNCAZONAS) ── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
         {/* CARD 1: Población Total */}
         <div 
-          onClick={() => setDrilldownData({title: "Población Estudiantil", students: stats.activeStudents})}
+          onClick={() => setDrilldownData({title: "Población Estudiantil Activa", students: stats.activeStudents})}
           className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-blue-500"
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Users size={70} /></div>
@@ -181,9 +246,9 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
           </div>
         </div>
 
-        {/* CARD 2: Equidad de Género (Corregido desbordamiento) */}
+        {/* CARD 2: Equidad de Género (Layout Resiliente y Nítido) */}
         <div 
-          onClick={() => setDrilldownData({title: "Distribución por Género", students: [...stats.womenList, ...stats.menList]})}
+          onClick={() => setDrilldownData({title: "Distribución Completa por Género", students: [...stats.womenList, ...stats.menList]})}
           className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-indigo-500"
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><UserCheck size={70} /></div>
@@ -205,371 +270,404 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
           </div>
         </div>
 
-        {/* CARD 3: Mayores de Edad */}
+        {/* CARD 3: Mayores de Edad (18+) */}
         <div 
-          onClick={() => setDrilldownData({title: "Mayores de Edad (18+)", students: stats.majorities})}
+          onClick={() => setDrilldownData({title: "Alumnos Mayores de Edad (18+ Años)", students: stats.majorities})}
           className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-amber-500"
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Award size={70} /></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Mayores de Edad</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Mayores de Edad (18+)</p>
           <p className="text-3xl lg:text-4xl font-black text-on-surface leading-none">{stats.majorities.length}</p>
           <div className="mt-5 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Alumnos con 18+ años</span>
+            <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Población Adulta</span>
           </div>
         </div>
 
         {/* CARD 4: Riesgo Académico */}
         <div 
-          onClick={() => setDrilldownData({title: "Riesgo Académico", students: stats.performance.riesgo})}
-          className="bg-rose-50/30 p-6 rounded-[2rem] border border-rose-200/60 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-rose-500"
+          onClick={() => setDrilldownData({title: "Alumnos con Riesgo Académico", students: stats.performance.riesgo})}
+          className="bg-rose-50/40 p-6 rounded-[2rem] border border-rose-200/60 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-rose-500"
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.08] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><TrendingDown size={70} /></div>
           <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.15em] mb-2">Riesgo Académico</p>
           <p className="text-3xl lg:text-4xl font-black text-rose-600 leading-none">{stats.lowPerformance}</p>
           <div className="mt-5 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            <span className="text-[8px] font-black text-rose-600 uppercase tracking-widest">Bajo promedio mín.</span>
+            <span className="text-[8px] font-black text-rose-600 uppercase tracking-widest">Promedio &lt; 3.0</span>
           </div>
         </div>
       </div>
-            {/* NIVEL ACADÉMICO GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Primaria Stats Card */}
-        <div className="bg-white p-10 rounded-[3rem] border border-outline-variant/30 shadow-xl relative overflow-hidden group">
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-16 h-16 rounded-[1.5rem] bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <GraduationCap size={32} />
+
+      {/* ── VISTA DETALLADA: RECTORÍA & GERENCIA ── */}
+      {activeRoleView === "rector" && (
+        <div className="space-y-10 animate-in fade-in duration-500">
+          
+          {/* BOLETÍN EJECUTIVO ASISTIDO POR IA */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-[2.5rem] border border-white/10 text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-10"><Sparkles size={120} /></div>
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-amber-400 text-black text-[9px] font-black uppercase tracking-widest rounded-full">Boletín Inteligente</span>
+                <span className="text-white/60 text-xs font-bold uppercase tracking-widest">Resumen Gerencial del Día</span>
               </div>
+
+              <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight italic">
+                EduAI Data Analyst Bulletin – Informe Directivo Institucional
+              </h2>
+
+              <p className="text-sm text-white/80 leading-relaxed max-w-4xl font-medium">
+                Actualmente la institución cuenta con <strong className="text-amber-300">{stats.total} estudiantes activos</strong>. 
+                De estos, <strong className="text-amber-300">{stats.majorities.length} son adultos mayores de 18 años</strong> ({((stats.majorities.length / stats.total) * 100).toFixed(1)}% de la matrícula total), 
+                con una distribución de <strong className="text-blue-300">{stats.adultMenCount} Hombres</strong> y <strong className="text-pink-300">{stats.adultWomenCount} Mujeres</strong> adultos. 
+                Se registran <strong className="text-rose-400">{stats.lowPerformance} estudiantes en riesgo académico</strong> que requieren acompañamiento pedagógico inmediato.
+              </p>
+
+              <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold">
+                <div className="px-4 py-2 bg-white/10 rounded-xl border border-white/10 flex items-center gap-2">
+                  <UserCheck size={16} className="text-emerald-400" />
+                  <span>Índice de Paridad Global: {((Math.min(stats.menList.length, stats.womenList.length) / Math.max(stats.menList.length, stats.womenList.length, 1)) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="px-4 py-2 bg-white/10 rounded-xl border border-white/10 flex items-center gap-2">
+                  <GraduationCap size={16} className="text-indigo-400" />
+                  <span>Edad Promedio Institucional: {stats.avgAge} Años</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLA EJECUTIVA DETALLADA DE POBLACIÓN ADULTA (18+ AÑOS) */}
+          <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-outline-variant/30 shadow-xl space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
               <div>
-                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-on-surface">Sección Primaria</h3>
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Grados Preescolar a 5°</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-6 mb-8">
-              <div className="text-center p-4 bg-emerald-50 rounded-2xl">
-                 <p className="text-[9px] font-black text-emerald-700 uppercase mb-1">Total</p>
-                 <p className="text-3xl font-black text-on-surface">{stats.primariaStats.total}</p>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-2xl">
-                 <p className="text-[9px] font-black text-blue-700 uppercase mb-1">Hombres</p>
-                 <p className="text-3xl font-black text-on-surface">{stats.primariaStats.m}</p>
-              </div>
-              <div className="text-center p-4 bg-pink-50 rounded-2xl">
-                 <p className="text-[9px] font-black text-pink-700 uppercase mb-1">Mujeres</p>
-                 <p className="text-3xl font-black text-on-surface">{stats.primariaStats.f}</p>
-              </div>
-            </div>
-
-            <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex border border-slate-200">
-               <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${(stats.primariaStats.m/stats.primariaStats.total)*100}%` }} />
-               <div className="bg-pink-500 h-full transition-all duration-1000" style={{ width: `${(stats.primariaStats.f/stats.primariaStats.total)*100}%` }} />
-            </div>
-            <div className="flex justify-between mt-3 text-[9px] font-black uppercase text-slate-400 tracking-widest">
-               <span>Masculino {((stats.primariaStats.m/stats.primariaStats.total)*100 || 0).toFixed(0)}%</span>
-               <span>Femenino {((stats.primariaStats.f/stats.primariaStats.total)*100 || 0).toFixed(0)}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bachillerato Stats Card */}
-        <div className="bg-white p-10 rounded-[3rem] border border-outline-variant/30 shadow-xl relative overflow-hidden group">
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
-                <Award size={32} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-on-surface">Secundaria / Bach.</h3>
-                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Grados 6° a 11°</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-6 mb-8">
-              <div className="text-center p-4 bg-indigo-50 rounded-2xl">
-                 <p className="text-[9px] font-black text-indigo-700 uppercase mb-1">Total</p>
-                 <p className="text-3xl font-black text-on-surface">{stats.bachilleratoStats.total}</p>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-2xl">
-                 <p className="text-[9px] font-black text-blue-700 uppercase mb-1">Hombres</p>
-                 <p className="text-3xl font-black text-on-surface">{stats.bachilleratoStats.m}</p>
-              </div>
-              <div className="text-center p-4 bg-pink-50 rounded-2xl">
-                 <p className="text-[9px] font-black text-pink-700 uppercase mb-1">Mujeres</p>
-                 <p className="text-3xl font-black text-on-surface">{stats.bachilleratoStats.f}</p>
-              </div>
-            </div>
-
-            <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex border border-slate-200">
-               <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${(stats.bachilleratoStats.m/stats.bachilleratoStats.total)*100}%` }} />
-               <div className="bg-pink-500 h-full transition-all duration-1000" style={{ width: `${(stats.bachilleratoStats.f/stats.bachilleratoStats.total)*100}%` }} />
-            </div>
-            <div className="flex justify-between mt-3 text-[9px] font-black uppercase text-slate-400 tracking-widest">
-               <span>Masculino {((stats.bachilleratoStats.m/stats.bachilleratoStats.total)*100 || 0).toFixed(0)}%</span>
-               <span>Femenino {((stats.bachilleratoStats.f/stats.bachilleratoStats.total)*100 || 0).toFixed(0)}%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Middle Advanced Analytics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        
-        {/* Performance Tiers */}
-        <div className="bg-white p-10 rounded-[2.5rem] border border-outline-variant/30 shadow-[0_20px_50px_rgba(0,0,0,0.05)] flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-             <div>
-               <h3 className="text-[11px] font-black text-on-surface uppercase tracking-[0.2em] flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500"><BarChart3 size={18} /></div>
-                 Rendimiento Académico
-               </h3>
-             </div>
-          </div>
-          <div className="flex-1 flex flex-col justify-center space-y-6">
-             <div 
-               onClick={() => setDrilldownData({title: "Alumnos con Excelencia", students: stats.performance.excelencia})}
-               className="space-y-2 cursor-pointer hover:bg-slate-50 p-4 -m-4 rounded-[1.5rem] transition-all"
-             >
-                <div className="flex justify-between text-[10px] font-black uppercase text-amber-600">
-                   <span>Excelencia Académica</span>
-                   <span>{stats.performance.excelencia.length} Alumnos</span>
-                </div>
-                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                   <div className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(245,158,11,0.3)]" style={{ width: `${(stats.performance.excelencia.length/stats.total)*100}%` }}></div>
-                </div>
-             </div>
-             <div 
-               onClick={() => setDrilldownData({title: "Alumnos en Promedio", students: stats.performance.promedio})}
-               className="space-y-2 cursor-pointer hover:bg-slate-50 p-4 -m-4 rounded-[1.5rem] transition-all"
-             >
-                <div className="flex justify-between text-[10px] font-black uppercase text-blue-600">
-                   <span>Desempeño Promedio</span>
-                   <span>{stats.performance.promedio.length} Alumnos</span>
-                </div>
-                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                   <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-full rounded-full transition-all duration-1000" style={{ width: `${(stats.performance.promedio.length/stats.total)*100}%` }}></div>
-                </div>
-             </div>
-             <div 
-               onClick={() => setDrilldownData({title: "Alumnos en Riesgo", students: stats.performance.riesgo})}
-               className="space-y-2 cursor-pointer hover:bg-slate-50 p-4 -m-4 rounded-[1.5rem] transition-all"
-             >
-                <div className="flex justify-between text-[10px] font-black uppercase text-rose-600">
-                   <span>Riesgo Académico</span>
-                   <span>{stats.performance.riesgo.length} Alumnos</span>
-                </div>
-                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                   <div className="bg-gradient-to-r from-rose-400 to-rose-600 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(225,29,72,0.3)]" style={{ width: `${(stats.performance.riesgo.length/stats.total)*100}%` }}></div>
-                </div>
-             </div>
-          </div>
-        </div>
-
-        {/* Detailed Population per Grade */}
-        <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] border border-outline-variant/30 shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
-           <div className="flex items-center justify-between mb-8">
-              <h3 className="text-[11px] font-black text-on-surface uppercase tracking-[0.2em] flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500"><Users size={18} /></div>
-                 Población por Grado Individual
-              </h3>
-           </div>
-           
-           <div className="overflow-x-auto">
-             <table className="w-full">
-               <thead>
-                 <tr className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-                   <th className="pb-4 text-left">Grado</th>
-                   <th className="pb-4 text-center">Total</th>
-                   <th className="pb-4 text-center">Masculino</th>
-                   <th className="pb-4 text-center">Femenino</th>
-                   <th className="pb-4 text-right">Detalle</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {stats.sortedGrades.map(([grado, data]) => (
-                   <tr key={grado} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
-                     <td className="py-4 font-black text-on-surface text-sm uppercase italic">Grado {grado}</td>
-                     <td className="py-4 text-center">
-                        <span className="px-3 py-1 bg-slate-100 rounded-lg text-[11px] font-black text-slate-600">{data.total}</span>
-                     </td>
-                     <td className="py-4 text-center">
-                        <span className="text-[11px] font-bold text-blue-600">{data.m}</span>
-                     </td>
-                     <td className="py-4 text-center">
-                        <span className="text-[11px] font-bold text-pink-600">{data.f}</span>
-                     </td>
-                     <td className="py-4 text-right">
-                        <button 
-                          onClick={() => setDrilldownData({title: `Estudiantes Grado ${grado}°`, students: data.students})}
-                          className="p-2 hover:bg-on-surface hover:text-white rounded-xl transition-all"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                     </td>
-                   </tr>
-                 ))}
-               </tbody>
-             </table>
-           </div>
-        </div>
-      </div>
-
-      {/* Bottom Insights Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
-        
-        {/* Course Gender Demographics */}
-        <div 
-          onClick={() => setDrilldownData({title: `Mujeres en ${stats.topFemaleCourse.course}`, students: stats.topFemaleCourse.students})}
-          className="bg-primary text-white p-6 md:p-8 rounded-3xl shadow-xl relative overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12"><Users size={120} /></div>
-          <div className="relative z-10 h-full flex flex-col justify-between">
-            <div>
-               <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest flex items-center gap-2 mb-2 opacity-90">
-                 <MapPin size={16} /> Insight de Datos Demográficos
-               </h3>
-               <p className="text-sm font-medium opacity-80 leading-relaxed max-w-sm">
-                 Análisis de distribución de género y densidad poblacional por espacios curriculares.
-               </p>
-            </div>
-            
-            <div className="mt-8 bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20">
-               <p className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-2">Mayor Concentración Femenina</p>
-               <div className="flex items-end gap-4">
-                  <div className="text-5xl font-black">{stats.topFemaleCourse.course}</div>
-                  <div className="pb-1">
-                     <p className="text-sm font-bold text-pink-300">{(stats.topFemaleCourse.ratio * 100).toFixed(0)}% Mujeres</p>
-                     <p className="text-[10px] uppercase opacity-70 font-black tracking-wider">{stats.topFemaleCourse.count} alumnas</p>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black">
+                    <Award size={20} />
                   </div>
-               </div>
+                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-on-surface">
+                    Población de Estudiantes Adultos (18+ Años) por Grado
+                  </h3>
+                </div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Desglose por Grado, Sexo y Estado de Riesgo Académico para Gestión Gerencial
+                </p>
+              </div>
+
+              <button
+                onClick={() => setDrilldownData({title: "Listado de Alumnos Adultos (18+ Años)", students: stats.majorities})}
+                className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 self-start md:self-auto"
+              >
+                <Eye size={16} /> Ver Listado Completo de Adultos ({stats.majorities.length})
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+                    <th className="pb-4">Grado Escolar</th>
+                    <th className="pb-4 text-center">Total Adultos</th>
+                    <th className="pb-4 text-center">Hombres (M)</th>
+                    <th className="pb-4 text-center">Mujeres (F)</th>
+                    <th className="pb-4 text-center">En Riesgo (&lt; 3.0)</th>
+                    <th className="pb-4 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-bold">
+                  {stats.sortedAdultsGrades.length > 0 ? stats.sortedAdultsGrades.map(([grado, data]) => (
+                    <tr key={grado} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-4 font-black uppercase text-on-surface italic">Grado {grado}</td>
+                      <td className="py-4 text-center">
+                        <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-lg text-xs font-black">{data.total}</span>
+                      </td>
+                      <td className="py-4 text-center text-blue-600 font-black">{data.m}</td>
+                      <td className="py-4 text-center text-rose-600 font-black">{data.f}</td>
+                      <td className="py-4 text-center">
+                        {data.riskCount > 0 ? (
+                          <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-[10px] font-black uppercase">
+                            ⚠️ {data.riskCount} Alumno(s)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black text-emerald-600 uppercase">Sin Riesgo</span>
+                        )}
+                      </td>
+                      <td className="py-4 text-right">
+                        <button
+                          onClick={() => setDrilldownData({title: `Adultos (18+) en Grado ${grado}°`, students: data.students})}
+                          className="px-4 py-2 bg-slate-100 hover:bg-on-surface hover:text-white rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-1 ml-auto"
+                        >
+                          Ver Estudiantes <ChevronRight size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-medium italic">
+                        No hay estudiantes mayores de edad registrados en los filtros seleccionados.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* PIRÁMIDE DEMOGRÁFICA Y POBLACIÓN POR GRADO */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[3rem] border border-outline-variant/30 shadow-xl space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center font-black shadow-lg">
+                  <GraduationCap size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-on-surface">Sección Primaria (Pre-5°)</h3>
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total: {stats.primariaStats.total} Alumnos</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="p-4 bg-blue-50 rounded-2xl">
+                  <p className="text-[9px] font-black text-blue-700 uppercase">Hombres</p>
+                  <p className="text-3xl font-black text-blue-900">{stats.primariaStats.m}</p>
+                </div>
+                <div className="p-4 bg-rose-50 rounded-2xl">
+                  <p className="text-[9px] font-black text-rose-700 uppercase">Mujeres</p>
+                  <p className="text-3xl font-black text-rose-900">{stats.primariaStats.f}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[3rem] border border-outline-variant/30 shadow-xl space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black shadow-lg">
+                  <Award size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-on-surface">Secundaria / Bachillerato (6°-11°)</h3>
+                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Total: {stats.bachilleratoStats.total} Alumnos</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="p-4 bg-blue-50 rounded-2xl">
+                  <p className="text-[9px] font-black text-blue-700 uppercase">Hombres</p>
+                  <p className="text-3xl font-black text-blue-900">{stats.bachilleratoStats.m}</p>
+                </div>
+                <div className="p-4 bg-rose-50 rounded-2xl">
+                  <p className="text-[9px] font-black text-rose-700 uppercase">Mujeres</p>
+                  <p className="text-3xl font-black text-rose-900">{stats.bachilleratoStats.f}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Birthday Alerts & Events - ACTIVATED */}
-        <div className="space-y-6">
-          <div 
-            onClick={() => setDrilldownData({title: "Cumpleaños del Día", students: stats.birthdaysToday})}
-            className="bg-secondary/5 p-6 md:p-8 rounded-3xl border border-secondary/20 shadow-md relative overflow-hidden cursor-pointer hover:bg-secondary/10 transition-all group h-full flex flex-col"
-          >
-            <div className="absolute -right-4 -top-4 opacity-[0.03] rotate-12 group-hover:scale-125 transition-transform"><Cake size={120} /></div>
-            <h3 className="text-[10px] md:text-[11px] font-black text-secondary uppercase tracking-widest flex items-center gap-2 mb-6">
-              <Calendar size={16} /> Cumpleaños del Día
-            </h3>
-            <div className="flex-1">
+      {/* ── VISTA DETALLADA: COORDINACIÓN ACADÉMICA ── */}
+      {activeRoleView === "coordinador" && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl flex flex-col justify-between">
+              <div>
+                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Balance de Rendimiento</h3>
+                <div className="space-y-4">
+                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex justify-between items-center">
+                    <span className="text-xs font-black uppercase text-amber-800">Excelencia (≥ 4.5)</span>
+                    <span className="text-lg font-black text-amber-900">{stats.performance.excelencia.length}</span>
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex justify-between items-center">
+                    <span className="text-xs font-black uppercase text-blue-800">Promedio (3.0 - 4.4)</span>
+                    <span className="text-lg font-black text-blue-900">{stats.performance.promedio.length}</span>
+                  </div>
+                  <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 flex justify-between items-center">
+                    <span className="text-xs font-black uppercase text-rose-800">Riesgo Académico (&lt; 3.0)</span>
+                    <span className="text-lg font-black text-rose-900">{stats.performance.riesgo.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Población por Grado Individual</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[9px] font-black uppercase text-slate-400 tracking-widest border-b">
+                      <th className="pb-3">Grado</th>
+                      <th className="pb-3 text-center">Total</th>
+                      <th className="pb-3 text-center">Hombres</th>
+                      <th className="pb-3 text-center">Mujeres</th>
+                      <th className="pb-3 text-right">Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-xs font-bold">
+                    {stats.sortedGrades.map(([grado, data]) => (
+                      <tr key={grado}>
+                        <td className="py-3 font-black uppercase italic">Grado {grado}</td>
+                        <td className="py-3 text-center font-black">{data.total}</td>
+                        <td className="py-3 text-center text-blue-600">{data.m}</td>
+                        <td className="py-3 text-center text-rose-600">{data.f}</td>
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() => setDrilldownData({title: `Estudiantes Grado ${grado}°`, students: data.students})}
+                            className="px-3 py-1 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-lg text-[9px] font-black uppercase transition-all"
+                          >
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VISTA DETALLADA: PERSONAL DE APOYO & CONVIVENCIA ── */}
+      {activeRoleView === "apoyo" && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl space-y-6">
+              <div className="flex items-center gap-3">
+                <Cake className="text-rose-500" size={24} />
+                <h3 className="text-sm font-black uppercase tracking-widest">Pedagogía del Afecto (Cumpleaños Hoy)</h3>
+              </div>
+
               {stats.birthdaysToday.length > 0 ? (
-                <div className="space-y-4 relative z-10">
+                <div className="space-y-3">
                   {stats.birthdaysToday.map((s, i) => (
-                    <div key={i} className="bg-white p-4 md:p-5 rounded-2xl border border-secondary/10 flex items-center justify-between shadow-sm">
-                      <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 bg-secondary/10 text-secondary rounded-xl flex items-center justify-center font-black animate-bounce"><Cake size={18}/></div>
-                         <div>
-                            <p className="font-black text-xs md:text-sm uppercase text-on-surface">{s.primerNombre} {s.primerApellido}</p>
-                            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">Grado {normalizeGrade(s.grado)} - {s.curso}</p>
-                         </div>
+                    <div key={i} className="p-4 bg-rose-50 rounded-2xl border border-rose-100 flex items-center justify-between">
+                      <div>
+                        <p className="font-black text-xs uppercase text-rose-900">{s.primerNombre} {s.primerApellido}</p>
+                        <p className="text-[9px] font-bold text-rose-700 uppercase">Grado {normalizeGrade(s.grado)} - {s.curso}</p>
                       </div>
-                      <span className="text-[9px] font-black bg-secondary text-white px-3 py-1.5 rounded-lg uppercase hidden sm:block">Hoy</span>
+                      <span className="text-[9px] font-black bg-rose-500 text-white px-3 py-1 rounded-full uppercase">Hoy</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="h-full min-h-[150px] flex items-center justify-center flex-col text-on-surface-variant opacity-40 relative z-10">
-                  <Cake size={48} className="mb-4" />
-                  <p className="font-black uppercase tracking-widest text-[10px]">No hay cumpleaños hoy.</p>
-                </div>
+                <p className="text-xs text-slate-400 font-bold italic text-center py-8">No hay cumpleañeros registrados para el día de hoy.</p>
               )}
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-outline-variant/30 shadow-xl space-y-6">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="text-amber-500" size={24} />
+                <h3 className="text-sm font-black uppercase tracking-widest">Atención por Ausentismo Recurrente</h3>
+              </div>
+
+              <div className="space-y-3">
+                {stats.attendanceRisk.map((s, i) => (
+                  <div key={i} className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+                    <div>
+                      <p className="font-black text-xs uppercase text-amber-900">{s.primerNombre} {s.primerApellido}</p>
+                      <p className="text-[9px] font-bold text-amber-700 uppercase">Grado {normalizeGrade(s.grado)} - {s.curso}</p>
+                    </div>
+                    <span className="text-[9px] font-black bg-amber-500 text-white px-3 py-1 rounded-full uppercase">{s.attNum}% Asistencia</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Role-Based Panel Links - ACTIVATED */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-         {[
-           { id: "rectoria", label: "Rectoría", color: "bg-on-surface", desc: "Balance Institucional" },
-           { id: "coordinacion", label: "Coordinación", color: "bg-primary", desc: "Control Académico" },
-           { id: "convivencia", label: "Convivencia", color: "bg-secondary", desc: "Seguimiento Social" },
-           { id: "docentes", label: "Docentes", color: "bg-amber-600", desc: "Gestión y Seguimiento" }
-         ].map(panel => (
-           <button 
-             key={panel.id} 
-             onClick={() => {
-               if (panel.id === "docentes") window.location.href = "/admin?tab=teachers";
-               else alert(`Accediendo al Panel de ${panel.label}...\nFuncionalidad autorizada para personal administrativo.`);
-             }}
-             className={`${panel.color} text-white p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 hover:scale-[1.05] active:scale-95 transition-all shadow-2xl border-4 border-white/10 group`}
-           >
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-1 group-hover:rotate-12 transition-transform">
-                 <ShieldCheck size={24} />
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em]">{panel.label}</span>
-              <span className="text-[7px] font-bold opacity-60 uppercase tracking-widest">{panel.desc}</span>
-           </button>
-         ))}
-      </div>
-
-      {/* DRILLDOWN MODAL OVERLAY */}
+      {/* ── MODAL DE DRILLDOWN (TOTALMENTE REDISEÑADO & SIN DESBORDAMIENTO) ── */}
       {drilldownData && (
-        <div className="fixed inset-0 z-[100] bg-on-surface/40 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
-             <div className="p-6 md:p-8 flex items-center justify-between border-b border-outline-variant/30">
-               <div>
-                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">{drilldownData.title}</h2>
-                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mt-1">
-                    {drilldownData.students.length} Registros Encontrados
-                  </p>
-               </div>
-               <button onClick={() => setDrilldownData(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors"><X size={24}/></button>
-             </div>
-             <div className="p-6 md:p-8 overflow-y-auto space-y-3">
-               {drilldownData.students.length > 0 ? drilldownData.students.map(student => (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 md:p-6 overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-outline-variant/40 overflow-hidden">
+            
+            {/* Header del Modal */}
+            <div className="p-6 md:p-8 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-amber-400">Detalle de Población Estudiantil</span>
+                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white mt-0.5">{drilldownData.title}</h2>
+                <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest mt-1">
+                  {drilldownData.students.length} Estudiante(s) Registrado(s)
+                </p>
+              </div>
+              <button 
+                onClick={() => setDrilldownData(null)} 
+                className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Lista de Estudiantes con Scroll */}
+            <div className="p-6 md:p-8 overflow-y-auto space-y-3 flex-1 bg-slate-50/50">
+              {drilldownData.students.length > 0 ? (
+                drilldownData.students.map((student) => (
                   <div 
                     key={student.id} 
                     onClick={() => setSelectedStudent(student)}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between bg-surface-container-low p-4 rounded-2xl hover:bg-surface-container transition-colors cursor-pointer border border-transparent hover:border-outline-variant/50"
+                    className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-lg transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
                   >
-                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
-                           {student.primerApellido[0]}{student.primerNombre[0]}
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 font-black flex items-center justify-center text-sm shadow-inner group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        {student.primerApellido?.[0] || "E"}{student.primerNombre?.[0] || "A"}
+                      </div>
+                      <div>
+                        <p className="font-black text-sm uppercase text-slate-900">
+                          {student.primerApellido} {student.segundoApellido || ""} {student.primerNombre} {student.segundoNombre || ""}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span>Doc: {student.nroDocumento || "N/A"}</span>
+                          <span>•</span>
+                          <span>Grado {normalizeGrade(student.grado)} - Curso {student.curso}</span>
+                          <span>•</span>
+                          <span className={student.genero === "M" ? "text-blue-600 font-black" : "text-rose-600 font-black"}>
+                            {student.genero === "M" ? "Hombre (M)" : "Mujer (F)"}
+                          </span>
                         </div>
-                        <div>
-                           <p className="font-black text-sm uppercase">{student.primerApellido} {student.segundoApellido} {student.primerNombre}</p>
-                           <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">
-                              ID: {student.nroDocumento} • Grado {normalizeGrade(student.grado)}-{student.curso}
-                           </p>
-                        </div>
-                     </div>
-                     <span className="text-[10px] font-black text-primary mt-3 sm:mt-0 uppercase flex items-center gap-1">Ver Perfil 360 <ChevronRight size={14}/></span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end sm:self-center">
+                      {student.avgGrade && (
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black ${student.avgGrade < 3.0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          Prom: {Number(student.avgGrade).toFixed(1)}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-black text-indigo-600 group-hover:translate-x-1 transition-transform flex items-center gap-1 uppercase">
+                        Ficha 360° <ChevronRight size={14} />
+                      </span>
+                    </div>
                   </div>
-               )) : (
-                  <div className="py-12 text-center opacity-40">
-                     <UserX size={48} className="mx-auto mb-4" />
-                     <p className="font-black uppercase tracking-widest text-[10px]">Sin resultados</p>
-                  </div>
-               )}
-             </div>
+                ))
+              ) : (
+                <div className="py-16 text-center text-slate-400 font-bold italic">
+                  No se encontraron estudiantes para este filtro.
+                </div>
+              )}
+            </div>
+
+            {/* Footer del Modal */}
+            <div className="p-4 bg-white border-t border-slate-200 text-center flex-shrink-0">
+              <button
+                onClick={() => setDrilldownData(null)}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+              >
+                Cerrar Ventana
+              </button>
+            </div>
+
           </div>
         </div>
       )}
 
-      {/* STUDENT PROFILE 360 MODAL */}
+      {/* MODAL FICHA 360 DEL ESTUDIANTE */}
       {selectedStudent && (
-        <StudentProfileModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
+        <StudentProfileModal
+          student={selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+        />
       )}
+
     </div>
   );
 });
 
-function ShieldCheck({size}: {size: number}) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-      <path d="m9 12 2 2 4-4"></path>
-    </svg>
-  );
-}
 export default StatisticsDashboard;

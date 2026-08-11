@@ -395,7 +395,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6 md:p-12 -mt-10 relative z-20">
+      <main className="max-w-7xl mx-auto p-6 md:p-10 relative z-10">
         {importSummary && (
           <div className="mb-8 animate-fade-in-up">
             <div className="bg-secondary text-white px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center justify-between border border-white/20 premium-gradient">
@@ -411,9 +411,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <aside className="lg:col-span-3">
-            <div className="bg-white rounded-[3rem] p-6 shadow-[0_30px_60px_rgba(0,0,0,0.08)] border border-outline-variant/20 flex flex-col gap-3 sticky top-10">
+            <div className="bg-white rounded-[2.5rem] p-5 shadow-xl border border-outline-variant/30 flex flex-col gap-2.5 sticky top-24">
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2 px-4">Panel de Control</p>
               {[
                 { id: "stats",    label: "Inteligencia", icon: BarChart3, color: "bg-blue-500" },
