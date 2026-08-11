@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { doc, writeBatch } from "firebase/firestore";
 import { Database, AlertTriangle, CheckCircle2, Search, Wrench, ShieldCheck, Activity, Zap } from "lucide-react";
@@ -164,7 +164,7 @@ export default function AuditPage() {
 
               {isFixing ? (
                 <div className="p-8 bg-slate-800/80 rounded-3xl border border-indigo-500/30 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-300" style={{ width: \`\${progress}%\` }}></div>
+                  <div className="absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
                   <div className="flex flex-col items-center justify-center text-center gap-4">
                     <Zap size={40} className="text-indigo-400 animate-bounce" />
                     <p className="text-sm font-black uppercase text-indigo-300 tracking-widest">Saneando Datos ({progress}%)...</p>
