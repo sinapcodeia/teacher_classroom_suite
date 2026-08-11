@@ -60,12 +60,6 @@
     color: #0369a1;
     font-size: 11pt;
   }
-  .highlight-box {
-    background-color: #f8fafc;
-    border: 1pt solid #e2e8f0;
-    padding: 12pt;
-    margin: 12pt 0;
-  }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -94,15 +88,6 @@
   li {
     margin-bottom: 4pt;
   }
-  .badge {
-    display: inline-block;
-    background-color: #dbeafe;
-    color: #1e40af;
-    font-weight: bold;
-    padding: 2pt 6pt;
-    border-radius: 3pt;
-    font-size: 9pt;
-  }
   .footer {
     margin-top: 30pt;
     border-top: 1pt solid #cbd5e1;
@@ -116,7 +101,7 @@
 <body>
 
 <h1>🎓 PRESENTACIÓN EJECUTIVA DEL PROYECTO</h1>
-<div class="subtitle">EduManager – Teacher Classroom Suite (v2.5.0)<br>Plataforma de Gobernanza Institucional, Analítica Administrativa, Aula en Vivo e Innovación Pedagógica</div>
+<div class="subtitle">EduManager – Teacher Classroom Suite (v2.5.0)<br>Plataforma de Gobernanza Institucional, Analítica Administrativa, Control de Asistencia, Aula en Vivo e Innovación Pedagógica</div>
 
 <div class="author-box">
   <div class="author-title">🏛️ Dirección de Ingeniería & Desarrollo Tecnológico</div>
@@ -125,7 +110,7 @@
 
 <h2>1. Resumen Ejecutivo & Impacto Institucional</h2>
 <p><strong>EduManager v2.5.0</strong> es una suite tecnológica de gobernanza educativa concebida para transformar la toma de decisiones estratégicas a nivel institucional. Desarrollada de manera experta por el <strong>Ing. Antonio Rodríguez</strong> bajo la marca <strong>SinapCode</strong>, la plataforma integra en tiempo real la operación pedagógica del aula con los tableros de control directivos de la Rectoría y las Coordinaciones Académicas.</p>
-<p>Con un enfoque de <strong>Operación 100% Offline (PWA)</strong> y <strong>Analítica Predictiva de Datos</strong>, EduManager consolida la información demográfica, académica y convivencial de toda la población estudiantil, permitiendo un monitoreo exhaustivo sobre la deserción, el ausentismo, el rendimiento por pilares evaluativos y el cumplimiento de las mallas curriculares.</p>
+<p>Con un enfoque de <strong>Operación 100% Offline (PWA)</strong>, <strong>Control de Asistencia en Tiempo Real</strong> e <strong>Histórico Mensual por Estudiante</strong>, EduManager consolida la información demográfica, académica y convivencial de toda la población estudiantil, permitiendo un monitoreo exhaustivo sobre la deserción, el ausentismo, la productividad docente, el rendimiento por pilares evaluativos y el cumplimiento de las mallas curriculares.</p>
 
 <h2>2. Módulos de Informes y Tableros Directivos</h2>
 
@@ -133,27 +118,26 @@
 <p>Diseñado para la toma de decisiones ejecutivas y rendición de cuentas ante Secretarías de Educación y SIMAT.</p>
 <ul>
   <li><strong>Caracterización Demográfica 360°:</strong> Censo poblacional estudiantil completo desglosado por <strong>Edad, Sexo, Sede, Jornada, Grado y Curso</strong>, con indicadores de vulnerabilidad social.</li>
-  <li><strong>Tablero Macro de Ausentismo & Alerta Temprana:</strong> Alertas automáticas para estudiantes con &gt;15% de inasistencias sin justificar para prevenir la deserción escolar.</li>
-  <li><strong>Índice de Rendimiento Académico Global:</strong> Porcentaje de estudiantes aprobados, en riesgo (&lt; 3.0) y reprobados por periodo, con históricos por asignatura.</li>
-  <li><strong>Métrica de Productividad Docente:</strong> Cumplimiento real de la Malla Curricular (Temas dictados vs. Tiempo del periodo), oportunidad en el cargue de notas y control de carga horaria.</li>
+  <li><strong>Desglose de Población Adulta (18+ Años):</strong> Análisis de adultos por <strong>Grado Escolar (6° a 11°)</strong>, distribución por <strong>Sexo (Hombres / Mujeres)</strong> y conteo de alumnos en <strong>Riesgo Académico (&lt; 3.0)</strong>.</li>
+  <li><strong>Tablero Macro de Ausentismo & Alerta de Deserción:</strong> Alertas automáticas para estudiantes con &gt;15% de inasistencias sin justificar para prevenir el abandono escolar.</li>
+  <li><strong>Métrica de Productividad y Alertas Directivas:</strong> Detección en tiempo real de salones/cursos sin reporte de asistencia o notas del día, identificando al docente responsable.</li>
 </ul>
 
-<h3>📋 B. Módulo de Coordinadores: Gestión Académica, Convivencial y Supervisión</h3>
-<p>Diseñado para auditar la labor didáctica diaria, el rendimiento por materias y el clima escolar de cada sede.</p>
+<h3>📋 B. Módulo de Coordinadores: Asistencia, Convivencia y Supervisión Académica</h3>
+<p>Diseñado para auditar la asistencia diaria, el rendimiento por materias y el clima escolar de cada sede.</p>
 <ul>
+  <li><strong>Asistencia en Tiempo Real e Histórico Mensual:</strong> Registro diario de Presentes (P), Ausentes (A), Excusas Médicas (E) y Retardos (T) con filtro por Mes (Enero-Diciembre).</li>
+  <li><strong>Reporte por Salón y Docente Responsable:</strong> Identificación del docente titular asignado al curso y estado del reporte de asistencia del día.</li>
   <li><strong>Analítica Comparativa por Cursos:</strong> Ranking de rendimiento por salones, detección de <em>"Asignaturas Críticas"</em> y sábanas de notas consolidadas en formato horizontal.</li>
-  <li><strong>Mapa de Ausentismo y Convivencia:</strong> Mapa de calor de faltas por día/hora, faltas justificadas vs. no justificadas e historial del Observador del Estudiante (Leves, Graves, Gravísimas).</li>
   <li><strong>Control de Nivelación y Compromisos:</strong> Seguimiento a planes de recuperación para estudiantes con promedio &lt; 3.0.</li>
-  <li><strong>Auditoría Curricular:</strong> Verificación del equilibrio evaluativo en los 5 pilares institucionales (SB, SBH, SR, CV, AUT).</li>
 </ul>
 
 <h3>👨‍🏫 C. Módulo de Docentes: Operación Didáctica & Aula en Vivo</h3>
 <p>Diseñado para eliminar la sobrecarga de trámites y entregar herramientas pedagógicas de alto impacto visual.</p>
 <ul>
-  <li><strong>Ficha 360° del Estudiante:</strong> Hoja de vida digital con foto, datos de acudientes, historial acumulado de notas por pilar e inasistencias.</li>
+  <li><strong>Ficha 360° del Estudiante:</strong> Hoja de vida digital con foto, datos de acudientes, historial acumulado de notas por pilar y registro de asistencia fecha por fecha.</li>
   <li><strong>Registro de Aula y Asistencia:</strong> Marcación en 1 clic y calificador masivo con atajos de teclado (Enter / Tab) respaldado en lotes WriteBatch.</li>
-  <li><strong>Motor Didáctico de Clases Interactivas (Estilo Genially):** Generador en 3 preguntas (Genially Wizard), proyección en pantalla completa con Infografías Isométricas CGI 3D, Tarjetas Giratorias (Flip-Cards) y Quizzes gamificados.</li>
-  <li><strong>Marcación Curricular:</strong> Registro de Hilos del Saber cubiertos en clase con actualización automática hacia el tablero directivo del Rector.</li>
+  <li><strong>Motor Didáctico de Clases Interactivas (Estilo Genially):</strong> Generador en 3 preguntas (Genially Wizard), proyección en pantalla completa con Infografías Isométricas CGI 3D, Tarjetas Giratorias (Flip-Cards) y Quizzes gamificados.</li>
 </ul>
 
 <h2>3. Arquitectura Tecnológica & Impacto Administrativo</h2>
@@ -173,24 +157,29 @@
       <td>Cero frenos en la operación por caídas de luz o internet en sedes rurales.</td>
     </tr>
     <tr>
+      <td><strong>Control de Asistencia & Ausentismo</strong></td>
+      <td>Métrica diaria y mensual con desglose P/A/E/T por salón y alumno.</td>
+      <td>Monitoreo en tiempo real para erradicar la deserción escolar silenciosa.</td>
+    </tr>
+    <tr>
+      <td><strong>Alertas de Productividad Docente</strong></td>
+      <td>Identificación automática de salones y docentes sin reporte del día.</td>
+      <td>Transparencia y supervisión efectiva para el equipo directivo.</td>
+    </tr>
+    <tr>
       <td><strong>Gobernanza Multinivel</strong></td>
       <td>Control de acceso por roles (Rector, Coordinador, Docente, SuperAdmin).</td>
       <td>Seguridad, privacidad e integridad de la información institucional.</td>
-    </tr>
-    <tr>
-      <td><strong>Trazabilidad y Respaldos</strong></td>
-      <td>Copias de seguridad automáticas en ZIP (backup_code.ps1) y versión firmada (v2.5.0).</td>
-      <td>Total respaldo de actas y sábanas de notas para comités de evaluación.</td>
     </tr>
   </tbody>
 </table>
 
 <h2>4. Resumen del Impacto Administrativo para la Rectoría</h2>
 <ol>
-  <li><strong>Visibilidad 360° en Tiempo Real:</strong> El Rector conoce al instante el ausentismo, la reprobación y la demografía por edad/sexo de cada sede y salón.</li>
+  <li><strong>Visibilidad 360° en Tiempo Real:</strong> El Rector conoce al instante el ausentismo diario, la asistencia mensual, la población adulta (18+) por grado/sexo y la reprobación.</li>
+  <li><strong>Novedades de Baja Productividad:</strong> Detección inmediata de salones sin registro de asistencia identificando al docente responsable.</li>
   <li><strong>Reducción del 70% en Tiempos de Reporte:</strong> Generación inmediata de sábanas consolidables para reuniones de consejo académico o reportes oficiales (SIMAT).</li>
   <li><strong>Cero Deserción Silenciosa:</strong> Detección temprana de ausentismo recurrente antes de que el estudiante abandone el sistema educativo.</li>
-  <li><strong>Supervisión Docente Transparente:</strong> Medición objetiva del avance de la malla curricular y del cumplimiento de registros de notas.</li>
 </ol>
 
 <div class="footer">

@@ -11,11 +11,13 @@ import {
 } from "lucide-react";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
+import AttendanceAnalytics from "@/components/admin/AttendanceAnalytics";
+
 const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
   const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo">("rector");
+  const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo" | "asistencia">("rector");
 
   const stats = useMemo(() => {
     // Solo procesar estudiantes activos
@@ -226,6 +228,12 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
             className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeRoleView === "apoyo" ? "bg-rose-600 text-white shadow-xl shadow-rose-600/30 scale-[1.02]" : "text-slate-600 hover:text-slate-900"}`}
           >
             <HeartHandshake size={16} /> Personal de Apoyo
+          </button>
+          <button
+            onClick={() => setActiveRoleView("asistencia")}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeRoleView === "asistencia" ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/30 scale-[1.02]" : "text-slate-600 hover:text-slate-900"}`}
+          >
+            <Calendar size={16} /> Asistencia & Productividad
           </button>
         </div>
       </div>
@@ -572,6 +580,9 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
             </div>
           </div>
         </div>
+      {/* ── VISTA DETALLADA: ASISTENCIA INSTITUCIONAL & PRODUCTIVIDAD ── */}
+      {activeRoleView === "asistencia" && (
+        <AttendanceAnalytics onSelectStudent={(s) => setSelectedStudent(s)} />
       )}
 
       {/* ── MODAL DE DRILLDOWN (TOTALMENTE REDISEÑADO & SIN DESBORDAMIENTO) ── */}
