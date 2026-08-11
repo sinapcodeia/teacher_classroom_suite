@@ -16,6 +16,8 @@ interface AttendanceAnalyticsProps {
 export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnalyticsProps) {
   const { students, allUsers } = useApp();
   
+  const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
+
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedMonth, setSelectedMonth] = useState<string>(todayStr.slice(0, 7)); // YYYY-MM
@@ -57,11 +59,11 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
     if (selectedGradoFilter !== "TODOS") target = target.filter(s => normalizeGrade(s.grado) === selectedGradoFilter);
     if (selectedCursoFilter !== "TODOS") target = target.filter(s => s.curso === selectedCursoFilter);
 
-    let presentes = 0;
-    let ausentes = 0;
-    let excusas = 0;
-    let retardos = 0;
-    let sinRegistro = 0;
+    let presentes = 0; let presentesList: any[] = [];
+    let ausentes = 0; let ausentesList: any[] = [];
+    let excusas = 0; let excusasList: any[] = [];
+    let retardos = 0; let retardosList: any[] = [];
+    let sinRegistro = 0; let sinRegistroList: any[] = [];
 
     const coursesStatus: Record<string, { total: number; presentes: number; ausentes: number; excusas: number; retardos: number; sinRegistro: number; teacher: string }> = {};
 
@@ -83,19 +85,19 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
       const rec = recRaw === 'present' ? 'P' : recRaw === 'absent' ? 'A' : recRaw === 'late' ? 'T' : recRaw === 'excused' ? 'E' : recRaw;
 
       if (rec === "P") {
-        presentes++;
+        presentes++; presentesList.push(s);
         coursesStatus[key].presentes++;
       } else if (rec === "A") {
-        ausentes++;
+        ausentes++; ausentesList.push(s);
         coursesStatus[key].ausentes++;
       } else if (rec === "E") {
-        excusas++;
+        excusas++; excusasList.push(s);
         coursesStatus[key].excusas++;
       } else if (rec === "T") {
-        retardos++;
+        retardos++; retardosList.push(s);
         coursesStatus[key].retardos++;
       } else {
-        sinRegistro++;
+        sinRegistro++; sinRegistroList.push(s);
         coursesStatus[key].sinRegistro++;
       }
     });
@@ -106,11 +108,12 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
     const lowProductivityCourses = Object.entries(coursesStatus).filter(([_, data]) => data.sinRegistro === data.total);
 
     return {
-      presentes, ausentes, excusas, retardos, sinRegistro, evaluados,
-      total: target.length,
-      pctAsistencia,
-      coursesStatus,
-      lowProductivityCourses
+      presentes, presentesList, 
+      ausentes, ausentesList, 
+      excusas, excusasList, 
+      retardos, retardosList, 
+      sinRegistro, sinRegistroList, 
+      evaluados, total: target.length, pctAsistencia, coursesStatus, lowProductivityCourses
     };
   }, [activeStudents, selectedDate, selectedGradoFilter, selectedCursoFilter, courseTeachers]);
 
@@ -262,33 +265,48 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
 
       {/* ── TARJETAS DE IMPACTO ASISTENCIA EN TIEMPO REAL ── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-emerald-500">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Presentes Hoy</p>
+        <div 
+          onClick={() => setDrilldownData({title: "Estudiantes Presentes Hoy", students: dailyMetrics.presentesList})}
+          className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-emerald-500 cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
+        >
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-emerald-500 transition-colors">Presentes Hoy</p>
           <p className="text-3xl font-black text-emerald-600 leading-none">{dailyMetrics.presentes}</p>
           <p className="text-[8px] font-bold text-slate-400 uppercase mt-2">{dailyMetrics.pctAsistencia}% Asistencia Global</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-rose-500">
-          <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Ausentes Hoy</p>
+        <div 
+          onClick={() => setDrilldownData({title: "Estudiantes Ausentes Hoy", students: dailyMetrics.ausentesList})}
+          className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-rose-500 cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
+        >
+          <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1 group-hover:text-rose-600 transition-colors">Ausentes Hoy</p>
           <p className="text-3xl font-black text-rose-600 leading-none">{dailyMetrics.ausentes}</p>
           <p className="text-[8px] font-bold text-rose-500 uppercase mt-2">Inasistencias del día</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-amber-500">
-          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Excusas Médicas</p>
+        <div 
+          onClick={() => setDrilldownData({title: "Estudiantes con Excusa Hoy", students: dailyMetrics.excusasList})}
+          className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-amber-500 cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
+        >
+          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1 group-hover:text-amber-700 transition-colors">Excusas Médicas</p>
           <p className="text-3xl font-black text-amber-600 leading-none">{dailyMetrics.excusas}</p>
           <p className="text-[8px] font-bold text-amber-600 uppercase mt-2">Permisos Justificados</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-blue-500">
-          <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Llegadas Tardías</p>
+        <div 
+          onClick={() => setDrilldownData({title: "Estudiantes con Retardo Hoy", students: dailyMetrics.retardosList})}
+          className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-blue-500 cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
+        >
+          <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 group-hover:text-blue-700 transition-colors">Llegadas Tardías</p>
           <p className="text-3xl font-black text-blue-600 leading-none">{dailyMetrics.retardos}</p>
           <p className="text-[8px] font-bold text-blue-600 uppercase mt-2">Retardos de sesión</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-slate-400 col-span-2 lg:col-span-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Sin Registro Hoy</p>
-          <p className="text-3xl font-black text-slate-700 leading-none">{dailyMetrics.sinRegistro}</p>
+        <div 
+          onClick={() => setDrilldownData({title: "Estudiantes Sin Registro Hoy", students: dailyMetrics.sinRegistroList})}
+          className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-slate-400 cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
+        >
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 group-hover:text-slate-600 transition-colors">Sin Registro Hoy</p>
+          <p className="text-3xl font-black text-slate-800 leading-none">{dailyMetrics.sinRegistro}</p>
           <p className="text-[8px] font-bold text-slate-400 uppercase mt-2">Pendientes de reporte</p>
         </div>
       </div>
@@ -464,6 +482,88 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
         )}
 
       </div>
+
+      {/* ── MODAL DE DRILLDOWN (360 GRADOS) ── */}
+      {drilldownData && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 md:p-6 overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-outline-variant/40 overflow-hidden">
+            
+            {/* Header del Modal */}
+            <div className="p-6 md:p-8 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-amber-400">Detalle de Población Estudiantil</span>
+                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white mt-0.5">{drilldownData.title}</h2>
+                <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest mt-1">
+                  {drilldownData.students.length} Estudiante(s) Registrado(s)
+                </p>
+              </div>
+              <button 
+                onClick={() => setDrilldownData(null)} 
+                className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Lista de Estudiantes */}
+            <div className="p-6 md:p-8 overflow-y-auto space-y-3 flex-1 bg-slate-50/50">
+              {drilldownData.students.length > 0 ? (
+                drilldownData.students.map((student) => (
+                  <div 
+                    key={student.id} 
+                    onClick={() => {
+                      setDrilldownData(null);
+                      if(onSelectStudent) onSelectStudent(student);
+                    }}
+                    className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-lg transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 font-black flex items-center justify-center text-sm shadow-inner group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        {student.primerApellido?.[0] || "E"}{student.primerNombre?.[0] || "A"}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-on-surface uppercase group-hover:text-indigo-700 transition-colors">
+                          {student.primerApellido} {student.segundoApellido || ""} {student.primerNombre} {student.segundoNombre || ""}
+                        </h4>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            DOC: {student.nroDocumento}
+                          </span>
+                          <div className="w-1 h-1 rounded-full bg-slate-300" />
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            Grado {normalizeGrade(student.grado)} - Curso {student.curso}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase text-indigo-600 group-hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-xl">
+                        Ficha 360° <ChevronRight size={14} />
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                  <UserCheck2 size={48} className="mb-4 opacity-20" />
+                  <p className="text-sm font-bold uppercase tracking-widest">No hay estudiantes en esta categoría</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-white border-t border-slate-200 text-center flex-shrink-0">
+              <button
+                onClick={() => setDrilldownData(null)}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+              >
+                Cerrar Ventana
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
