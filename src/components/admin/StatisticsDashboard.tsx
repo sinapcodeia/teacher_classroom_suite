@@ -18,6 +18,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
   const [drilldownData, setDrilldownData] = useState<{title: string, students: any[]} | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo" | "asistencia">("rector");
+  const [gradeSearchQuery, setGradeSearchQuery] = useState<string>("");
 
   const stats = useMemo(() => {
     // Solo procesar estudiantes activos
@@ -242,7 +243,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
         {/* CARD 1: Población Total */}
         <div 
-          onClick={() => setDrilldownData({title: "Población Estudiantil Activa", students: stats.activeStudents})}
+          onClick={() => setDrilldownData({title: "Estudiantes Matriculados", students: stats.activeStudents})}
           className="bg-white p-6 rounded-[2rem] border border-outline-variant/40 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-blue-500"
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><Users size={70} /></div>
@@ -250,7 +251,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
           <p className="text-3xl lg:text-4xl font-black text-on-surface leading-none">{stats.total}</p>
           <div className="mt-5 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Activos en Firestore</span>
+            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Estudiantes Matriculados</span>
           </div>
         </div>
 
@@ -298,7 +299,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
           className="bg-rose-50/40 p-6 rounded-[2rem] border border-rose-200/60 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border-b-4 border-b-rose-500"
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.08] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-500"><TrendingDown size={70} /></div>
-          <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.15em] mb-2">Riesgo Académico</p>
+          <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.15em] mb-2">Alerta Académica</p>
           <p className="text-3xl lg:text-4xl font-black text-rose-600 leading-none">{stats.lowPerformance}</p>
           <div className="mt-5 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
@@ -311,36 +312,65 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       {activeRoleView === "rector" && (
         <div className="space-y-10 animate-in fade-in duration-500">
           
-          {/* BOLETÍN EJECUTIVO ASISTIDO POR IA */}
+          {/* RESUMEN PEDAGÓGICO HUMANIZADO */}
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-[2.5rem] border border-white/10 text-white shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10"><Sparkles size={120} /></div>
             <div className="relative z-10 space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-amber-400 text-black text-[9px] font-black uppercase tracking-widest rounded-full">Boletín Inteligente</span>
-                <span className="text-white/60 text-xs font-bold uppercase tracking-widest">Resumen Gerencial del Día</span>
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-amber-400" size={18} />
+                <span className="text-amber-400 text-xs font-black uppercase tracking-widest">Resumen del Día</span>
               </div>
 
-              <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight italic">
-                EduAI Data Analyst Bulletin – Informe Directivo Institucional
+              <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight italic text-white">
+                Panorama General del Colegio
               </h2>
 
               <p className="text-sm text-white/80 leading-relaxed max-w-4xl font-medium">
-                Actualmente la institución cuenta con <strong className="text-amber-300">{stats.total} estudiantes activos</strong>. 
-                De estos, <strong className="text-amber-300">{stats.majorities.length} son adultos mayores de 18 años</strong> ({((stats.majorities.length / stats.total) * 100).toFixed(1)}% de la matrícula total), 
+                Actualmente el colegio cuenta con <strong className="text-amber-300">{stats.total} estudiantes matriculados</strong>. 
+                De ellos, <strong className="text-amber-300">{stats.majorities.length} son jóvenes y adultos mayores de 18 años</strong> ({((stats.majorities.length / stats.total) * 100).toFixed(1)}% de la matrícula total), 
                 con una distribución de <strong className="text-blue-300">{stats.adultMenCount} Hombres</strong> y <strong className="text-pink-300">{stats.adultWomenCount} Mujeres</strong> adultos. 
-                Se registran <strong className="text-rose-400">{stats.lowPerformance} estudiantes en riesgo académico</strong> que requieren acompañamiento pedagógico inmediato.
+                Se registran <strong className="text-rose-400">{stats.lowPerformance} estudiantes en alerta académica</strong> que requieren acompañamiento en este periodo.
               </p>
 
               <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold">
                 <div className="px-4 py-2 bg-white/10 rounded-xl border border-white/10 flex items-center gap-2">
                   <UserCheck size={16} className="text-emerald-400" />
-                  <span>Índice de Paridad Global: {((Math.min(stats.menList.length, stats.womenList.length) / Math.max(stats.menList.length, stats.womenList.length, 1)) * 100).toFixed(0)}%</span>
+                  <span>Índice de Paridad de Género: {((Math.min(stats.menList.length, stats.womenList.length) / Math.max(stats.menList.length, stats.womenList.length, 1)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="px-4 py-2 bg-white/10 rounded-xl border border-white/10 flex items-center gap-2">
                   <GraduationCap size={16} className="text-indigo-400" />
-                  <span>Edad Promedio Institucional: {stats.avgAge} Años</span>
+                  <span>Edad Promedio del Colegio: {stats.avgAge} Años</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* BUSCADOR Y FILTRO INTELIGENTE DE POBLACIÓN Y GRADOS */}
+          <div className="bg-white p-6 rounded-[2.5rem] border border-outline-variant/40 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                <Search size={20} />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider">Buscador Inteligente de Población y Grados</h4>
+                <p className="text-[10px] font-bold text-slate-400">Filtra por número de grado (6, 11), curso, nombre o documento</p>
+              </div>
+            </div>
+
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Buscar grado (ej: 6, 11), curso o nombre..."
+                value={gradeSearchQuery}
+                onChange={(e) => setGradeSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs font-bold outline-none focus:bg-white focus:border-indigo-600 transition-all shadow-inner"
+              />
+              {gradeSearchQuery && (
+                <button onClick={() => setGradeSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -382,39 +412,54 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-bold">
-                  {stats.sortedAdultsGrades.length > 0 ? stats.sortedAdultsGrades.map(([grado, data]) => (
-                    <tr key={grado} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-4 font-black uppercase text-on-surface italic">Grado {grado}</td>
-                      <td className="py-4 text-center">
-                        <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-lg text-xs font-black">{data.total}</span>
-                      </td>
-                      <td className="py-4 text-center text-blue-600 font-black">{data.m}</td>
-                      <td className="py-4 text-center text-rose-600 font-black">{data.f}</td>
-                      <td className="py-4 text-center">
-                        {data.riskCount > 0 ? (
-                          <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-[10px] font-black uppercase">
-                            ⚠️ {data.riskCount} Alumno(s)
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-black text-emerald-600 uppercase">Sin Riesgo</span>
-                        )}
-                      </td>
-                      <td className="py-4 text-right">
-                        <button
-                          onClick={() => setDrilldownData({title: `Adultos (18+) en Grado ${grado}°`, students: data.students})}
-                          className="px-4 py-2 bg-slate-100 hover:bg-on-surface hover:text-white rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-1 ml-auto"
-                        >
-                          Ver Estudiantes <ChevronRight size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 font-medium italic">
-                        No hay estudiantes mayores de edad registrados en los filtros seleccionados.
-                      </td>
-                    </tr>
-                  )}
+                  {(() => {
+                    const q = gradeSearchQuery.toLowerCase().trim();
+                    const filtered = q
+                      ? stats.sortedAdultsGrades.filter(([grado, data]) => 
+                          grado.toLowerCase().includes(q) || 
+                          data.students.some(s => 
+                            (s.primerNombre || "").toLowerCase().includes(q) || 
+                            (s.primerApellido || "").toLowerCase().includes(q) || 
+                            (s.nroDocumento || "").includes(q) || 
+                            (s.curso || "").toLowerCase().includes(q)
+                          )
+                        )
+                      : stats.sortedAdultsGrades;
+
+                    return filtered.length > 0 ? filtered.map(([grado, data]) => (
+                      <tr key={grado} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-4 font-black uppercase text-on-surface italic">Grado {grado}</td>
+                        <td className="py-4 text-center">
+                          <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-lg text-xs font-black">{data.total}</span>
+                        </td>
+                        <td className="py-4 text-center text-blue-600 font-black">{data.m}</td>
+                        <td className="py-4 text-center text-rose-600 font-black">{data.f}</td>
+                        <td className="py-4 text-center">
+                          {data.riskCount > 0 ? (
+                            <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-[10px] font-black uppercase">
+                              ⚠️ {data.riskCount} Alumno(s)
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black text-emerald-600 uppercase">Sin Riesgo</span>
+                          )}
+                        </td>
+                        <td className="py-4 text-right">
+                          <button
+                            onClick={() => setDrilldownData({title: `Adultos (18+) en Grado ${grado}°`, students: data.students})}
+                            className="px-4 py-2 bg-slate-100 hover:bg-on-surface hover:text-white rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-1 ml-auto"
+                          >
+                            Ver Estudiantes <ChevronRight size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400 font-medium italic">
+                          No se encontraron resultados para &quot;{gradeSearchQuery}&quot;. Prueba buscando por número de grado (ej: 6, 11), curso o nombre.
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>
