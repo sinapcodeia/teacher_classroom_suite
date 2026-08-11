@@ -4,7 +4,7 @@ import { useApp } from "@/context/AppContext";
 import { useState, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { doc, writeBatch } from "firebase/firestore";
-import { Database, AlertTriangle, CheckCircle2, Search, Wrench, ShieldCheck, Activity, Zap } from "lucide-react";
+import { Database, AlertTriangle, CheckCircle2, Search, Wrench, ShieldCheck, Activity, Zap, Users } from "lucide-react";
 
 export default function AuditPage() {
   const { students, setStudents } = useApp();
