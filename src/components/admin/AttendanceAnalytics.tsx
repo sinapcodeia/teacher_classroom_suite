@@ -5,7 +5,8 @@ import { useApp, normalizeGrade } from "@/context/AppContext";
 import { 
   Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, 
   Users, UserCheck, Search, ChevronRight, FileSpreadsheet,
-  AlertCircle, ShieldAlert, Award, ArrowUpRight, Filter
+  AlertCircle, ShieldAlert, Award, ArrowUpRight, Filter,
+  ChevronLeft, ArrowRight, UserCheck2, UserX, Sparkles
 } from "lucide-react";
 
 interface AttendanceAnalyticsProps {
@@ -13,7 +14,7 @@ interface AttendanceAnalyticsProps {
 }
 
 export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnalyticsProps) {
-  const { students, masterData, allUsers, profile } = useApp();
+  const { students, allUsers } = useApp();
   
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -21,6 +22,13 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
   const [selectedGradoFilter, setSelectedGradoFilter] = useState<string>("TODOS");
   const [selectedCursoFilter, setSelectedCursoFilter] = useState<string>("TODOS");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  
+  // Segmented Tab Filter: 'critical' (>= 3 faltas) | 'warning' (1-2 faltas) | 'all' (Todos)
+  const [activeTab, setActiveTab] = useState<"critical" | "warning" | "all">("critical");
+  
+  // Paginación
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 12;
 
   const activeStudents = useMemo(() => students.filter(s => s.isActive !== false), [students]);
 
@@ -28,7 +36,6 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
   const courseTeachers = useMemo(() => {
     const map: Record<string, string[]> = {};
     
-    // Extraer de todos los usuarios
     (allUsers || []).forEach(u => {
       if (u.weeklySchedule && Array.isArray(u.weeklySchedule)) {
         u.weeklySchedule.forEach((b: any) => {
@@ -56,7 +63,6 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
     let retardos = 0;
     let sinRegistro = 0;
 
-    const absentStudentsList: any[] = [];
     const coursesStatus: Record<string, { total: number; presentes: number; ausentes: number; excusas: number; retardos: number; sinRegistro: number; teacher: string }> = {};
 
     target.forEach(s => {
@@ -68,7 +74,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
         const tList = courseTeachers[key] || [];
         coursesStatus[key] = {
           total: 0, presentes: 0, ausentes: 0, excusas: 0, retardos: 0, sinRegistro: 0,
-          teacher: tList.length > 0 ? tList.join(", ") : "Sin Docente Asignado"
+          teacher: tList.length > 0 ? tList.join(", ") : "Docente Titular / Por Asignar"
         };
       }
       coursesStatus[key].total++;
@@ -80,15 +86,12 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
       } else if (rec === "A") {
         ausentes++;
         coursesStatus[key].ausentes++;
-        absentStudentsList.push({ ...s, recordType: "Ausente (Falta)" });
       } else if (rec === "E") {
         excusas++;
         coursesStatus[key].excusas++;
-        absentStudentsList.push({ ...s, recordType: "Excusa Médica / Parental" });
       } else if (rec === "T") {
         retardos++;
         coursesStatus[key].retardos++;
-        absentStudentsList.push({ ...s, recordType: "Llegada Tardía" });
       } else {
         sinRegistro++;
         coursesStatus[key].sinRegistro++;
@@ -98,21 +101,19 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
     const evaluados = presentes + ausentes + excusas + retardos;
     const pctAsistencia = evaluados > 0 ? Math.round(((presentes + retardos) / evaluados) * 100) : 100;
 
-    // Detectar Cursos con Baja Productividad / Sin registro de Asistencia Hoy
     const lowProductivityCourses = Object.entries(coursesStatus).filter(([_, data]) => data.sinRegistro === data.total);
 
     return {
       presentes, ausentes, excusas, retardos, sinRegistro, evaluados,
       total: target.length,
       pctAsistencia,
-      absentStudentsList,
       coursesStatus,
       lowProductivityCourses
     };
   }, [activeStudents, selectedDate, selectedGradoFilter, selectedCursoFilter, courseTeachers]);
 
-  // ── 2. HISTÓRICO MENSUAL Y ACUMULADO POR ESTUDIANTE ──
-  const monthlyMetrics = useMemo(() => {
+  // ── 2. HISTÓRICO MENSUAL Y GESTIÓN POR EXCEPCIÓN ──
+  const allMonthlyMetrics = useMemo(() => {
     let target = activeStudents;
     if (selectedGradoFilter !== "TODOS") target = target.filter(s => normalizeGrade(s.grado) === selectedGradoFilter);
     if (selectedCursoFilter !== "TODOS") target = target.filter(s => s.curso === selectedCursoFilter);
@@ -125,17 +126,15 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
       );
     }
 
-    const studentMonthlyDetails = target.map(s => {
+    return target.map(s => {
       const recs = s.attendanceRecord || {};
       let mPresentes = 0;
       let mAusentes = 0;
       let mExcusas = 0;
       let mRetardos = 0;
-      const monthDates: { date: string; status: string }[] = [];
 
       Object.entries(recs).forEach(([date, st]) => {
         if (date.startsWith(selectedMonth)) {
-          monthDates.push({ date, status: st });
           if (st === "P") mPresentes++;
           else if (st === "A") mAusentes++;
           else if (st === "E") mExcusas++;
@@ -145,16 +144,35 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
 
       const totalEvaluado = mPresentes + mAusentes + mExcusas + mRetardos;
       const pctMonth = totalEvaluado > 0 ? Math.round(((mPresentes + mRetardos) / totalEvaluado) * 100) : 100;
-      const isCritical = mAusentes >= 3;
 
       return {
         student: s,
-        mPresentes, mAusentes, mExcusas, mRetardos, totalEvaluado, pctMonth, isCritical, monthDates
+        mPresentes, mAusentes, mExcusas, mRetardos, totalEvaluado, pctMonth
       };
     }).sort((a, b) => b.mAusentes - a.mAusentes);
-
-    return studentMonthlyDetails;
   }, [activeStudents, selectedMonth, selectedGradoFilter, selectedCursoFilter, searchTerm]);
+
+  // Conteo por segmentos
+  const criticalCount = useMemo(() => allMonthlyMetrics.filter(m => m.mAusentes >= 3).length, [allMonthlyMetrics]);
+  const warningCount = useMemo(() => allMonthlyMetrics.filter(m => m.mAusentes >= 1 && m.mAusentes < 3).length, [allMonthlyMetrics]);
+
+  // Filtrado según Tab activo
+  const filteredMonthlyMetrics = useMemo(() => {
+    if (activeTab === "critical") {
+      return allMonthlyMetrics.filter(m => m.mAusentes >= 3);
+    }
+    if (activeTab === "warning") {
+      return allMonthlyMetrics.filter(m => m.mAusentes >= 1 && m.mAusentes < 3);
+    }
+    return allMonthlyMetrics;
+  }, [allMonthlyMetrics, activeTab]);
+
+  // Paginación de resultados
+  const totalPages = Math.ceil(filteredMonthlyMetrics.length / pageSize) || 1;
+  const paginatedMetrics = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMonthlyMetrics.slice(start, start + pageSize);
+  }, [filteredMonthlyMetrics, currentPage, pageSize]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
@@ -171,18 +189,18 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
                 Control Institucional de Asistencia & Ausentismo
               </h2>
               <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                Monitoreo en Tiempo Real e Histórico Mensual por Salón y Estudiante
+                Gestión por Excepción, Análisis de Ausentismo e Inteligencia Operativa
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <div>
-              <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Fecha de Hoy / Consulta</label>
+              <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Fecha de Consulta Hoy</label>
               <input 
                 type="date"
                 value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
+                onChange={e => { setSelectedDate(e.target.value); setCurrentPage(1); }}
                 className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none focus:border-indigo-600"
               />
             </div>
@@ -191,7 +209,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
               <input 
                 type="month"
                 value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
+                onChange={e => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
                 className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none focus:border-indigo-600"
               />
             </div>
@@ -206,7 +224,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
 
           <select 
             value={selectedGradoFilter}
-            onChange={e => { setSelectedGradoFilter(e.target.value); setSelectedCursoFilter("TODOS"); }}
+            onChange={e => { setSelectedGradoFilter(e.target.value); setSelectedCursoFilter("TODOS"); setCurrentPage(1); }}
             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none cursor-pointer"
           >
             <option value="TODOS">TODOS LOS GRADOS</option>
@@ -217,7 +235,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
 
           <select 
             value={selectedCursoFilter}
-            onChange={e => setSelectedCursoFilter(e.target.value)}
+            onChange={e => { setSelectedCursoFilter(e.target.value); setCurrentPage(1); }}
             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none cursor-pointer"
           >
             <option value="TODOS">TODOS LOS CURSOS</option>
@@ -232,7 +250,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
               type="text"
               placeholder="Buscar estudiante por nombre o documento..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none focus:bg-white"
             />
           </div>
@@ -248,9 +266,9 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
         </div>
 
         <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-rose-500">
-          <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Ausentes (Faltas)</p>
+          <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Ausentes Hoy</p>
           <p className="text-3xl font-black text-rose-600 leading-none">{dailyMetrics.ausentes}</p>
-          <p className="text-[8px] font-bold text-rose-500 uppercase mt-2">Inasistencia del día</p>
+          <p className="text-[8px] font-bold text-rose-500 uppercase mt-2">Inasistencias del día</p>
         </div>
 
         <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-amber-500">
@@ -268,105 +286,77 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
         <div className="bg-white p-5 rounded-[2rem] border border-outline-variant/30 shadow-sm border-b-4 border-b-slate-400 col-span-2 lg:col-span-1">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Sin Registro Hoy</p>
           <p className="text-3xl font-black text-slate-700 leading-none">{dailyMetrics.sinRegistro}</p>
-          <p className="text-[8px] font-bold text-slate-400 uppercase mt-2">Pendientes por evaluar</p>
+          <p className="text-[8px] font-bold text-slate-400 uppercase mt-2">Pendientes de reporte</p>
         </div>
       </div>
 
       {/* ── ALERTA DE NOVEDADES Y BAJA PRODUCTIVIDAD DOCENTE (SIN REGISTRO HOY) ── */}
       {dailyMetrics.lowProductivityCourses.length > 0 && (
-        <div className="bg-rose-500 text-white p-6 rounded-[2.5rem] shadow-2xl space-y-4">
+        <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-2xl space-y-4 border border-white/10">
           <div className="flex items-center gap-3">
-            <ShieldAlert size={24} className="text-yellow-300 animate-pulse" />
+            <ShieldAlert size={24} className="text-amber-400 animate-pulse" />
             <div>
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-yellow-300">Alerta Directiva de Baja Productividad</span>
-              <h3 className="text-lg font-black uppercase tracking-tight">Cursos y Salones Sin Registro de Asistencia el día de Hoy</h3>
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-amber-400">Novedad Directiva de Seguimiento</span>
+              <h3 className="text-lg font-black uppercase tracking-tight text-white">Cursos Sin Registro de Asistencia el Día de Hoy</h3>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {dailyMetrics.lowProductivityCourses.map(([courseKey, data]) => (
-              <div key={courseKey} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20">
+              <div key={courseKey} className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-black uppercase text-yellow-300">Curso {courseKey}</span>
-                  <span className="text-[9px] font-black bg-rose-700 px-2 py-0.5 rounded-full">{data.total} Alumnos</span>
+                  <span className="text-xs font-black uppercase text-amber-300">Curso {courseKey}</span>
+                  <span className="text-[9px] font-black bg-white/10 px-2 py-0.5 rounded-full">{data.total} Alumnos</span>
                 </div>
-                <p className="text-[11px] font-bold text-white/90">Docente Responsable: <strong className="text-white">{data.teacher}</strong></p>
-                <p className="text-[9px] text-white/60 uppercase mt-2">Estado: Sin reporte de asistencia hoy</p>
+                <p className="text-[11px] font-bold text-white/80">Docente Titular: <strong className="text-white">{data.teacher}</strong></p>
+                <p className="text-[9px] text-white/50 uppercase mt-2">Estado: Asistencia no reportada</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── TABLA DE ASISTENCIA POR CURSO Y DOCENTE RESPONSABLE ── */}
+      {/* ── HISTÓRICO MENSUAL: GESTIÓN POR EXCEPCIÓN Y PAGINACIÓN PROFESIONAL ── */}
       <div className="bg-white p-8 rounded-[3rem] border border-outline-variant/30 shadow-xl space-y-6">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+        
+        {/* Header y Selector de Segmento (Gestión por Excepción) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
           <div>
-            <h3 className="text-lg font-black uppercase italic tracking-tighter text-on-surface">
-              Asistencia por Salón y Docentes Responsables
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="text-indigo-600" size={18} />
+              <h3 className="text-lg font-black uppercase italic tracking-tighter text-on-surface">
+                Gestión por Excepción – Registro de Ausentismo ({selectedMonth})
+              </h3>
+            </div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Reporte del Día ({selectedDate})
+              Priorización de casos para intervención directiva sin saturación de listas infinitas
             </p>
+          </div>
+
+          {/* Segmented Filter Pills */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60 self-start md:self-auto">
+            <button
+              onClick={() => { setActiveTab("critical"); setCurrentPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === "critical" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/30" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              🚨 Riesgo Crítico ({criticalCount})
+            </button>
+            <button
+              onClick={() => { setActiveTab("warning"); setCurrentPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === "warning" ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              ⚠️ Con Faltas ({warningCount})
+            </button>
+            <button
+              onClick={() => { setActiveTab("all"); setCurrentPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === "all" ? "bg-slate-900 text-white shadow-lg" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              📋 Todos ({allMonthlyMetrics.length})
+            </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-                <th className="pb-3">Curso / Salón</th>
-                <th className="pb-3">Docente(s) Responsable(s)</th>
-                <th className="pb-3 text-center">Matrícula</th>
-                <th className="pb-3 text-center">Presentes</th>
-                <th className="pb-3 text-center">Ausentes</th>
-                <th className="pb-3 text-center">Excusas</th>
-                <th className="pb-3 text-center">Estado del Cierre</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-bold">
-              {Object.entries(dailyMetrics.coursesStatus).map(([key, data]) => {
-                const isComplete = data.sinRegistro === 0;
-                return (
-                  <tr key={key} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 font-black uppercase text-on-surface italic">Grado-Curso {key}</td>
-                    <td className="py-4 font-bold text-indigo-700">{data.teacher}</td>
-                    <td className="py-4 text-center font-black">{data.total}</td>
-                    <td className="py-4 text-center text-emerald-600 font-black">{data.presentes}</td>
-                    <td className="py-4 text-center text-rose-600 font-black">{data.ausentes}</td>
-                    <td className="py-4 text-center text-amber-600 font-black">{data.excusas}</td>
-                    <td className="py-4 text-center">
-                      {isComplete ? (
-                        <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-black uppercase">
-                          ✓ Al Día
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-[9px] font-black uppercase">
-                          ⚠️ Pendiente ({data.sinRegistro})
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── TABLA DE HISTÓRICO MENSUAL POR ESTUDIANTE (CON CRÍTICOS Y EXCUSAS) ── */}
-      <div className="bg-white p-8 rounded-[3rem] border border-outline-variant/30 shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div>
-            <h3 className="text-lg font-black uppercase italic tracking-tighter text-on-surface">
-              Histórico Mensual de Ausentismo por Estudiante ({selectedMonth})
-            </h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Registros Acumulados de Faltas (A), Excusas (E) y Tardanzas (T)
-            </p>
-          </div>
-        </div>
-
+        {/* Tabla Paginada y Profesional */}
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -376,62 +366,100 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
                 <th className="pb-3 text-center">Faltas (A)</th>
                 <th className="pb-3 text-center">Excusas (E)</th>
                 <th className="pb-3 text-center">Retardos (T)</th>
-                <th className="pb-3 text-center">% Mes</th>
-                <th className="pb-3 text-center">Estado del Alumno</th>
+                <th className="pb-3 text-center">% Asistencia Mes</th>
+                <th className="pb-3 text-center">Estado Directivo</th>
                 <th className="pb-3 text-right">Ficha</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs font-bold">
-              {monthlyMetrics.length > 0 ? monthlyMetrics.map(({ student, mPresentes, mAusentes, mExcusas, mRetardos, pctMonth, isCritical }) => (
-                <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-4 font-black uppercase text-on-surface">
-                    {student.primerApellido} {student.segundoApellido || ""} {student.primerNombre}
-                  </td>
-                  <td className="py-4 font-bold text-slate-500 uppercase">
-                    Grado {normalizeGrade(student.grado)} - {student.curso}
-                  </td>
-                  <td className="py-4 text-center text-rose-600 font-black text-sm">{mAusentes}</td>
-                  <td className="py-4 text-center text-amber-600 font-black text-sm">{mExcusas}</td>
-                  <td className="py-4 text-center text-blue-600 font-black text-sm">{mRetardos}</td>
-                  <td className="py-4 text-center font-black">
-                    <span className={pctMonth < 85 ? "text-rose-600 font-black" : "text-emerald-600 font-black"}>
-                      {pctMonth}%
-                    </span>
-                  </td>
-                  <td className="py-4 text-center">
-                    {isCritical ? (
-                      <span className="px-3 py-1 bg-rose-500 text-white rounded-full text-[9px] font-black uppercase animate-pulse">
-                        🚨 Riesgo de Deserción
+              {paginatedMetrics.length > 0 ? paginatedMetrics.map(({ student, mPresentes, mAusentes, mExcusas, mRetardos, pctMonth }) => {
+                const isCritical = mAusentes >= 3;
+                const isWarning = mAusentes >= 1 && mAusentes < 3;
+
+                return (
+                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-4 font-black uppercase text-on-surface">
+                      {student.primerApellido} {student.segundoApellido || ""} {student.primerNombre}
+                    </td>
+                    <td className="py-4 font-bold text-slate-500 uppercase">
+                      Grado {normalizeGrade(student.grado)} - {student.curso}
+                    </td>
+                    <td className="py-4 text-center text-rose-600 font-black text-sm">{mAusentes}</td>
+                    <td className="py-4 text-center text-amber-600 font-black text-sm">{mExcusas}</td>
+                    <td className="py-4 text-center text-blue-600 font-black text-sm">{mRetardos}</td>
+                    <td className="py-4 text-center font-black">
+                      <span className={pctMonth < 85 ? "text-rose-600 font-black" : "text-emerald-600 font-black"}>
+                        {pctMonth}%
                       </span>
-                    ) : mAusentes > 0 ? (
-                      <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase">
-                        Seguimiento
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-black uppercase">
-                        Asistencia Perfecta
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-4 text-right">
-                    <button
-                      onClick={() => onSelectStudent && onSelectStudent(student)}
-                      className="p-2 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-xl transition-all"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </td>
-                </tr>
-              )) : (
+                    </td>
+                    <td className="py-4 text-center">
+                      {isCritical ? (
+                        <span className="px-3 py-1 bg-rose-500 text-white rounded-full text-[9px] font-black uppercase animate-pulse">
+                          🚨 Riesgo de Deserción
+                        </span>
+                      ) : isWarning ? (
+                        <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase">
+                          ⚠️ Seguimiento
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-black uppercase">
+                          ✓ Asistencia Ok
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 text-right">
+                      <button
+                        onClick={() => onSelectStudent && onSelectStudent(student)}
+                        className="p-2 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-xl transition-all"
+                        title="Ver Ficha 360°"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 font-bold italic">
-                    No hay registros de asistencia para los filtros seleccionados.
+                  <td colSpan={8} className="py-12 text-center text-slate-400 font-bold italic">
+                    {activeTab === "critical" ? "🎉 ¡Excelente! No hay estudiantes en riesgo crítico por ausentismo este mes." : "No se encontraron registros para esta consulta."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Controles de Paginación */}
+        {filteredMonthlyMetrics.length > pageSize && (
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, filteredMonthlyMetrics.length)} de {filteredMonthlyMetrics.length} Casos
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-1"
+              >
+                <ChevronLeft size={16} /> Anterior
+              </button>
+
+              <span className="text-xs font-black px-3 py-1 bg-slate-900 text-white rounded-lg">
+                Pág. {currentPage} de {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-1"
+              >
+                Siguiente <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
 
     </div>
