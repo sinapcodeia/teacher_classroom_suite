@@ -9,6 +9,17 @@ export default function StudentProfileModal({ student, onClose }: { student: any
   const [mounted, setMounted] = useState(false);
   const [printMode, setPrintMode] = useState<"all" | "grades" | "attendance">("all");
 
+  const absentRecords = useMemo(() => {
+    if (!student || !student.attendanceRecord) return [];
+    return Object.entries(student.attendanceRecord)
+      .map(([date, status]) => {
+        const st = (status as string) === 'present' ? 'P' : (status as string) === 'absent' ? 'A' : (status as string) === 'late' ? 'T' : (status as string) === 'excused' ? 'E' : status as string;
+        return { date, status: st };
+      })
+      .filter(r => r.status !== 'P')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [student]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -42,17 +53,6 @@ export default function StudentProfileModal({ student, onClose }: { student: any
       setTimeout(() => setPrintMode("all"), 500);
     }, 100);
   };
-
-  const absentRecords = useMemo(() => {
-    if (!student.attendanceRecord) return [];
-    return Object.entries(student.attendanceRecord)
-      .map(([date, status]) => {
-        const st = (status as string) === 'present' ? 'P' : (status as string) === 'absent' ? 'A' : (status as string) === 'late' ? 'T' : (status as string) === 'excused' ? 'E' : status as string;
-        return { date, status: st };
-      })
-      .filter(r => r.status !== 'P')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [student.attendanceRecord]);
 
   const modal = (
     <div className={`fixed inset-0 z-[200] flex items-center justify-center p-4 student-modal-portal print-mode-${printMode}`}>
