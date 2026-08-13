@@ -28,6 +28,25 @@ function LiveClassPageContent() {
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
   const [initialSyncDone, setInitialSyncDone] = useState(false);
+  const [draftCount, setDraftCount] = useState(0);
+
+  useEffect(() => {
+    const checkDrafts = () => {
+      try {
+        let count = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('draft_attendance_') || key.startsWith('draft_activity_'))) {
+            count++;
+          }
+        }
+        setDraftCount(count);
+      } catch (_) {}
+    };
+    checkDrafts();
+    const interval = setInterval(checkDrafts, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -185,6 +204,20 @@ function LiveClassPageContent() {
               </select>
             </div>
           </div>
+
+          {draftCount > 0 && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 shadow-sm animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-amber-500 text-white rounded-xl flex items-center justify-center font-black text-xs shrink-0 animate-pulse">
+                  {draftCount}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider">Protección de Datos Activa</p>
+                  <p className="text-[9px] font-bold opacity-80 uppercase">Tienes {draftCount} borrador(es) pendiente(s) de clases anteriores o no guardadas. Al seleccionar el curso correspondiente se restaurarán tus datos.</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 gap-3">
             <Link href="/horario" className="flex items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all group px-4 py-3 md:px-5 bg-white rounded-xl md:rounded-2xl border border-outline-variant/30 shadow-sm md:shadow-lg">

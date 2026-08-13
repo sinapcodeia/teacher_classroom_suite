@@ -44,6 +44,35 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
     });
   }, [myStudents, grade, course]);
 
+  const [isDraftRecovered, setIsDraftRecovered] = useState(false);
+
+  const draftKey = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return `draft_attendance_${todayStr}_${subjectId}_${grade}_${course}`;
+  }, [subjectId, grade, course]);
+
+  const saveDraftLocally = (newAtt: Record<string, 'present' | 'absent' | 'late'>) => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        attendance: newAtt,
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (_) {}
+  };
+
+  const discardDraft = () => {
+    try { localStorage.removeItem(draftKey); } catch (_) {}
+    setIsDraftRecovered(false);
+    setHasUnsavedChanges(false);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const loadedAttendance: Record<string, 'present' | 'absent' | 'late'> = {};
+    filteredStudents.forEach(s => {
+      const status = s.attendanceRecord?.[todayStr];
+      if (status) loadedAttendance[s.id] = status as any;
+    });
+    setAttendance(loadedAttendance);
+  };
+
   const playAlertSound = () => {
     try {
       const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
@@ -115,9 +144,23 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
       setExistingNoteId(null);
     }
 
-    // 2. Cargar asistencia desde los registros de los estudiantes
-    if (hasUnsavedChanges) return;
+    // 2. Cargar asistencia: priorizar BORRADOR LOCAL si existe
+    try {
+      const savedDraft = localStorage.getItem(draftKey);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.attendance && Object.keys(parsed.attendance).length > 0) {
+          setAttendance(parsed.attendance);
+          setHasUnsavedChanges(true);
+          setIsDraftRecovered(true);
+          return;
+        }
+      }
+    } catch (_) {}
 
+    // Si no hay borrador, cargar de los registros oficiales
+    setIsDraftRecovered(false);
+    setHasUnsavedChanges(false);
     const loadedAttendance: Record<string, 'present' | 'absent' | 'late'> = {};
     let hasData = false;
 
@@ -135,7 +178,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
       setAttendance({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, course, studentAttendanceKey, agendaNotes, subjects, hasUnsavedChanges]);
+  }, [subjectId, course, studentAttendanceKey, agendaNotes, subjects, draftKey]);
 
   const stats = useMemo(() => ({
     total: filteredStudents.length,
@@ -146,7 +189,11 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
   }), [filteredStudents, attendance]);
 
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
-    setAttendance(prev => ({ ...prev, [studentId]: status }));
+    setAttendance(prev => {
+      const next = { ...prev, [studentId]: status };
+      saveDraftLocally(next);
+      return next;
+    });
     setHasUnsavedChanges(true);
     setShowIdleWarning(false);
   };
@@ -187,12 +234,32 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
         <div className="bg-surface-container-low px-4 md:px-8 py-4 md:py-5 border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-4">
            <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-on-surface-variant text-center md:text-left">Panel de Control de Aula</h3>
            <div className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-3">
-             <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); setHasUnsavedChanges(true); }} className="flex-1 md:flex-none justify-center px-3 md:px-6 py-3 bg-secondary/10 text-secondary rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={14} /> Todos Presentes</button>
+             <button onClick={() => { const u = {...attendance}; filteredStudents.forEach(s => u[s.id] = 'present'); setAttendance(u); saveDraftLocally(u); setHasUnsavedChanges(true); }} className="flex-1 md:flex-none justify-center px-3 md:px-6 py-3 bg-secondary/10 text-secondary rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all flex items-center gap-2"><CheckCircle size={14} /> Todos Presentes</button>
              <button onClick={() => setShowEndClassModal(true)} className="flex-1 md:flex-none justify-center px-3 md:px-8 py-3 bg-primary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><Save size={14} /> {isAlreadySaved ? "Actualizar" : "Finalizar"}</button>
            </div>
         </div>
 
-        {isAlreadySaved && (
+        {isDraftRecovered && (
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-8 py-3 flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={20} className="shrink-0 animate-pulse" />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider">Borrador de Asistencia Restaurado</p>
+                <p className="text-[9px] font-bold opacity-90 uppercase">Tienes marcas de asistencia no guardadas previamente en esta clase. Se han recuperado tus datos.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={discardDraft} className="px-3 py-1.5 bg-black/20 hover:bg-black/30 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all">
+                Descartar Borrador
+              </button>
+              <button onClick={() => setShowEndClassModal(true)} className="px-4 py-1.5 bg-white text-orange-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-md">
+                Guardar Asistencia
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isAlreadySaved && !isDraftRecovered && (
           <div className="bg-amber-50 border-b border-amber-100 px-8 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
@@ -392,6 +459,8 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
                      await addAgendaNote(noteData);
                    }
 
+                   try { localStorage.removeItem(draftKey); } catch (_) {}
+                   setIsDraftRecovered(false);
                    setHasUnsavedChanges(false);
                    setShowEndClassModal(false);
                    setShowSuccessModal(true);

@@ -121,10 +121,43 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedActivityKey, setSelectedActivityKey] = useState<string>("new");
 
-  // Individual mode
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [indivScore, setIndivScore] = useState("5.0");
-  const [indivSaving, setIndivSaving] = useState(false);
+  const [isDraftRecovered, setIsDraftRecovered] = useState(false);
+
+  const draftKey = useMemo(() => {
+    return `draft_activity_${subject}_${grade}_${course}_${targetCategory}_${targetSlot}`;
+  }, [subject, grade, course, targetCategory, targetSlot]);
+
+  const saveDraftLocally = useCallback((newGrades: Record<string, string>, title?: string) => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        activityTitle: title !== undefined ? title : activityTitle,
+        grades: newGrades,
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (_) {}
+  }, [draftKey, activityTitle]);
+
+  const discardDraft = useCallback(() => {
+    try { localStorage.removeItem(draftKey); } catch (_) {}
+    setIsDraftRecovered(false);
+    const periodId = getActivePeriod();
+    const loadedGrades: Record<string, string> = {};
+    filteredStudents.forEach(student => {
+      const detailed = student.detailedGrades?.[subject]?.[periodId];
+      if (detailed) {
+        let score: number | null = null;
+        if (targetCategory === 'aut') score = detailed.aut;
+        else {
+          const catArray = detailed[targetCategory];
+          if (catArray && catArray[targetSlot] !== undefined) score = catArray[targetSlot];
+        }
+        loadedGrades[student.id] = score !== null && score !== undefined ? score.toString() : "";
+      } else {
+        loadedGrades[student.id] = "";
+      }
+    });
+    setGrades(loadedGrades);
+  }, [draftKey, getActivePeriod, filteredStudents, subject, targetCategory, targetSlot]);
 
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -261,6 +294,22 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const filteredStudentIds = useMemo(() => filteredStudents.map(s => s.id).join(','), [filteredStudents]);
 
   useEffect(() => {
+    // 1. Intentar cargar borrador local no guardado si existe
+    try {
+      const savedDraft = localStorage.getItem(draftKey);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.grades && Object.keys(parsed.grades).length > 0) {
+          setGrades(parsed.grades);
+          if (parsed.activityTitle && !activityTitle) setActivityTitle(parsed.activityTitle);
+          setIsDraftRecovered(true);
+          setSavedIds(new Set());
+          return;
+        }
+      }
+    } catch (_) {}
+
+    setIsDraftRecovered(false);
     const periodId = getActivePeriod();
     const loadedGrades: Record<string, string> = {};
 
@@ -285,7 +334,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     setGrades(loadedGrades);
     setSavedIds(new Set()); // Reset save flags when slot changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetCategory, targetSlot, subject, course, grade, filteredStudentIds, getActivePeriod]);
+  }, [targetCategory, targetSlot, subject, course, grade, filteredStudentIds, getActivePeriod, draftKey]);
 
   // Sync individual student score when selection changes
   useEffect(() => {
@@ -327,8 +376,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     const value = rawValue.replace(",", ".");
     const num = parseFloat(value);
     if (value !== "" && (isNaN(num) || num < 0 || num > 5)) return;
-    setGrades(prev => ({ ...prev, [studentId]: value }));
-  }, []);
+    setGrades(prev => {
+      const next = { ...prev, [studentId]: value };
+      saveDraftLocally(next);
+      return next;
+    });
+  }, [saveDraftLocally]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
@@ -625,6 +678,27 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
           </div>
         </div>
       </div>
+
+      {/* Banner de borrador restaurado */}
+      {isDraftRecovered && (
+        <div className="mx-6 mt-3 p-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={20} className="shrink-0 animate-pulse" />
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider">Borrador de Calificaciones Restaurado</p>
+              <p className="text-[9px] font-bold opacity-90 uppercase">Tienes notas no guardadas previamente en esta columna/actividad. Se recuperó tu borrador local.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={discardDraft} className="px-3 py-1.5 bg-black/20 hover:bg-black/30 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all">
+              Descartar Borrador
+            </button>
+            <button onClick={handleSaveAll} className="px-4 py-1.5 bg-white text-orange-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-md">
+              Guardar Notas
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Banner de advertencia: slot ocupado */}
       {selectedActivityKey === "new" && slotOccupied && (
