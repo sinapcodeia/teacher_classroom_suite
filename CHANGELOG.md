@@ -5,6 +5,26 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.7.0] — 2026-08-13 · Motor de Borradores Persistentes, Validación Decimal & Seguridad Militar
+
+### 🚀 Agregado
+- **Motor de Borradores Locales (`localStorage`)**:
+  - Auto-guardado instantáneo de marcas de asistencia y calificaciones ingresadas.
+  - Auto-recuperación al volver a la clase o después de un cierre accidental.
+  - Banner interactivo de recuperación con opciones para "Guardar" o "Descartar" borrador.
+  - Badge global de protección de datos que indica borradores pendientes en la página principal.
+- **Validación Universal de Decimales**:
+  - Implementación de `parseFlexibleFloat` para normalizar comas (`,`) a puntos (`.`) en la entrada de calificaciones, evitando errores de truncado nativos de JavaScript.
+- **Seguridad y Robustez Militar**:
+  - Cabeceras HTTP de seguridad avanzada (`Permissions-Policy`, `X-Download-Options`, `X-Permitted-Cross-Domain-Policies`) en `next.config.ts`.
+  - Sanitizador `sanitizeText` en el contexto global para mitigar ataques de inyección HTML y XSS.
+
+### 🔴 Corregido (Crítico)
+- **Bloqueo del Teclado Táctil en Tablets**: Se eliminaron los atributos `disabled` y se configuraron las propiedades `pointer-events-none` en iconos para permitir la entrada instantánea de texto en pantallas táctiles.
+- **Optimización de Guardado**: Modificada la sincronización de asistencia para actualizar el estado React local de forma optimista (0ms de latencia).
+
+---
+
 ## [2.6.0] — 2026-08-11 · Analítica 360°, Auditoría Autónoma & Estabilización de Producción
 
 ### 🚀 Agregado
