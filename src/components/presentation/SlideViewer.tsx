@@ -30,40 +30,36 @@ export default function SlideViewer({ topic, customSlides, onClose }: SlideViewe
         type: "title",
         title: topic.title,
         content: topic.tuhPutkamna
-          ? `Higra del Conocimiento: ${topic.tuhPutkamna}`
-          : `Hilo del Saber – Periodo Académico IETABA`,
+          ? `Hilo del Saber: ${topic.tuhPutkamna}`
+          : `¡Bienvenidos a la clase! Exploraremos "${topic.title}" tejiendo saberes e innovación.`,
       },
       {
         id: `${topic.id}-slide-split`,
         type: "split",
         title: "Sabidurías y Competencias",
         content: topic.panapain
-          ? `Saberes Propios: ${topic.panapain}. ${topic.nanpaskas ? `Saberes Interculturales: ${topic.nanpaskas}` : ''}`
-          : `Exploraremos "${topic.title}" desde los saberes propios del pueblo Awá y su articulación con los conocimientos interculturales.`,
+          ? `🌿 Saberes Propios: ${topic.panapain}. ${topic.nanpaskas ? `💡 Conocimientos Interculturales: ${topic.nanpaskas}` : ''}`
+          : `Exploraremos "${topic.title}" desde la metodología Tejiendo Aprendo, conectando los conocimientos de nuestro territorio con aprendizajes significativos.`,
         imageUrl: "/mock-isometric.png",
         imagePrompt: `Infografía técnica isométrica CGI fotorrealista sobre el concepto: "${topic.title}".`,
       },
       {
         id: `${topic.id}-slide-flip`,
         type: "flipcard",
-        title: topic.katkinAizpa ? "Ayudas Pedagógicas" : "Concepto Clave del Tema",
-        content: topic.katkinAizpa
-          ? `¿Qué herramientas pedagógicas usaremos para "${topic.title}"?`
-          : `¿Cuál es la idea central de "${topic.title}" en nuestra malla curricular?`,
+        title: "Reto de Comprensión y Vida",
+        content: `¿Cómo se manifiesta el saber de "${topic.title}" en nuestra vida diaria y en nuestra comunidad?`,
         flipContent: topic.katkinAizpa
-          ? topic.katkinAizpa
-          : (topic.satIshkit || `"${topic.title}" se aborda desde la metodología Tejiendo Aprendo, integrando el territorio y la identidad cultural Awá.`),
+          ? `Herramienta Pedagógica: ${topic.katkinAizpa}`
+          : (topic.satIshkit || `"${topic.title}" nos enseña a resolver problemas con lógica, respeto por la naturaleza y colaboración activa entre compañeros.`),
       },
       {
         id: `${topic.id}-slide-quiz`,
         type: "quiz",
-        title: "Tejiendo Aprendo: Verificación",
-        content: topic.satIshkit
-          ? `Metodología: ${topic.satIshkit}`
-          : `¿Estás listo para trabajar el tema "${topic.title}"?`,
+        title: "Tejiendo Aprendo: ¡Reto Final!",
+        content: `¿Cómo podemos aplicar mejor lo aprendido en "${topic.title}"?`,
         quizOptions: [
-          { text: "¡Sí, comencemos!", isCorrect: true },
-          { text: "Necesito un repaso previo", isCorrect: false }
+          { text: "Compartiendo ideas y construyendo conocimiento en comunidad", isCorrect: true },
+          { text: "Trabajando de forma aislada sin escuchar a los demás", isCorrect: false }
         ]
       }
     ];

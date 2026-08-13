@@ -40,40 +40,51 @@ export default function GeniallyWizard({ topic, onClose, onGenerate }: GeniallyW
   const handleGenerate = async () => {
     setLoading(true);
 
-    // Generación inteligente y automática de 4 diapositivas estructuradas
+    // Generación inteligente y automática de 5 diapositivas pedagógicas humanizadas
     const generatedSlides: Slide[] = [
       {
         id: `${topic.id}-gen-1`,
         type: "title",
         title: topic.title,
-        content: `Clase Interactiva: ${q1Goal}`,
+        content: `¡Bienvenidos a una nueva aventura de aprendizaje! Hoy descubriremos "${topic.title}" con curiosidad, trabajo en equipo y empatía.`,
       },
       {
         id: `${topic.id}-gen-2`,
         type: "split",
-        title: "Exploración e Infografía Visual",
-        content: topic.tuhPutkamna || `Enfoque pedagógico: ${q3Emphasis}. Estudiaremos "${topic.title}" integrando análisis visual y desarrollo de saberes.`,
+        title: "Conectando con Nuestro Entorno",
+        content: topic.tuhPutkamna 
+          ? `Hilo del Saber: ${topic.tuhPutkamna}. En nuestro territorio y vida cotidiana, este concepto nos ayuda a comprender mejor el mundo que nos rodea.`
+          : `Enfoque pedagógico: ${q3Emphasis}. Exploraremos "${topic.title}" relacionándolo con situaciones reales, la naturaleza y nuestro día a día.`,
         imageUrl: "/mock-isometric.png",
-        imagePrompt: `Infografía técnica isométrica CGI fotorrealista sobre: "${topic.title}". Enfoque: ${q3Emphasis}.`,
+        imagePrompt: `Infografía técnica isométrica CGI fotorrealista sobre: "${topic.title}". Enfoque humano e intercultural: ${q3Emphasis}.`,
       },
       {
         id: `${topic.id}-gen-3`,
-        type: "flipcard",
-        title: "Reto de Reflexión",
-        content: `¿Cómo aplicamos el tema "${topic.title}" considerando el enfoque de ${q1Goal}?`,
-        flipContent: topic.panapain 
-          ? `Sabiduría Propia: ${topic.panapain}. Intercultural: ${topic.nanpaskas || 'Conocimiento aplicado'}.`
-          : `Conclusión Clave: El aprendizaje de "${topic.title}" se consolida mediante ${q3Emphasis}.`,
+        type: "split",
+        title: "Saberes Propios y Territorio",
+        content: topic.panapain 
+          ? `🌿 Sabiduría Propia: ${topic.panapain}. ${topic.nanpaskas ? `💡 Conocimiento Intercultural: ${topic.nanpaskas}` : ''}`
+          : `El diálogo entre los saberes de nuestra comunidad y el conocimiento tecnológico fortalece nuestra identidad, autonomía y creatividad.`,
+        imageUrl: "/mock-isometric.png",
       },
       {
         id: `${topic.id}-gen-4`,
+        type: "flipcard",
+        title: "Reto de Curiosidad y Reflexión",
+        content: `¿Cómo podemos aplicar lo aprendido sobre "${topic.title}" para ayudar a nuestros compañeros y cuidar nuestro entorno?`,
+        flipContent: topic.satIshkit
+          ? `✨ Metodología Tejiendo Aprendo: ${topic.satIshkit}`
+          : `¡Genial! Al aprender "${topic.title}", desarrollamos capacidad crítica, respetamos los saberes comunitarios y resolvemos problemas con empatía.`,
+      },
+      {
+        id: `${topic.id}-gen-5`,
         type: "quiz",
-        title: "Verificación de Aprendizaje",
-        content: `¿Cuál es el propósito principal de aprender sobre "${topic.title}" hoy?`,
+        title: "¡Desafío de Campeones!",
+        content: `¿Cuál es la actitud más valiosa al explorar "${topic.title}" el día de hoy?`,
         quizOptions: [
-          { text: `Desarrollar ${q3Emphasis}`, isCorrect: true },
-          { text: "Memorizar conceptos sin aplicar", isCorrect: false },
-          { text: "Completar la guía sin análisis", isCorrect: false },
+          { text: `Aprender con curiosidad, empatía y aplicarlo en el territorio (${q3Emphasis})`, isCorrect: true },
+          { text: "Memorizar conceptos sin relacionarlos con la vida real", isCorrect: false },
+          { text: "Completar la tarea con afán sin dialogar en grupo", isCorrect: false },
         ],
       },
     ];
