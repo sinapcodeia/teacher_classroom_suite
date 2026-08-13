@@ -605,14 +605,18 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
               <input
                 type="text"
                 value={activityTitle}
-                onChange={e => setActivityTitle(e.target.value)}
+                onChange={e => {
+                  const newTitle = e.target.value;
+                  setActivityTitle(newTitle);
+                  if (selectedActivityKey !== "new") {
+                    setSelectedActivityKey("new");
+                  }
+                  saveDraftLocally(grades, newTitle);
+                }}
                 placeholder="Ej: Taller de circuitos, Examen parcial..."
-                disabled={selectedActivityKey !== "new"}
-                className={`w-full border border-outline-variant rounded-2xl px-5 py-4 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm ${
-                  selectedActivityKey !== "new" ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white"
-                }`}
+                className="w-full border border-outline-variant rounded-2xl px-5 py-4 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm bg-white text-on-surface cursor-text"
               />
-              <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline opacity-30" size={18} />
+              <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline opacity-30 pointer-events-none" size={18} />
             </div>
           </div>
 
