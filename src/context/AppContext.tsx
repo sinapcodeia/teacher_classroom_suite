@@ -56,6 +56,15 @@ export function toTitleCase(str: string | undefined | null): string {
   }).join(' ');
 }
 
+// ── PARSEO DE NÚMEROS Y DECIMALES (Soporta coma ',' o punto '.') ────────────────
+export function parseFlexibleFloat(val: string | number | null | undefined): number {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const normalized = String(val).trim().replace(",", ".");
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 // ── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface ScheduleBlock {

@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, Clock, Save, Filter, User, 
   BookOpen, BarChart3, GraduationCap, Layers, Cake, MessageSquare, Star, AlertTriangle, BellRing, AlertCircle
 } from "lucide-react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp, normalizeGrade, parseFlexibleFloat } from "@/context/AppContext";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
 interface AttendanceListProps {
@@ -532,7 +532,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
                   setHasUnsavedChanges(true);
                   await addGrade(participationModal.studentId, {
                     title: partTitle,
-                    score: parseFloat(partScore),
+                    score: parseFlexibleFloat(partScore),
                     type: 'participation',
                     date: new Date().toISOString()
                   });

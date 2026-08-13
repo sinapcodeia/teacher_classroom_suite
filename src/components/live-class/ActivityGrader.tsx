@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import React from "react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp, normalizeGrade, parseFlexibleFloat } from "@/context/AppContext";
 import {
   Save, Award, FileText, CheckCircle2, List, User,
   ChevronLeft, ChevronRight, AlertTriangle, Zap, Search, X
@@ -46,7 +46,7 @@ const StudentRow = React.memo(({
   onKeyDown: (e: any, idx: number) => void;
   inputRef: (el: HTMLInputElement | null) => void;
 }) => {
-  const num = parseFloat(val);
+  const num = parseFlexibleFloat(val);
   return (
     <tr className={`transition-colors ${hasSaved ? "bg-emerald-50/40" : "hover:bg-surface-container-lowest"}`}>
       <td className="px-6 py-3 text-[10px] font-black text-on-surface-variant">{idx + 1}</td>
@@ -818,7 +818,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   }
 
   // ── INDIVIDUAL MODE ───────────────────────────────────────────────────────
-  const scoreNum = parseFloat(indivScore) || 0;
+  const scoreNum = parseFlexibleFloat(indivScore);
   const scoreConf = scoreColor(scoreNum);
   const pct = (scoreNum / 5) * 100;
   const totalSearched = searchedStudents.length;
