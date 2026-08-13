@@ -65,6 +65,15 @@ export function parseFlexibleFloat(val: string | number | null | undefined): num
   return isNaN(parsed) ? 0 : parsed;
 }
 
+// ── SANITIZACIÓN DE SEGURIDAD MILITAR (Anti-XSS e Inyección HTML) ────────────
+export function sanitizeText(str: string | undefined | null): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/[<>]/g, "")
+    .trim();
+}
+
 // ── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface ScheduleBlock {
