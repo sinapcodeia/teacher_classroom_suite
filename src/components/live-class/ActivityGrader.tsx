@@ -428,21 +428,33 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     const prefix = `[${subject.toUpperCase()}]`;
     const fullTitle = activityTitle.startsWith('[') ? activityTitle : `${prefix} ${activityTitle}`;
 
+    // 🛡️ RED DE SEGURIDAD LOCAL
+    const backupKey = `gradeBackup_indiv_${currentStudent.id}_${subject}_${targetCategory}_${targetSlot}`;
     try {
-      // 1. Sincronización con el Pilar Institucional (optimistic update inmediato)
-      await updateSingleDetailedGrade(currentStudent.id, subject, periodId, targetCategory, targetSlot, score);
+      localStorage.setItem(backupKey, JSON.stringify({ studentId: currentStudent.id, activityTitle, score, savedAt: today }));
+    } catch (_) {}
 
-      // 2. Historial de sesión
-      await addGrade(currentStudent.id, {
-        title: fullTitle,
-        score,
-        type: targetCategory === 'sb' ? 'exam' : 'activity',
-        date: today,
-        periodId,
-        category: targetCategory,
-        slotIndex: targetSlot,
-      });
+    try {
+      // 1 y 2 EN PARALELO (Pilar institucional + Historial de sesión)
+      // Ejecutar simultáneamente reduce la latencia a la mitad en tablets
+      await Promise.all([
+        updateSingleDetailedGrade(currentStudent.id, subject, periodId, targetCategory, targetSlot, score),
+        addGrade(currentStudent.id, {
+          title: fullTitle,
+          score,
+          type: targetCategory === 'sb' ? 'exam' : 'activity',
+          date: today,
+          periodId,
+          category: targetCategory,
+          slotIndex: targetSlot,
+        })
+      ]);
 
+      // 🧹 Limpiar backup al éxito
+      try { localStorage.removeItem(backupKey); } catch (_) {}
+
+      // Sincronizar con el mapa global de notas para coherencia al cambiar a Modo Lista
+      setGrades(prev => ({ ...prev, [currentStudent.id]: score.toString() }));
       setSavedIds(prev => new Set([...prev, currentStudent.id]));
 
       if (currentIdx < searchedStudents.length - 1) {
@@ -454,7 +466,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
       }
     } catch (err) {
       console.error("Error al guardar:", err);
-      alert("❌ Error al guardar. Intenta de nuevo.");
+      alert("❌ Error al guardar. Los datos están respaldados localmente. Intenta de nuevo.");
     } finally {
       setIndivSaving(false);
     }
@@ -817,6 +829,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
                 step="0.1" min="0" max="5"
                 value={indivScore}
                 onChange={e => setIndivScore(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveAndNext();
+                  }
+                }}
                 className={`w-40 h-20 border-4 rounded-3xl text-center text-5xl font-black outline-none transition-all focus:scale-105 ${scoreConf}`}
               />
               {/* Progress bar */}
