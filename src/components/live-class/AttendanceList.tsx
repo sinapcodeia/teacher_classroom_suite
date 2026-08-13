@@ -88,6 +88,11 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
     return () => clearTimeout(timeout);
   }, [hasUnsavedChanges, attendance]);
 
+  const studentAttendanceKey = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return filteredStudents.map(s => `${s.id}:${s.attendanceRecord?.[todayStr] || ''}`).join(',');
+  }, [filteredStudents]);
+
   // Efecto único para sincronizar sesión y asistencia
   useEffect(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -129,7 +134,8 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
     } else {
       setAttendance({});
     }
-  }, [subjectId, course, filteredStudents, agendaNotes, subjects, hasUnsavedChanges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjectId, course, studentAttendanceKey, agendaNotes, subjects, hasUnsavedChanges]);
 
   const stats = useMemo(() => ({
     total: filteredStudents.length,

@@ -1773,6 +1773,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (updatesMap.size === 0) return;
 
+      // 1.5 Optimistic update local (instantáneo, no requiere esperar red)
+      setStudents(prev => {
+        const map = new Map(prev.map(s => [s.id, s]));
+        for (const [id, record] of updatesMap.entries()) {
+          const s = map.get(id);
+          if (s) map.set(id, { ...s, attendanceRecord: record });
+        }
+        return Array.from(map.values());
+      });
+
       // 2. Ejecutar en lotes de Firestore
       const entries = Array.from(updatesMap.entries());
       for (let i = 0; i < entries.length; i += LIMITE_LOTE) {
