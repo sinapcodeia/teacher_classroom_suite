@@ -42,10 +42,9 @@ const StudentRow = React.memo(({
   val: string;
   hasSaved: boolean;
   hasDuplicate: boolean;
-  activityTitle: string;
   onGradeChange: (id: string, val: string) => void;
   onKeyDown: (e: any, idx: number) => void;
-  inputRef: (el: HTMLInputElement | null) => void;
+  inputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
 }) => {
   const num = parseFlexibleFloat(val);
   return (
@@ -62,7 +61,7 @@ const StudentRow = React.memo(({
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-[8px] font-bold text-on-surface-variant opacity-50 uppercase">{student.nroDocumento}</p>
-              {hasDuplicate && activityTitle && (
+              {hasDuplicate && (
                 <span className="text-[8px] font-black bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
                   <CheckCircle2 size={9} /> Nota registrada
                 </span>
@@ -84,13 +83,15 @@ const StudentRow = React.memo(({
       </td>
       <td className="px-6 py-3 text-center">
         <input
-          ref={inputRef}
           type="text"
           inputMode="decimal"
           placeholder="—"
           value={val}
           onChange={e => onGradeChange(student.id, e.target.value)}
           onKeyDown={e => onKeyDown(e, idx)}
+          ref={el => {
+            if (inputRefs) inputRefs.current[student.id] = el;
+          }}
           className={`w-20 h-11 border-2 rounded-xl text-center font-black text-base outline-none transition-all focus:scale-110 focus:shadow-lg ${
             val !== "" && !isNaN(num)
               ? `${scoreColor(num)} border-current/30 focus:ring-2 focus:ring-current/30`
@@ -110,6 +111,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
 
   const [mode, setMode] = useState<GradeMode>("list");
   const [activityTitle, setActivityTitle] = useState("");
+  const activityTitleRef = useRef(activityTitle);
+  useEffect(() => { activityTitleRef.current = activityTitle; }, [activityTitle]);
   const [grades, setGrades] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -134,12 +137,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const saveDraftLocally = useCallback((newGrades: Record<string, string>, title?: string) => {
     try {
       localStorage.setItem(draftKey, JSON.stringify({
-        activityTitle: title !== undefined ? title : activityTitle,
+        activityTitle: title !== undefined ? title : activityTitleRef.current,
         grades: newGrades,
         updatedAt: new Date().toISOString()
       }));
     } catch (_) {}
-  }, [draftKey, activityTitle]);
+  }, [draftKey]);
 
   const getActivePeriod = useCallback(() => {
     if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
@@ -793,10 +796,9 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
                     val={val}
                     hasSaved={hasSaved}
                     hasDuplicate={hasDuplicate}
-                    activityTitle={activityTitle}
                     onGradeChange={handleGradeChange}
                     onKeyDown={handleKeyDown}
-                    inputRef={el => { inputRefs.current[student.id] = el; }}
+                    inputRefs={inputRefs}
                   />
                 );
               })}
