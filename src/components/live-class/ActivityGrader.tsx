@@ -32,10 +32,9 @@ const StudentRow = React.memo(({
   val,
   hasSaved,
   hasDuplicate,
-  activityTitle,
   onGradeChange,
   onKeyDown,
-  inputRef
+  inputRefs
 }: {
   student: any;
   idx: number;
