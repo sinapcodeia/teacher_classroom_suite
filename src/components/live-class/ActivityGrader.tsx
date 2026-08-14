@@ -1,8 +1,9 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import React from "react";
-import { useApp, normalizeGrade, parseFlexibleFloat } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import {
   Save, Award, FileText, CheckCircle2, List, User,
   ChevronLeft, ChevronRight, AlertTriangle, Zap, Search, X
@@ -445,9 +446,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
           date: today,
           periodId,
           category: targetCategory,
-          slotIndex: targetSlot,
-        },
-      }));
+          slotIndex: targetSlot } }));
       const savedStudentIds = await addGradesBatch(batchEntries);
 
       // 🧹 Limpiar el backup al éxito
@@ -499,8 +498,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
           date: today,
           periodId,
           category: targetCategory,
-          slotIndex: targetSlot,
-        })
+          slotIndex: targetSlot })
       ]);
 
       // 🧹 Limpiar backup al éxito

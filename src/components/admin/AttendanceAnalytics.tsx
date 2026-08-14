@@ -1,8 +1,9 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { 
   Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, 
   Users, UserCheck, Search, ChevronRight, FileSpreadsheet,

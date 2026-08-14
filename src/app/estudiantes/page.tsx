@@ -1,6 +1,7 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import { useState, useEffect, useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
@@ -13,7 +14,7 @@ const ImportSummaryModal = nextDynamic(() => import("@/components/students/Impor
 import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { Users } from "lucide-react";

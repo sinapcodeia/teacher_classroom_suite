@@ -1,7 +1,8 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { TrendingUp, Users, AlertTriangle, Award } from "lucide-react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { useMemo } from "react";
 
 interface PerformanceStatsProps {
@@ -138,8 +139,7 @@ export default function PerformanceStats({ grado, curso, materia = "TODAS" }: Pe
       textColor: "text-white",
       progress: avgPct,
       progressColor: "bg-white/60",
-      progressBg: "bg-white/20",
-    },
+      progressBg: "bg-white/20" },
     {
       key: "total",
       label: "Estudiantes Activos",
@@ -151,8 +151,7 @@ export default function PerformanceStats({ grado, curso, materia = "TODAS" }: Pe
       textColor: "text-white",
       progress: null,
       progressColor: "",
-      progressBg: "",
-    },
+      progressBg: "" },
     {
       key: "risk",
       label: "En Riesgo Académico",
@@ -164,8 +163,7 @@ export default function PerformanceStats({ grado, curso, materia = "TODAS" }: Pe
       textColor: "text-white",
       progress: myStudents.length > 0 ? (atRisk / myStudents.length) * 100 : 0,
       progressColor: "bg-white/60",
-      progressBg: "bg-white/20",
-    },
+      progressBg: "bg-white/20" },
     {
       key: "top",
       label: "Desempeño Superior",
@@ -177,8 +175,7 @@ export default function PerformanceStats({ grado, curso, materia = "TODAS" }: Pe
       textColor: "text-white",
       progress: myStudents.length > 0 ? (topPerform / myStudents.length) * 100 : 0,
       progressColor: "bg-white/60",
-      progressBg: "bg-white/20",
-    },
+      progressBg: "bg-white/20" },
   ];
 
   return (

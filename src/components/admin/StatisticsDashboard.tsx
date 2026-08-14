@@ -1,8 +1,9 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { useMemo, useState, memo, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { 
   Users, UserCheck, UserX, Cake, Award, 
   BarChart3, PieChart, TrendingDown, MapPin, 
@@ -147,8 +148,7 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
     const performance = {
       excelencia: activeStudents.filter(s => s.avgGrade >= 4.5),
       promedio: activeStudents.filter(s => s.avgGrade >= 3.0 && s.avgGrade < 4.5),
-      riesgo: activeStudents.filter(s => s.avgGrade < 3.0),
-    };
+      riesgo: activeStudents.filter(s => s.avgGrade < 3.0) };
 
     const attendanceRisk = activeStudents.map(s => {
       const parsed = parseInt(s.attendance || "100");

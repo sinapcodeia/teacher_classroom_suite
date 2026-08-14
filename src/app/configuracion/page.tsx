@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";

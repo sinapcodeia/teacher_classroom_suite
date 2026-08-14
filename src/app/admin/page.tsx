@@ -1,10 +1,11 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import { useState, useRef, useEffect } from "react";
 import { useApp, toTitleCase } from "@/context/AppContext";
-import { normalizeGrade } from "@/context/AppContext";
+
 import jsPDF from "jspdf";
 import Papa from "papaparse";
 import { 
@@ -74,7 +75,7 @@ export default function AdminPage() {
     e.preventDefault();
     
     // Política de Seguridad Institucional (Grado Militar)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8 }$/;
     if (!passwordRegex.test(newUser.pass)) {
       alert("⚠️ ERROR DE SEGURIDAD INSTITUCIONAL:\n\nLa contraseña debe tener al menos 8 caracteres, incluir una mayúscula y un número para garantizar la protección de datos.");
       return;
@@ -180,8 +181,7 @@ export default function AdminPage() {
               avgGrade: 0,
               attendance: "100%",
               present: true,
-              isActive: true,
-            };
+              isActive: true };
           }).filter(s => s.primerApellido && s.primerNombre);
 
           setIsImporting(false);

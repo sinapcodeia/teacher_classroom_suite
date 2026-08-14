@@ -1,3 +1,4 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
@@ -7,7 +8,7 @@ import {
   ChevronRight, Activity, Edit, X, Loader2, CheckCircle,
   Sparkles, Target, Brain, ArrowUpRight
 } from "lucide-react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -63,8 +64,7 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
   const [showAddGrade, setShowAddGrade] = useState(false);
   const [newGrade, setNewGrade] = useState({
     title: "", score: "5.0",
-    type: "activity" as "activity" | "participation" | "exam",
-  });
+    type: "activity" as "activity" | "participation" | "exam" });
 
   const student = students.find(s => s.id === id);
 
@@ -1032,8 +1032,7 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
                     title: newGrade.title || (newGrade.type === "participation" ? "Participación" : newGrade.type === "exam" ? "Evaluación" : "Actividad"),
                     score: parseFloat(newGrade.score) || 0,
                     type: newGrade.type,
-                    date: new Date().toISOString(),
-                  });
+                    date: new Date().toISOString() });
                   setShowAddGrade(false);
                   setNewGrade({ title: "", score: "5.0", type: "activity" });
                 }}

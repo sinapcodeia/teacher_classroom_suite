@@ -1,6 +1,7 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
@@ -11,7 +12,7 @@ import CSVImporter from "@/components/curriculum/CSVImporter";
 import PDFCurriculumImporter from "@/components/curriculum/PDFCurriculumImporter";
 import { Plus, Sparkles, FileText, Presentation, BookOpen, UploadCloud } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { Loader2, Download, CheckCircle2, ChevronDown, MessageSquare, Printer, RefreshCw, History, Calendar } from "lucide-react";
 import { printPedagogicalPlan } from "@/lib/printService";

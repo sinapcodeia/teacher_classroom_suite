@@ -1,8 +1,9 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { useState, useMemo } from "react";
 import { X, Sparkles, User, HelpCircle, AlertCircle, Printer, CheckCircle } from "lucide-react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 
 interface PiarAdaptationModalProps {
   isOpen: boolean;
@@ -26,23 +27,19 @@ const ADAPTATION_TYPES = [
   {
     id: "slow",
     label: "Ritmo Lento de Aprendizaje",
-    desc: "Simplificación sintáctica, enunciados cortos, apoyo en listas viñetadas y tareas prácticas escalonadas paso a paso.",
-  },
+    desc: "Simplificación sintáctica, enunciados cortos, apoyo en listas viñetadas y tareas prácticas escalonadas paso a paso." },
   {
     id: "visual",
     label: "Limitación Sensorial Visual",
-    desc: "Énfasis en descripciones acústicas detalladas, dinámicas de tacto o manipulación manual, y adaptaciones para macrotipos de letra.",
-  },
+    desc: "Énfasis en descripciones acústicas detalladas, dinámicas de tacto o manipulación manual, y adaptaciones para macrotipos de letra." },
   {
     id: "hearing",
     label: "Limitación Sensorial Auditiva",
-    desc: "Acompañamiento mediante esquemas visuales, mapas de señas tradicionales, y talleres basados en dibujos e ilustraciones claras.",
-  },
+    desc: "Acompañamiento mediante esquemas visuales, mapas de señas tradicionales, y talleres basados en dibujos e ilustraciones claras." },
   {
     id: "bilingual",
     label: "Bilingüismo (Awapit a Español)",
-    desc: "Uso de vocabulario bilingüe dual (término Awapit - término Español), analogías territoriales nativas y gramática simplificada.",
-  }
+    desc: "Uso de vocabulario bilingüe dual (término Awapit - término Español), analogías territoriales nativas y gramática simplificada." }
 ];
 
 export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint, grade, subject }: PiarAdaptationModalProps) {
@@ -82,8 +79,7 @@ export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint, gr
       exam: `Evaluación de ${activeTopic.title}`,
       grade: grade,
       subject: subject,
-      topic: activeTopic.title,
-    };
+      topic: activeTopic.title };
   }, [plan, grade, subject, activeTopic]);
 
   const filteredStudents = useMemo(() => {

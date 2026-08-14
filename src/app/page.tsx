@@ -1,12 +1,13 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import { useState, useMemo, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
@@ -52,8 +53,7 @@ export default function Home() {
   const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents } = useApp();
   
   const formattedDate = new Date().toLocaleDateString("es-ES", {
-    weekday: "long", day: "numeric", month: "long",
-  });
+    weekday: "long", day: "numeric", month: "long" });
 
   const firstName = profile.name.split(" ")[0];
 
@@ -215,8 +215,7 @@ export default function Home() {
       color: "#3b82f6",
       bg: "rgba(59,130,246,0.1)",
       link: "/estudiantes",
-      trend: "Matrícula Activa",
-    },
+      trend: "Matrícula Activa" },
     {
       label: "Materias",
       value: subjects.length,
@@ -237,8 +236,7 @@ export default function Home() {
       color: "#10b981",
       bg: "rgba(16,185,129,0.1)",
       link: "/reportes/asistencia",
-      trend: `${activeStudentsCount ? Math.round((highPerf / activeStudentsCount) * 100) : 0}% con 4.0+`,
-    },
+      trend: `${activeStudentsCount ? Math.round((highPerf / activeStudentsCount) * 100) : 0}% con 4.0+` },
     {
       label: "En Alerta",
       value: atRisk,
@@ -246,8 +244,7 @@ export default function Home() {
       color: "#f59e0b",
       bg: "rgba(245,158,11,0.1)",
       link: "/estudiantes",
-      trend: atRisk > 0 ? "Requiere Atención" : "Asistencia Óptima",
-    },
+      trend: atRisk > 0 ? "Requiere Atención" : "Asistencia Óptima" },
   ], [activeStudentsCount, students.length, subjects.length, highPerf, atRisk]);
 
   const quickActions = useMemo(() => QUICK_ACTIONS(!!profile.isSuperAdmin), [profile.isSuperAdmin]);
@@ -279,8 +276,7 @@ export default function Home() {
               className="relative overflow-hidden rounded-[2.5rem] p-6 md:p-12"
               style={{
                 background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%)",
-                boxShadow: "0 32px 80px rgba(29,78,216,0.35)",
-              }}
+                boxShadow: "0 32px 80px rgba(29,78,216,0.35)" }}
             >
               {/* Orb decorativo */}
               <div className="pointer-events-none absolute -top-20 -right-20 w-80 h-80 rounded-full"
@@ -299,8 +295,7 @@ export default function Home() {
                     style={{
                       fontSize: "clamp(28px, 5vw, 52px)",
                       color: "#ffffff",
-                      fontStyle: "italic",
-                    }}>
+                      fontStyle: "italic" }}>
                     {getGreeting()}, {firstName}!
                   </h1>
 
@@ -454,8 +449,7 @@ export default function Home() {
                     style={{
                       background: "#ffffff",
                       boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-                      border: "1px solid rgba(226,232,240,0.8)",
-                    }}>
+                      border: "1px solid rgba(226,232,240,0.8)" }}>
                     <div className="flex items-start justify-between mb-4">
                       <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
                         style={{ background: stat.bg }}>
@@ -640,8 +634,7 @@ export default function Home() {
                 <div className="rounded-[2rem] p-7 relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg, #0f172a, #1e3a8a)",
-                    boxShadow: "0 16px 48px rgba(29,78,216,0.3)",
-                  }}>
+                    boxShadow: "0 16px 48px rgba(29,78,216,0.3)" }}>
                   <div className="pointer-events-none absolute -top-8 -right-8 w-36 h-36 rounded-full"
                     style={{ background: "rgba(99,179,237,0.1)" }} />
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] mb-3"
@@ -817,8 +810,7 @@ export default function Home() {
                   style={{
                     background: "linear-gradient(135deg, #fff, #fef2f2)",
                     border: "2px solid #fee2e2",
-                    boxShadow: "0 20px 40px rgba(244,63,94,0.12)",
-                  }}>
+                    boxShadow: "0 20px 40px rgba(244,63,94,0.12)" }}>
                   {/* Decorative element */}
                   <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/5 rounded-full group-hover:scale-150 transition-transform duration-700" />
                   

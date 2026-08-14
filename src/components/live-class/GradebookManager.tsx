@@ -1,7 +1,8 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useApp, DetailedGrades, Student, normalizeGrade, calculateDetailedFinal } from "@/context/AppContext";
+import { useApp, DetailedGrades, Student, calculateDetailedFinal } from "@/context/AppContext";
 import { 
   FileSpreadsheet, Download, Upload, Save, 
   Calculator, CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft, Lock, Unlock
@@ -101,8 +102,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
         PRIMER_APELLIDO: s.primerApellido,
         SEGUNDO_APELLIDO: s.segundoApellido || "",
         PRIMER_NOMBRE: s.primerNombre,
-        SEGUNDO_NOMBRE: s.segundoNombre || "",
-      };
+        SEGUNDO_NOMBRE: s.segundoNombre || "" };
 
       // Add category columns — usar v != null para no confundir nota 0 con vacío
       grades.sb.forEach((v, i)  => row[`SB${i + 1}`]  = v != null ? v : "");
@@ -215,8 +215,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
           name: `${student.primerApellido} ${student.primerNombre}`,
           p1: calculateDetailedFinal(p1Data),
           p2: calculateDetailedFinal(p2Data),
-          p3: calculateDetailedFinal(p3Data),
-        };
+          p3: calculateDetailedFinal(p3Data) };
       }).filter(Boolean);
 
       setImportProgress(100);

@@ -8,44 +8,6 @@ import {
   writeBatch, onSnapshot, query, where 
 } from "firebase/firestore";
 
-// ── NORMALIZACIÓN DE GRADOS ────────────────────────────────────────────────────
-// Convierte cualquier formato de grado del CSV al formato estándar del catálogo.
-// Ej: "6", "SEXTO", "6to" → "6°" | "PRIMARIA", "0", "PRIM" → "PRIMARIA"
-export function normalizeGrade(raw: string | undefined | null): string {
-  if (!raw) return "PREESCOLAR";
-  const s = raw.toString().trim().toUpperCase();
-
-  // Mapeo específico de Preescolar/Transición
-  if (s === "0" || s === "CERO" || s === "TRANSICIÓN" || s === "TRANSICION" || s === "PREESCOLAR" || s === "JARDÍN" || s === "JARDIN" || s === "KÍNDER" || s === "KINDER") {
-    return "PREESCOLAR";
-  }
-
-  // Si ya tiene el formato correcto (N°)
-  if (/^\d+°$/.test(s)) return s;
-
-  // Mapeo numérico: Extraer solo el primer número
-  // Esto evita que "5-1" o "6A" contaminen el grado
-  const numMatch = s.match(/^(\d+)/);
-  if (numMatch) {
-    const n = parseInt(numMatch[1]);
-    if (n === 0) return "PREESCOLAR";
-    if (n >= 1 && n <= 11) return `${n}°`;
-  }
-
-  // Mapeo textual
-  const wordMap: Record<string, string> = {
-    PRIMERO: "1°", SEGUNDO: "2°", TERCERO: "3°", CUARTO: "4°", QUINTO: "5°", 
-    SEXTO: "6°", SEPTIMO: "7°", SÉPTIMO: "7°", OCTAVO: "8°", NOVENO: "9°",
-    DECIMO: "10°", DÉCIMO: "10°", ONCE: "11°", UNDECIMO: "11°", UNDÉCIMO: "11°",
-  };
-  
-  for (const [key, val] of Object.entries(wordMap)) {
-    if (s.includes(key)) return val;
-  }
-
-  // Fallback
-  return s;
-}
 
 // ── FORMATEO DE TEXTO (Title Case) ─────────────────────────────────────────────
 // Convierte "JUAN PEREZ" o "juan perez" → "Juan Perez"
@@ -56,23 +18,7 @@ export function toTitleCase(str: string | undefined | null): string {
   }).join(' ');
 }
 
-// ── PARSEO DE NÚMEROS Y DECIMALES (Soporta coma ',' o punto '.') ────────────────
-export function parseFlexibleFloat(val: string | number | null | undefined): number {
-  if (val === null || val === undefined || val === "") return 0;
-  if (typeof val === "number") return isNaN(val) ? 0 : val;
-  const normalized = String(val).trim().replace(",", ".");
-  const parsed = parseFloat(normalized);
-  return isNaN(parsed) ? 0 : parsed;
-}
 
-// ── SANITIZACIÓN DE SEGURIDAD MILITAR (Anti-XSS e Inyección HTML) ────────────
-export function sanitizeText(str: string | undefined | null): string {
-  if (!str) return "";
-  return String(str)
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/[<>]/g, "")
-    .trim();
-}
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 

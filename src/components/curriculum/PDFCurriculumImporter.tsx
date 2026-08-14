@@ -1,8 +1,9 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Check, Sparkles, Loader2, Info } from "lucide-react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { db } from "@/lib/firebase";
 import { setDoc, doc, getDoc } from "firebase/firestore";
 
@@ -96,8 +97,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                   ser: "Valora y aplica los saberes propios de la comunidad mediante el registro y organización de información en Excel.",
                   panapain: "Fortalece el pensamiento lógico y numérico a partir del análisis de datos de la vida comunitaria.",
                   nanpaskas: "Utiliza Excel para organizar, registrar y presentar información de manera clara y ordenada.",
-                  satIshkit: "Trabajo en equipo, Talleres prácticos de fórmulas y funciones, Resolución de casos comunitarios en Excel.",
-                }
+                  satIshkit: "Trabajo en equipo, Talleres prácticos de fórmulas y funciones, Resolución de casos comunitarios en Excel." }
               ]
             },
             {
@@ -135,8 +135,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                   panapain: "El uso adecuado de herramientas permite optimizar el trabajo en las mingas y parcelas familiares respetando los ciclos de la tierra.",
                   nanpaskas: "Comparar cómo diferentes culturas integran los avances técnicos sin perder su identidad cultural y comunitaria.",
                   hijosSaber: "1. Evolución de la herramienta. 2. Técnica vs Tecnología. 3. Artefactos del territorio.",
-                  satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores, Demostración de artefactos, Lluvia de ideas.",
-                }
+                  satIshkit: "Trabajo colaborativo, Talleres prácticos, Entrevistas a mayores, Demostración de artefactos, Lluvia de ideas." }
               ]
             },
             {
@@ -154,8 +153,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                   panapain: "Aprovechar las redes para visibilizar la cultura Awá y fortalecer los lazos entre los diferentes resguardos y comunidades.",
                   nanpaskas: "Reconocer el impacto global de la era de la información y adaptar sus beneficios al contexto local del IETABA.",
                   hijosSaber: "1. Medios de comunicación local. 2. Identidad digital. 3. Radio comunitaria.",
-                  satIshkit: "Trabajo en equipo, Creación de medios, Exposiciones, Foros de debate, Edición básica de audio/video.",
-                }
+                  satIshkit: "Trabajo en equipo, Creación de medios, Exposiciones, Foros de debate, Edición básica de audio/video." }
               ]
             },
             {
@@ -173,8 +171,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                   panapain: "La técnica y la tecnología deben estar al servicio de Katsa Su (el gran territorio) para garantizar el Buen Vivir.",
                   nanpaskas: "Integrar conocimientos técnicos universales sobre sostenibilidad ambiental con las prácticas ancestrales de conservación.",
                   hijosSaber: "1. Diseño sustentable. 2. Materiales reciclados. 3. Prototipado para el agro.",
-                  satIshkit: "Proyectos de aula, Ferias de ciencia y tecnología, Trabajo práctico, Exposición comunitaria.",
-                }
+                  satIshkit: "Proyectos de aula, Ferias de ciencia y tecnología, Trabajo práctico, Exposición comunitaria." }
               ]
             }
           ];
@@ -195,8 +192,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Desarrollar un pensamiento analítico y riguroso al observar los fenómenos físicos de la naturaleza.",
                 panapain: "Las nociones de tiempo y espacio son vivenciadas en las largas caminatas y recorridos por la selva y la montaña en nuestro territorio.",
                 nanpaskas: "Establecer la equivalencia entre el sistema internacional de medidas y las formas tradicionales de estimación de distancias.",
-                satIshkit: "Salidas de campo, Medición en terreno, Trabajo en equipo, Resolución de problemas, Guías de observación.",
-              }
+                satIshkit: "Salidas de campo, Medición en terreno, Trabajo en equipo, Resolución de problemas, Guías de observación." }
             ]
           },
           {
@@ -213,8 +209,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Reconocer el valor del esfuerzo físico armónico y el cuidado del cuerpo durante el trabajo comunitario.",
                 panapain: "Toda acción en nuestro entorno genera una reacción; mantener el equilibrio físico y espiritual con la Madre Tierra es fundamental.",
                 nanpaskas: "Relacionar los principios de la mecánica clásica con la eficiencia en las técnicas de construcción y cultivo globales y locales.",
-                satIshkit: "Laboratorios vivenciales, Demostraciones con elementos locales, Talleres grupales, Discusión en plenaria.",
-              }
+                satIshkit: "Laboratorios vivenciales, Demostraciones con elementos locales, Talleres grupales, Discusión en plenaria." }
             ]
           },
           {
@@ -231,8 +226,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Defender los recursos naturales del territorio como fuentes sagradas de vida y energía.",
                 panapain: "El agua y el sol son los principales motores de vida de la selva Awá; su uso debe basarse en el respeto absoluto a los espíritus de la naturaleza.",
                 nanpaskas: "Estudiar tecnologías limpias de generación de energía a pequeña escala y su viabilidad para comunidades indígenas rurales.",
-                satIshkit: "Investigación guiada, Elaboración de carteleras, Mesas de trabajo, Exposiciones, Paneles de discusión.",
-              }
+                satIshkit: "Investigación guiada, Elaboración de carteleras, Mesas de trabajo, Exposiciones, Paneles de discusión." }
             ]
           }
         ];
@@ -252,8 +246,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Sentir orgullo de la identidad Awá y practicar la solidaridad y la honestidad en el entorno escolar.",
                 panapain: "Nuestros valores nacen del fogón y de la relación profunda con los ancestros y el territorio sagrado.",
                 nanpaskas: "Dialogar con otras formas de pensamiento ético y moral promoviendo la tolerancia y el respeto a la diversidad cultural.",
-                satIshkit: "Círculos de palabra, Entrevistas, Dramatizaciones, Lectura de relatos propios, Compartir comunitario.",
-              }
+                satIshkit: "Círculos de palabra, Entrevistas, Dramatizaciones, Lectura de relatos propios, Compartir comunitario." }
             ]
           },
           {
@@ -270,8 +263,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Ser un gestor de paz, promoviendo el compañerismo y evitando cualquier forma de discriminación o violencia.",
                 panapain: "La palabra dulce y el consejo oportuno de la autoridad tradicional evitan la ruptura del tejido social en el resguardo.",
                 nanpaskas: "Conocer los derechos humanos universales y su complementariedad con el derecho propio y la jurisdicción especial indígena.",
-                satIshkit: "Estudio de casos, Juegos de rol, Debates armónicos, Elaboración de acuerdos de convivencia.",
-              }
+                satIshkit: "Estudio de casos, Juegos de rol, Debates armónicos, Elaboración de acuerdos de convivencia." }
             ]
           },
           {
@@ -288,8 +280,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Proyectarse con esperanza, liderazgo y compromiso indeclinable hacia la defensa de Katsa Su.",
                 panapain: "Cada joven Awá que se educa es un pilar fundamental para garantizar la pervivencia física y cultural de nuestra nación.",
                 nanpaskas: "Explorar oportunidades académicas y laborales externas manteniendo el arraigo y el compromiso de retorno al resguardo.",
-                satIshkit: "Talleres de proyecto de vida, Cartografía personal, Reflexión individual, Galerías de sueños.",
-              }
+                satIshkit: "Talleres de proyecto de vida, Cartografía personal, Reflexión individual, Galerías de sueños." }
             ]
           }
         ];
@@ -309,8 +300,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Ser lógico preciso y analítico al trabajar con números naturales y racionales.",
                 panapain: "Los conjuntos de los números naturales se utilizan comúnmente en la vida diaria. En la contabilidad para poder manejar sus recursos económicos. Los números racionales se utilizan para calcular precios y cantidades fraccionarias en nuestro territorio.",
                 nanpaskas: "En diferentes culturas, los conjuntos de números naturales y racionales se utilizan de manera única y reflejan las prácticas y tradiciones locales.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos.",
-              },
+                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones, Lluvia de ideas, Salidas de campo, Carteleras, Proyección y edición de videos educativos." },
               {
                 id: "P1-T2",
                 status: "not_started",
@@ -320,8 +310,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Comparte su saber en el trabajo colectivo, demostrando responsabilidad y respeto hacia sus compañeros.",
                 panapain: "Proponer diferentes caminos de solución a un problema determinado en el contexto del comercio y trueque local.",
                 nanpaskas: "Identifica los números enteros y sus propiedades en un contexto social y económico más amplio.",
-                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones.",
-              }
+                satIshkit: "Trabajo individual, Trabajo colaborativo, Mesa redonda, Exposiciones." }
             ]
           },
           {
@@ -338,8 +327,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Interioriza la belleza geométrica de las creaciones tradicionales de su comunidad.",
                 panapain: "La geometría está viva en la arquitectura tradicional de las casas y en el trazado de las chagras comunitarias.",
                 nanpaskas: "Reconoce la universalidad de las formas geométricas combinadas con la particularidad artística local.",
-                satIshkit: "Talleres de tejido y geometría, Uso del transportador, Salidas de campo, Carteleras.",
-              }
+                satIshkit: "Talleres de tejido y geometría, Uso del transportador, Salidas de campo, Carteleras." }
             ]
           },
           {
@@ -356,8 +344,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: "Muestra rigor y honestidad en la recolección y presentación de información estadística comunitaria.",
                 panapain: "Las estadísticas propias ayudan a planificar la soberanía alimentaria y a defender los recursos ante entidades externas.",
                 nanpaskas: "Interpreta información estadística de medios de comunicación nacionales contrastándola con la realidad territorial.",
-                satIshkit: "Censos escolares, Entrevistas, Gráficos en papel milimetrado, Exposición grupal.",
-              }
+                satIshkit: "Censos escolares, Entrevistas, Gráficos en papel milimetrado, Exposición grupal." }
             ]
           }
         ];
@@ -379,8 +366,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 panapain: `Articular los contenidos de ${subjCapitalized} con las vivencias cotidianas y los saberes propios de las familias Awá.`,
                 nanpaskas: `Contrastar los enfoques globales de esta disciplina con la visión particular y armónica de los pueblos originarios.`,
                 hijosSaber: "Conceptos clave del periodo / Hijos del saber institucionales.",
-                satIshkit: `Trabajo colaborativo, Indagación guiada, Mesas de diálogo, Elaboración de resúmenes y esquemas.`,
-              }
+                satIshkit: `Trabajo colaborativo, Indagación guiada, Mesas de diálogo, Elaboración de resúmenes y esquemas.` }
             ]
           },
           {
@@ -397,8 +383,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 ser: `Fomentar el trabajo solidario en equipo, compartiendo hallazgos y respetando las opiniones de sus pares.`,
                 panapain: `El conocimiento adquiere verdadero valor cuando se comparte en Minga y ayuda a fortalecer el tejido social.`,
                 nanpaskas: `Reconocer aportes universales en el campo de ${subjCapitalized} y su aplicabilidad sustentable en la región.`,
-                satIshkit: `Exposiciones, Talleres grupales, Entrevistas comunitarias, Paneles de discusión.`,
-              }
+                satIshkit: `Exposiciones, Talleres grupales, Entrevistas comunitarias, Paneles de discusión.` }
             ]
           },
           {
@@ -416,8 +401,7 @@ export default function PDFCurriculumImporter({ grade, subject }: { grade: strin
                 panapain: `Todo saber cultivado en el IETABA está destinado a resguardar la vida, la cultura y la soberanía de Katsa Su.`,
                 nanpaskas: `Proyectar los conocimientos adquiridos hacia escenarios académicos superiores manteniendo el orgullo por sus raíces.`,
                 hijosSaber: `Proyecto Final de Periodo - Integración de saberes de ${subject}.`,
-                satIshkit: `Muestras pedagógicas, Foros comunitarios, Portafolios de evidencias, Plenarias de cierre.`,
-              }
+                satIshkit: `Muestras pedagógicas, Foros comunitarios, Portafolios de evidencias, Plenarias de cierre.` }
             ]
           }
         ];

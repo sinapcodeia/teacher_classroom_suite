@@ -1,9 +1,10 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { createPortal } from "react-dom";
 import { useState, useEffect, useMemo } from "react";
-import { X, User, BarChart3, Cake, Phone, Calendar, BookOpen, } from "lucide-react"; // existing imports
-import { normalizeGrade } from "@/context/AppContext";
+import { X, User, BarChart3, Cake, Phone, Calendar, BookOpen } from "lucide-react"; // existing imports
+
 
 export default function StudentProfileModal({ student, onClose }: { student: any; onClose: () => void }) {
   const [mounted, setMounted] = useState(false);

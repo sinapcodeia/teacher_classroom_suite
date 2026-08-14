@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";

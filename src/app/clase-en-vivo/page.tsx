@@ -1,6 +1,7 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
@@ -15,7 +16,7 @@ const GradebookManager = nextDynamic(() => import("@/components/live-class/Grade
 const SessionReminders = nextDynamic(() => import("@/components/live-class/SessionReminders"), { ssr: false });
 import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 

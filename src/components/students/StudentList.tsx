@@ -1,7 +1,8 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import { Search, Filter, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Users } from "lucide-react";
-import { useApp, normalizeGrade } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { useState, useMemo, useEffect } from "react";
 
 interface StudentListProps {

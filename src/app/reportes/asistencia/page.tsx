@@ -1,10 +1,11 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
-export const dynamic = 'force-dynamic';
+
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { normalizeGrade } from "@/context/AppContext";
+
 import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 import { Printer, ArrowLeft, Download, ShieldCheck, Loader2 } from "lucide-react";
 import Link from "next/link";

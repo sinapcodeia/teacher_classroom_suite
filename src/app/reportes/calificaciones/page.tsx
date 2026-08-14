@@ -1,8 +1,9 @@
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
-import { normalizeGrade } from "@/context/AppContext";
+
 import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 import { 
   Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, 
