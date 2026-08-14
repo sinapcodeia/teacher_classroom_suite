@@ -795,7 +795,7 @@ Responde las preguntas 1 a 4 seleccionando la opción correcta y rellenando el �
         {/* Global Filters & Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-xl border border-outline-variant/30">
           <div className="space-y-4">
-            <h1 className="text-4xl font-black text-on-surface tracking-tighter uppercase italic">Tejidos Temáticos</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-on-surface tracking-tight uppercase">Tejidos Temáticos</h1>
             
             {isLoading ? (
               <div className="flex items-center gap-3 text-slate-400">

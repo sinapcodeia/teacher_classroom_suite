@@ -46,7 +46,7 @@ export default function HorarioPage() {
                 <ArrowLeft size={24} className="text-on-surface-variant group-hover:text-primary" />
              </Link>
              <div>
-                <h1 className="text-3xl font-black text-on-surface tracking-tighter uppercase italic">Horario Institucional</h1>
+                <h1 className="text-2xl md:text-3xl font-black text-on-surface tracking-tight uppercase">Horario Institucional</h1>
                 <p className="text-[10px] font-black text-on-surface-variant opacity-60 uppercase tracking-[0.3em] flex items-center gap-2">
                   <Calendar size={14} /> Gestión Semanal {profile.institution}
                 </p>

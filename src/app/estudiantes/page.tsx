@@ -173,7 +173,7 @@ export default function StudentsPage() {
       <main className="pt-20 px-4 md:px-6 max-w-[1440px] mx-auto w-full space-y-6 pb-24 md:pb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-            <h1 className="text-4xl font-black text-on-surface tracking-tighter uppercase italic">Estudiantes</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-on-surface tracking-tight uppercase">Estudiantes</h1>
             <p className="text-sm text-on-surface-variant font-bold uppercase tracking-widest opacity-70">Gestión de Matrícula y Seguimiento Académico</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">

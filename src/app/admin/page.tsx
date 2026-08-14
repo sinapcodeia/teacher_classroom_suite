@@ -347,7 +347,7 @@ export default function AdminPage() {
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-black opacity-40 uppercase tracking-[0.5em]">Sistema Operativo IETABA</span>
               </div>
-              <h1 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic leading-none">
+              <h1 className="text-2xl md:text-4xl font-black tracking-tight uppercase leading-none">
                 Consola <span className="text-primary-container">MASTER</span>
               </h1>
             </div>

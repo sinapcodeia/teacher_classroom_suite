@@ -128,7 +128,7 @@ export default function AuditPage() {
                 <Database size={40} className="animate-pulse" />
               </div>
               <div>
-                <h1 className="text-3xl lg:text-4xl font-black uppercase tracking-tighter text-white">Auditoría 360°</h1>
+                <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">Auditoría 360°</h1>
                 <p className="text-xs font-bold text-indigo-300 uppercase tracking-[0.2em] mt-1">Motor de Integridad (Modo Local/Offline Activo)</p>
               </div>
             </div>

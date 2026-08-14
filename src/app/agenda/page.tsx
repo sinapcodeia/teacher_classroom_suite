@@ -244,7 +244,7 @@ export default function AgendaPage() {
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/15 backdrop-blur-md rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/10 animate-pulse">
               <Sparkles size={12} className="text-yellow-300" /> Agenda Inteligente
             </div>
-            <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter leading-none italic uppercase">
+            <h1 className="text-2xl md:text-4xl font-black text-white tracking-tight leading-none uppercase">
               Bitácora & Tareas
             </h1>
             <p className="text-white/80 text-xs md:text-sm font-medium max-w-xl">
