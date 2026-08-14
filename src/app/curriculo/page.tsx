@@ -791,7 +791,7 @@ Responde las preguntas 1 a 4 seleccionando la opci√≥n correcta y rellenando el √
       <div className="flex flex-col min-h-screen">
       <TopAppBar />
       
-      <main className="pt-20 px-6 max-w-[1440px] mx-auto w-full space-y-8 pb-24 md:pb-8">
+      <main className="pt-20 px-4 md:px-6 max-w-[1440px] mx-auto w-full space-y-6 md:space-y-8 pb-24 md:pb-8">
         {/* Global Filters & Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-xl border border-outline-variant/30">
           <div className="space-y-4">
