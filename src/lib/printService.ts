@@ -5,7 +5,14 @@
  */
 
 import { normalizeGrade } from "@/context/AppContext";
-import { APP_VERSION_LABEL } from "@/lib/version";
+import {
+  APP_VERSION_LABEL,
+  APP_NAME,
+  APP_EDITION,
+  INSTITUTION_NAME,
+  INSTITUTION_LOCATION,
+  APP_BRAND,
+} from "@/lib/constants";
 
 interface Student {
   primerNombre: string;
@@ -94,7 +101,7 @@ function standardHeader(
     </style>
     <div class="doc-header-unified">
       <div class="inst-title">${INSTITUTION}</div>
-      <div class="inst-sub">EduManager — Sistema de Gestión Docente ${APP_VERSION_LABEL}</div>
+      <div class="inst-sub">${APP_NAME} — Sistema de Gestión Docente ${APP_VERSION_LABEL}</div>
       <div class="doc-meta-grid">
         <div class="meta-item"><strong>Docente:</strong> ${meta.teacher.toUpperCase()}</div>
         <div class="meta-item"><strong>Fecha/Hora:</strong> ${nowFullStr()}</div>
@@ -148,7 +155,7 @@ export function printStudentsByCourse(students: Student[], course: string, teach
       <div class="sign-line"><hr/><p>Firma Docente</p></div>
       <div class="sign-line"><hr/><p>Firma Coordinación</p></div>
     </div>
-    <div class="footer">EduManager · IETABA · Generado el ${nowFullStr()}</div>
+    <div class="footer">${APP_NAME} · ${INSTITUTION_NAME} · Generado el ${nowFullStr()}</div>
   </body></html>`);
 }
 
@@ -173,7 +180,7 @@ export function printStudentsByGrade(students: Student[], grade: string, teacher
       <thead><tr><th>#</th><th>Curso</th><th>Nombre Completo</th><th>Documento</th><th>Género</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="footer">EduManager · IETABA · Generado el ${nowFullStr()}</div>
+    <div class="footer">${APP_NAME} · ${INSTITUTION_NAME} · Generado el ${nowFullStr()}</div>
   </body></html>`);
 }
 
@@ -208,7 +215,7 @@ export function printAttendanceSheet(
       <div class="sign-line"><hr/><p>Firma Docente</p></div>
       <div class="sign-line"><hr/><p>Visto Bueno Coordinación</p></div>
     </div>
-    <div class="footer">EduManager · IETABA · Generado el ${nowFullStr()}</div>
+    <div class="footer">${APP_NAME} · ${INSTITUTION_NAME} · Generado el ${nowFullStr()}</div>
   </body></html>`);
 }
 
@@ -235,7 +242,7 @@ export function printWeeklySchedule(
       <thead><tr><th>#</th><th>Día</th><th>Horario</th><th>Materia</th><th>Curso</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="footer">EduManager · IETABA</div>
+    <div class="footer">${APP_NAME} · ${INSTITUTION_NAME}</div>
   </body></html>`);
 }
 
@@ -382,7 +389,7 @@ export function printRecoveryPlan(
         <div>_______________________<br/>Acudiente / Familia</div>
       </div>
     </div>
-    <div class="footer">Documento oficial de control pedagógico · IETABA · Generado por EduManager Platinum Edition</div>
+    <div class="footer">Documento oficial de control pedagógico · ${INSTITUTION_NAME} · Generado por ${APP_NAME} ${APP_EDITION}</div>
   </body></html>`);
 }
 
@@ -497,7 +504,7 @@ export function printGradesTable(
       <div class="sign-line"><hr/><p>Firma Docente</p></div>
       <div class="sign-line"><hr/><p>Vo.Bo. Coordinación</p></div>
     </div>
-    <div class="footer">IETABA · Premium Suite · Generado el ${nowFullStr()} | © 2026 Powered by Sinapcode</div>
+    <div class="footer">${INSTITUTION_NAME} · ${APP_EDITION} · Generado el ${nowFullStr()} | © ${new Date().getFullYear()} Powered by ${APP_BRAND}</div>
   </body></html>`);
 }
 export function printInstitutionalStudentReport(students: Student[], teacherName: string) {
@@ -593,8 +600,8 @@ export function printInstitutionalStudentReport(students: Student[], teacherName
     </div>
 
     <div class="footer">
-      <div>© 2026 Powered by Sinapcode · IETABA · Colombia</div>
-      <div>Documento Oficial generado por EduManager Platinum Edition</div>
+      <div>© ${new Date().getFullYear()} Powered by ${APP_BRAND} · ${INSTITUTION_NAME} · ${INSTITUTION_LOCATION}</div>
+      <div>Documento Oficial generado por ${APP_NAME} ${APP_EDITION}</div>
       <div>Página 1 de 1</div>
     </div>
   </body></html>`);
@@ -784,8 +791,8 @@ export function printMissingGradesReport(
     </div>
 
     <div class="footer" style="margin-top: 80px; padding-top: 15px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 8px;">
-      <div>Ing. Antonio Rodriguez Burgos · IETABA · Resguardo Awá Katsa Su</div>
-      <div>Documento de Control Pedagógico Oficial · Generado por EduManager Platinum Edition</div>
+      <div>${INSTITUTION_NAME} · ${INSTITUTION_LOCATION}</div>
+      <div>Documento de Control Pedagógico Oficial · Generado por ${APP_NAME} ${APP_EDITION}</div>
     </div>
   </body></html>`);
 }

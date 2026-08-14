@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
+import { APP_NAME, APP_VERSION_LABEL, INSTITUTION_NAME } from "@/lib/constants";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EduManager | IETABA",
-  description: "Sistema de gestión escolar institucional - UNIPA",
+  title: `${APP_NAME} ${APP_VERSION_LABEL} | ${INSTITUTION_NAME}`,
+  description: `Sistema de gestión escolar institucional — ${INSTITUTION_NAME}`,
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "EduManager",
+    title: APP_NAME,
   },
 };
 

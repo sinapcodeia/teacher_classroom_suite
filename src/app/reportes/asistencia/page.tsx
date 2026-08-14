@@ -1,4 +1,5 @@
 "use client";
+import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 
 export const dynamic = 'force-dynamic';
 
@@ -284,7 +285,7 @@ export default function AttendanceReportPage() {
          </div>
          <div className="mt-12 text-center border-t border-on-surface/5 pt-4">
             <p className="text-[8px] text-on-surface-variant/50 font-medium uppercase tracking-widest">
-               IETABA · Premium Suite · Generado el {new Date().toLocaleString()} | © 2026 Powered by Sinapcode
+               IETABA · {APP_NAME} {APP_EDITION} · Generado el {new Date().toLocaleString()}
             </p>
          </div>
       </div>

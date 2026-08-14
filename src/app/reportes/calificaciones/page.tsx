@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
+import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 import { 
   Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, 
   Loader2, AlertTriangle, FileWarning, ClipboardCheck, 
@@ -1031,7 +1032,7 @@ export default function GradesReportPage() {
             Firma del Docente: ___________________________
           </div>
           <div className="text-right text-[6px] text-black font-bold">
-            IETABA PREMIUM SUITE · SINAPCODEIA ENTERPRISE INFRASTRUCTURE · {new Date().toLocaleDateString('es-CO')}
+            {APP_NAME} {APP_EDITION} · {APP_BRAND} ENTERPRISE · {new Date().toLocaleDateString('es-CO')}
           </div>
         </div>
       </div>

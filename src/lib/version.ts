@@ -1,9 +1,6 @@
 /**
- * Fuente única de verdad para la versión del aplicativo.
- * Siempre lee dinámicamente desde package.json.
- * NUNCA escribir versiones quemadas en los componentes.
+ * version.ts — Re-exporta APP_VERSION_LABEL desde constants.ts.
+ * Mantenido por compatibilidad con imports existentes.
+ * Usar @/lib/constants directamente en código nuevo.
  */
-import pkg from "../../package.json";
-
-export const APP_VERSION: string = pkg.version;
-export const APP_VERSION_LABEL: string = `v${pkg.version}`;
+export { APP_VERSION, APP_VERSION_LABEL } from "./constants";
