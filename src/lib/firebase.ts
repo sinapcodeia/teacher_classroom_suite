@@ -4,6 +4,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  Firestore,
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
@@ -18,9 +19,15 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Offline persistence — only in the browser (IndexedDB is not available in Node/SSR build)
-let db: ReturnType<typeof getFirestore>;
+// ── FIRESTORE — inicialización segura ────────────────────────────────────────
+// CRÍTICO: usar 'let' con asignación diferida causaba TDZ cuando el minificador
+// renombraba la variable y el bundle evaluaba el módulo antes de window.
+// Solución: inicializar SIEMPRE con getFirestore() y luego intentar persistence.
+let db: Firestore = getFirestore(app); // asignación inmediata — nunca TDZ
+
 if (typeof window !== "undefined") {
+  // En el browser: intentar Firestore con persistencia offline (IndexedDB).
+  // Si ya fue inicializado (ej. Hot Reload), getFirestore() devuelve la instancia existente.
   try {
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
@@ -28,11 +35,9 @@ if (typeof window !== "undefined") {
       }),
     });
   } catch {
+    // initializeFirestore lanza si ya existe — usar la instancia existente.
     db = getFirestore(app);
   }
-} else {
-  // Build-time / SSR: plain Firestore without persistence
-  db = getFirestore(app);
 }
 
 const auth = getAuth(app);
