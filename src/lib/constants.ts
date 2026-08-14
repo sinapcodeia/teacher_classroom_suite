@@ -71,3 +71,27 @@ export function normalizeGrade(raw: string | undefined | null): string {
 
   return s;
 }
+
+/**
+ * parseFlexibleFloat — Parsea números aceptando coma ',' o punto '.' como decimal.
+ * Copia pura de AppContext.parseFlexibleFloat sin imports de React.
+ */
+export function parseFlexibleFloat(val: string | number | null | undefined): number {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const normalized = String(val).trim().replace(",", ".");
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * sanitizeText — Elimina scripts e inyección HTML (anti-XSS).
+ * Copia pura de AppContext.sanitizeText sin imports de React.
+ */
+export function sanitizeText(str: string | undefined | null): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/[<>]/g, "")
+    .trim();
+}
