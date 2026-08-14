@@ -63,6 +63,18 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // ── PLANES PEDAGÓGICOS IA (/pedagogical_plans/{planId}) ───────────────
+    match /pedagogical_plans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── MASTER DATA (/masterData/{docId}) ─────────────────────────────────
+    match /masterData/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isSuperAdmin();
+    }
+
     // ── CONVIVENCIA (/convivencia/{id}) ───────────────────────────────────
     match /convivencia/{id} {
       allow read: if isAuthenticated();
