@@ -1,5 +1,5 @@
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 import { useApp } from "@/context/AppContext";
 import { Cake, Users, TrendingUp, AlertTriangle, ChevronRight, UserCheck, Heart } from "lucide-react";

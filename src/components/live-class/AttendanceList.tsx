@@ -1,5 +1,5 @@
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 import { useState, useMemo, useEffect } from "react";
 import { 

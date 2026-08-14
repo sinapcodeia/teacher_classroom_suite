@@ -1,5 +1,5 @@
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 import { useApp } from "@/context/AppContext";
 import { 

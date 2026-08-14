@@ -1,5 +1,5 @@
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 "use client";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 import { Search, Filter, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Users } from "lucide-react";
 import { useApp } from "@/context/AppContext";
