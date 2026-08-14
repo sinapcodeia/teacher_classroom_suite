@@ -122,6 +122,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedActivityKey, setSelectedActivityKey] = useState<string>("new");
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [indivScore, setIndivScore] = useState<string>("5.0");
+  const [indivSaving, setIndivSaving] = useState(false);
 
   const [isDraftRecovered, setIsDraftRecovered] = useState(false);
 
