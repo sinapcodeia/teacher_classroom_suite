@@ -35,28 +35,39 @@ export const SUPER_ADMIN_EMAILS: string[] = [
 // ── UTILIDADES PURAS (sin dependencia de React) ───────────────────────────────
 /**
  * normalizeGrade — Normaliza strings de grado a formato "N°".
- * Copia pura de AppContext.normalizeGrade. Mantener sincronizadas.
+ * Copia pura de AppContext.normalizeGrade sin imports de React/Firebase.
  */
 export function normalizeGrade(raw: string | undefined | null): string {
   if (!raw) return "PREESCOLAR";
   const s = raw.toString().trim().toUpperCase();
-  if (s === "0" || s === "CERO" || s === "TRANSICI\u00d3N" || s === "TRANSICION" ||
-      s === "PREESCOLAR" || s === "JARD\u00cdN" || s === "JARDIN" ||
-      s === "K\u00cdNDER" || s === "KINDER") return "PREESCOLAR";
-  if (/^\d+\u00b0$/.test(s)) return s;
+
+  // Preescolar / Transición
+  if (
+    s === "0" || s === "CERO" || s === "TRANSICIÓN" || s === "TRANSICION" ||
+    s === "PREESCOLAR" || s === "JARDÍN" || s === "JARDIN" ||
+    s === "KÍNDER" || s === "KINDER"
+  ) return "PREESCOLAR";
+
+  // Ya tiene formato N°
+  if (/^\d+°$/.test(s)) return s;
+
+  // Numérico
   const numMatch = s.match(/^(\d+)/);
   if (numMatch) {
     const n = parseInt(numMatch[1]);
     if (n === 0) return "PREESCOLAR";
-    if (n >= 1 && n <= 11) return `${n}\u00b0`;
+    if (n >= 1 && n <= 11) return `${n}°`;
   }
+
+  // Textual
   const wordMap: Record<string, string> = {
-    PRIMERO: "1\u00b0", SEGUNDO: "2\u00b0", TERCERO: "3\u00b0", CUARTO: "4\u00b0", QUINTO: "5\u00b0",
-    SEXTO: "6\u00b0", SEPTIMO: "7\u00b0", S\u00c9PTIMO: "7\u00b0", OCTAVO: "8\u00b0", NOVENO: "9\u00b0",
-    DECIMO: "10\u00b0", D\u00c9CIMO: "10\u00b0", ONCE: "11\u00b0", UNDECIMO: "11\u00b0", UND\u00c9CIMO: "11\u00b0",
+    "PRIMERO": "1°", "SEGUNDO": "2°", "TERCERO": "3°", "CUARTO": "4°", "QUINTO": "5°",
+    "SEXTO": "6°", "SEPTIMO": "7°", "SÉPTIMO": "7°", "OCTAVO": "8°", "NOVENO": "9°",
+    "DECIMO": "10°", "DÉCIMO": "10°", "ONCE": "11°", "UNDECIMO": "11°", "UNDÉCIMO": "11°",
   };
   for (const [key, val] of Object.entries(wordMap)) {
     if (s.includes(key)) return val;
   }
+
   return s;
 }
