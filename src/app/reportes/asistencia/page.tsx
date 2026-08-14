@@ -1,11 +1,11 @@
 "use client";
-import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 
 export const dynamic = 'force-dynamic';
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/context/AppContext";
+import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 import { Printer, ArrowLeft, Download, ShieldCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";

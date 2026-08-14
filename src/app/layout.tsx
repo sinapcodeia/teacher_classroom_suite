@@ -2,7 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
-import { APP_NAME, APP_VERSION_LABEL, INSTITUTION_NAME } from "@/lib/constants";
+import OfflineToast from "@/components/shared/OfflineToast";
+
+// ── Versión e institución — importadas, nunca quemadas ──────────────────────
+import pkg from "../../package.json";
+const APP_NAME_STATIC = "EduManager";
+const INSTITUTION_STATIC = "IETABA";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +17,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} ${APP_VERSION_LABEL} | ${INSTITUTION_NAME}`,
-  description: `Sistema de gestión escolar institucional — ${INSTITUTION_NAME}`,
+  title: `${APP_NAME_STATIC} v${pkg.version} | ${INSTITUTION_STATIC}`,
+  description: `Sistema de gestión escolar institucional — ${INSTITUTION_STATIC}`,
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
@@ -22,7 +27,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: APP_NAME,
+    title: APP_NAME_STATIC,
   },
 };
 
@@ -31,8 +36,6 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
 };
-
-import OfflineToast from "@/components/shared/OfflineToast";
 
 export default function RootLayout({
   children,

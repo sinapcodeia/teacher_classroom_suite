@@ -4,7 +4,6 @@
  * No external PDF library needed — browser Print to PDF works perfectly.
  */
 
-import { normalizeGrade } from "@/context/AppContext";
 import {
   APP_VERSION_LABEL,
   APP_NAME,
@@ -12,7 +11,9 @@ import {
   INSTITUTION_NAME,
   INSTITUTION_LOCATION,
   APP_BRAND,
+  normalizeGrade,
 } from "@/lib/constants";
+
 
 interface Student {
   primerNombre: string;
