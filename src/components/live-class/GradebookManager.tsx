@@ -2,7 +2,8 @@
 import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useApp, DetailedGrades, Student, calculateDetailedFinal } from "@/context/AppContext";
+import { useApp, Student } from "@/context/AppContext";
+import { DetailedGrades, calculateDetailedFinal } from "@/lib/gradeUtils";
 import { 
   FileSpreadsheet, Download, Upload, Save, 
   Calculator, CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft, Lock, Unlock

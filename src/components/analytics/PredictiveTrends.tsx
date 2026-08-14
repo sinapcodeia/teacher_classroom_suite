@@ -1,6 +1,7 @@
 "use client";
 
-import { useApp, calculateDetailedFinal, DetailedGrades } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
+import { calculateDetailedFinal, DetailedGrades } from "@/lib/gradeUtils";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, AreaChart, Area, Cell, PieChart, Pie
