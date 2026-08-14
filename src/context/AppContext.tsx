@@ -7,6 +7,7 @@ import {
   doc, getDoc, setDoc, collection, getDocs, updateDoc, 
   writeBatch, onSnapshot, query, where 
 } from "firebase/firestore";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 
 // ── FORMATEO DE TEXTO (Title Case) ─────────────────────────────────────────────
