@@ -11,6 +11,7 @@ import {
   Loader2, ShieldCheck, Globe, Lock, Sparkles,
   Mail, KeyRound, ArrowLeft, Send, Eye, EyeOff
 } from "lucide-react";
+import { APP_VERSION_LABEL } from "@/lib/version";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -419,7 +420,7 @@ export default function LoginPage() {
             {/* Footer */}
             <div style={{ marginTop: 36, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
               <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.25em", textTransform: "uppercase" }}>
-                SinapCodeIA · Enterprise Infrastructure
+                SinapCodeIA · Enterprise Infrastructure · {APP_VERSION_LABEL}
               </p>
             </div>
           </div>

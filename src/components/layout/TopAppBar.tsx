@@ -3,7 +3,7 @@
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import Image from "next/image";
-import pkg from "../../../package.json";
+import { APP_VERSION_LABEL } from "@/lib/version";
 import { usePathname, useRouter } from "next/navigation";
 import { ShieldCheck, LogOut, ChevronDown, Search, Bell, Command } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -230,7 +230,7 @@ export default function TopAppBar() {
               {/* Version Info */}
               <div className="mt-3 pt-3 border-t border-outline-variant/10 text-center">
                  <p className="text-[8px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em]">
-                   v{pkg.version} • Enterprise Edition
+                   {APP_VERSION_LABEL} • Enterprise Edition
                  </p>
               </div>
             </div>

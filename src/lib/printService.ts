@@ -5,6 +5,7 @@
  */
 
 import { normalizeGrade } from "@/context/AppContext";
+import { APP_VERSION_LABEL } from "@/lib/version";
 
 interface Student {
   primerNombre: string;
@@ -93,7 +94,7 @@ function standardHeader(
     </style>
     <div class="doc-header-unified">
       <div class="inst-title">${INSTITUTION}</div>
-      <div class="inst-sub">EduManager — Sistema de Gestión Docente v2.4</div>
+      <div class="inst-sub">EduManager — Sistema de Gestión Docente ${APP_VERSION_LABEL}</div>
       <div class="doc-meta-grid">
         <div class="meta-item"><strong>Docente:</strong> ${meta.teacher.toUpperCase()}</div>
         <div class="meta-item"><strong>Fecha/Hora:</strong> ${nowFullStr()}</div>
