@@ -138,6 +138,26 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     } catch (_) {}
   }, [draftKey, activityTitle]);
 
+  const getActivePeriod = useCallback(() => {
+    if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
+    return masterData.activePeriod || "p2";
+  }, [subject, grade, masterData.activePeriod]);
+
+  const filteredStudents = useMemo(() =>
+    myStudents
+      .filter(s => 
+        s.curso === course && 
+        normalizeGrade(s.grado) === normalizeGrade(grade) && 
+        s.isActive !== false
+      )
+      .sort((a, b) => {
+        const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
+        const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
+        return nameA.localeCompare(nameB);
+      }),
+    [myStudents, course, grade]
+  );
+
   const discardDraft = useCallback(() => {
     try { localStorage.removeItem(draftKey); } catch (_) {}
     setIsDraftRecovered(false);
@@ -161,26 +181,6 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   }, [draftKey, getActivePeriod, filteredStudents, subject, targetCategory, targetSlot]);
 
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const getActivePeriod = useCallback(() => {
-    if (subject === "FÍSICA" && normalizeGrade(grade) === "6") return "p1";
-    return masterData.activePeriod || "p2";
-  }, [subject, grade, masterData.activePeriod]);
-
-  const filteredStudents = useMemo(() =>
-    myStudents
-      .filter(s => 
-        s.curso === course && 
-        normalizeGrade(s.grado) === normalizeGrade(grade) && 
-        s.isActive !== false
-      )
-      .sort((a, b) => {
-        const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
-        const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
-        return nameA.localeCompare(nameB);
-      }),
-    [myStudents, course, grade]
-  );
 
   const searchedStudents = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
