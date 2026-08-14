@@ -129,7 +129,7 @@ export type DetailedGrades = {
  * Cuando todos los pilares tienen datos (caso normal, fin de período), el
  * resultado es idéntico a la ponderación clásica.
  */
-export const calculateDetailedFinal = (detailed: DetailedGrades): number => {
+export function calculateDetailedFinal(detailed: DetailedGrades): number {
   const getAvg = (vals: (number | null)[] | null | undefined): number | null => {
     if (!vals) return null;
     const valid = (vals as (number | null)[]).filter((v): v is number => v !== null && v !== undefined);
@@ -173,10 +173,10 @@ export interface StudentAcademicSummary {
  * CÁLCULO MASTER AUDITADO MULTI-PERIODO Y ACUMULADO INSTITUCIONAL (SIEEE / SIFEE)
  * Genera la verdadera nota acumulada ponderando las notas de todos los periodos registrados.
  */
-export const calculateStudentAcademicSummary = (
+export function calculateStudentAcademicSummary(
   student: Partial<Student>, 
   activePeriod: string = "p1"
-): StudentAcademicSummary => {
+): StudentAcademicSummary {
   const detailedGrades = student.detailedGrades || {};
   const subjectIds = Object.keys(detailedGrades);
 
