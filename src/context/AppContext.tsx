@@ -277,6 +277,7 @@ interface AppContextType {
   updateUserRole: (uid: string, role: Profile["role"]) => Promise<void>;
   createEmailUser: (email: string, pass: string, name: string, role: Profile["role"]) => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
+  loginOffline: (emailToUse?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   acceptTerms: () => Promise<void>;
   saveDailyAttendance: (dateStr: string, records: Record<string, string>) => Promise<void>;
@@ -917,21 +918,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginWithEmail = async (email: string, pass: string) => {
-    if (typeof window !== "undefined" && !navigator.onLine) {
-      const cachedUserRaw = localStorage.getItem("offline_user");
-      const cachedProfileRaw = localStorage.getItem("offline_profile");
-      
-      if (cachedUserRaw && cachedProfileRaw) {
+  const loginOffline = async (emailToUse?: string) => {
+    const targetEmail = (emailToUse || "docente.local@ietaba.edu.co").toLowerCase();
+    
+    // 1. Intentar restaurar sesión cacheada global
+    const cachedUserRaw = typeof window !== "undefined" ? localStorage.getItem("offline_user") : null;
+    const cachedProfileRaw = typeof window !== "undefined" ? localStorage.getItem("offline_profile") : null;
+    
+    if (cachedUserRaw && cachedProfileRaw) {
+      try {
         const cachedUser = JSON.parse(cachedUserRaw);
         const cachedProfile = JSON.parse(cachedProfileRaw);
-        
-        if (cachedUser.email?.toLowerCase() === email.toLowerCase()) {
-          setUser(cachedUser);
-          setProfile(cachedProfile);
-          setSchedule(blocksToEntries(cachedProfile.weeklySchedule || []));
-          setAuthLoading(false);
-          return;
         }
       }
       
@@ -1874,7 +1871,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       schedule, setSchedule,
       agendaNotes, addAgendaNote, updateAgendaNote, updateAgendaNotesBatch, deleteAgendaNotesBatch, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,
       allUsers, refreshUsers, updateUserRole,
-      createEmailUser, loginWithEmail, resetPassword, acceptTerms,
+      createEmailUser, loginWithEmail, loginOffline, resetPassword, acceptTerms,
       curriculum, updateTopicStatus, updateTopicSlides, saveCurriculumLocal,
       governanceStats,
       studentsLoading,

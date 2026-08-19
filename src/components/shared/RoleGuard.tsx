@@ -68,8 +68,11 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     }, 1000);
 
     if (!authLoading && !user) {
-      router.replace("/login");
-      return;
+      const hasOffline = typeof window !== "undefined" && (localStorage.getItem("offline_user") || localStorage.getItem("offline_profile"));
+      if (!hasOffline) {
+        router.replace("/login");
+        return;
+      }
     }
     
     // ONBOARDING CONDICIONAL (GUARD)

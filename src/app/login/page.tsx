@@ -15,7 +15,7 @@ import { APP_VERSION_LABEL } from "@/lib/version";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, authLoading, loginWithEmail, resetPassword } = useApp();
+  const { user, authLoading, loginWithEmail, loginOffline, resetPassword, isOnline } = useApp();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -23,6 +23,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [view, setView] = useState<"login" | "reset">("login");
+
+  const handleOfflineLogin = async () => {
+    setError("");
+    setSigningIn(true);
+    try {
+      await loginOffline(email || "docente.local@ietaba.edu.co");
+      router.replace("/");
+    } catch (err) {
+      console.error("Error al acceder en modo local:", err);
+      setSigningIn(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && user) router.replace("/");
@@ -300,6 +312,27 @@ export default function LoginPage() {
                       Continuar con Google
                     </>
                   )}
+                </button>
+
+                {/* Emergency Offline Access Button */}
+                <button
+                  type="button"
+                  onClick={handleOfflineLogin}
+                  disabled={signingIn}
+                  style={{
+                    width: "100%", padding: "14px 24px", marginTop: 12,
+                    background: "rgba(245, 158, 11, 0.15)", borderRadius: 16,
+                    border: "1px solid rgba(245, 158, 11, 0.35)",
+                    display: "flex", itemsCenter: "center", justifyContent: "center", gap: 10,
+                    fontSize: 11, fontWeight: 900, color: "#fbbf24",
+                    letterSpacing: "0.08em", textTransform: "uppercase",
+                    cursor: "pointer", transition: "all 0.2s"
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(245, 158, 11, 0.25)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(245, 158, 11, 0.15)")}
+                >
+                  <Sparkles size={16} />
+                  Ingresar en Modo Local (Sin Internet)
                 </button>
 
                 {/* Separator */}
