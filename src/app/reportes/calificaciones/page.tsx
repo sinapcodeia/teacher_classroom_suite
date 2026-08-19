@@ -1010,11 +1010,11 @@ export default function GradesReportPage() {
 
             {/* Convenciones Legend */}
             {[
-              ["SB1-8", "SABER: EVALUACIONES Y EXÁMENES ESCRITOS/ORALES"],
-              ["SBH1-8", "SABER-HACER: TRABAJOS, TALLERES Y PRÁCTICAS"],
-              ["SR1-5", "SER: ACTITUD, COMPORTAMIENTO Y VALORES"],
-              ["CV1-3", "CONVIVIR: TRABAJO EN EQUIPO Y PARTICIPACIÓN"],
-              ["AUT", "AUTO-EVALUACIÓN: REFLEXIÓN DEL ESTUDIANTE"]
+              ["SB1-8", "SABER (30%): EVALUACIONES Y EXÁMENES ESCRITOS/ORALES"],
+              ["SBH1-8", "SABER-HACER (40%): TRABAJOS, TALLERES Y PRÁCTICAS"],
+              ["SR1-5", "SER (20%): ACTITUD, COMPORTAMIENTO Y VALORES"],
+              ["CV1-3", "CONVIVIR (5%): TRABAJO EN EQUIPO Y PARTICIPACIÓN"],
+              ["AUT", "AUTO-EVALUACIÓN (5%): REFLEXIÓN PROPIA DEL ESTUDIANTE"]
             ].map((conv, idx) => (
               <tr key={idx}>
                 <td className="border border-black font-bold text-center p-0.5" colSpan={1}>{conv[0]}</td>
@@ -1024,6 +1024,18 @@ export default function GradesReportPage() {
                 ))}
               </tr>
             ))}
+
+            {/* Leyenda de Puntos de Colores / Alertas al lado del nombre */}
+            <tr>
+              <td className="border border-black font-bold text-center p-0.5 bg-slate-200" colSpan={1}>ALERTAS</td>
+              <td className="border border-black px-2 p-1 font-bold text-[8px]" colSpan={27}>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> 🟠 <b>PUNTO NARANJA:</b> EXAMEN FALTANTE (PENDIENTE EVALUACIÓN DEL SABER 30%)</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> 🔵 <b>PUNTO AZUL:</b> TAREA/TALLER PENDIENTE (SABER-HACER 40%)</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-600 inline-block animate-pulse" /> 🔴 <b>PUNTO ROJO:</b> SIN NOTAS CARGADAS EN LA PLANILLA</span>
+                </div>
+              </td>
+            </tr>
           </tbody>
         </table>
 

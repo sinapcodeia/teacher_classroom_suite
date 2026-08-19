@@ -1,8 +1,5 @@
 "use client";
 import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
-
-
-
 import { useState, useMemo, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
@@ -18,7 +15,6 @@ import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { APP_VERSION_LABEL } from "@/lib/version";
 
-
 const CriticalAlerts = nextDynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
 const EduAISentinel = nextDynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
 const PredictiveTrends = nextDynamic(() => import("@/components/analytics/PredictiveTrends"), { ssr: false });
@@ -26,6 +22,7 @@ const PedagogicalControlPanel = nextDynamic(() => import("@/components/dashboard
 const QuickResourceHub = nextDynamic(() => import("@/components/dashboard/QuickResourceHub"), { ssr: false });
 const GovernanceKPIs = nextDynamic(() => import("@/components/dashboard/GovernanceKPIs"), { ssr: false });
 const DatabaseBackup = nextDynamic(() => import("@/components/shared/DatabaseBackup"), { ssr: false });
+const AcademicAccumulatedWidget = nextDynamic(() => import("@/components/dashboard/AcademicAccumulatedWidget"), { ssr: false });
 
 const GREETINGS = ["¡Buenos días", "¡Buenas tardes", "¡Buenas noches"];
 function getGreeting() {
@@ -429,6 +426,11 @@ export default function Home() {
 
           {/* ── RECURSOS DE CLASE INTUITIVOS ── */}
           {!profile.isSuperAdmin && <QuickResourceHub />}
+
+          {/* ── Novedad: ESTADO ACUMULADO SIEEE — ¿QUIÉN GANA O PIERDE EL AÑO? ── */}
+          <section className="mb-10">
+            <AcademicAccumulatedWidget gradoFilter={gradoFilter} cursoFilter={cursoFilter} />
+          </section>
 
           {/* ── ALERTA CRÍTICA PARA DIRECTIVOS ── */}
           <CriticalAlerts />

@@ -892,6 +892,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginOffline = async (emailToUse?: string) => {
+    const targetEmail = (emailToUse || "docente.local@ietaba.edu.co").toLowerCase();
+    
+    // 1. Intentar restaurar sesión cacheada global
+    const cachedUserRaw = typeof window !== "undefined" ? localStorage.getItem("offline_user") : null;
+    const cachedProfileRaw = typeof window !== "undefined" ? localStorage.getItem("offline_profile") : null;
+    
+    if (cachedUserRaw && cachedProfileRaw) {
+      try {
+        const cachedUser = JSON.parse(cachedUserRaw);
+        const cachedProfile = JSON.parse(cachedProfileRaw);
+        setUser(cachedUser);
+        setProfile(cachedProfile);
+        if (cachedProfile.weeklySchedule && cachedProfile.weeklySchedule.length > 0) {
+          setSchedule(blocksToEntries(cachedProfile.weeklySchedule));
+        }
+        setAuthLoading(false);
+        return;
+      } catch (e) {
+        console.warn("Error parseando usuario offline:", e);
+      }
+    }
+    
+    // 2. Si no hay cache global, buscar por email específico
+    const individualProfileRaw = typeof window !== "undefined" ? localStorage.getItem(`edu_profile_${targetEmail}`) : null;
+    let profileData: Profile;
+    if (individualProfileRaw) {
+      profileData = JSON.parse(individualProfileRaw);
+    } else {
+      profileData = {
+        uid: "offline-local-uid",
+        email: targetEmail,
+        name: "Docente (Modo Local)",
+        institution: "I.E. TÉCNICA AGROPECUARIA BUENAVISTA - IETABA",
+        role: "DOCENTE",
+        status: "ACTIVE",
+        acceptedTerms: true,
+        isProfileComplete: true,
+        weeklySchedule: DEFAULT_SCHEDULE_BLOCKS
+      };
+    }
+
+    const offlineUser = {
+      uid: profileData.uid || "offline-uid-123",
+      email: profileData.email,
+      displayName: profileData.name,
+      photoURL: profileData.photoURL || ""
+    };
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("offline_user", JSON.stringify(offlineUser));
+      localStorage.setItem("offline_profile", JSON.stringify(profileData));
+    }
+
+    setUser(offlineUser as any);
+    setProfile(profileData);
+    setSchedule(blocksToEntries(profileData.weeklySchedule || []));
+    setAuthLoading(false);
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      await loginOffline(email);
+      return;
+    }
+
+    try {
+      const { signInWithEmailAndPassword } = await import("firebase/auth");
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (err: any) {
+      if (err?.code === "auth/network-request-failed" || err?.message?.includes("network")) {
+        console.warn("Fallo de red en Firebase. Activando Modo Local Offline...");
+        await loginOffline(email);
+        return;
+      }
+      throw err;
+    }
+  };
+
   const updateUserRole = async (uid: string, role: Profile["role"]) => {
     try {
       await updateDoc(doc(db, "users", uid), { role, status: "ACTIVE" });
@@ -918,42 +997,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginOffline = async (emailToUse?: string) => {
-    const targetEmail = (emailToUse || "docente.local@ietaba.edu.co").toLowerCase();
-    
-    // 1. Intentar restaurar sesión cacheada global
-    const cachedUserRaw = typeof window !== "undefined" ? localStorage.getItem("offline_user") : null;
-    const cachedProfileRaw = typeof window !== "undefined" ? localStorage.getItem("offline_profile") : null;
-    
-    if (cachedUserRaw && cachedProfileRaw) {
-      try {
-        const cachedUser = JSON.parse(cachedUserRaw);
-        const cachedProfile = JSON.parse(cachedProfileRaw);
-        }
-      }
-      
-      const individualProfileRaw = localStorage.getItem(`edu_profile_${email.toLowerCase()}`);
-      if (individualProfileRaw) {
-        const profileData = JSON.parse(individualProfileRaw);
-        const offlineUser = {
-          uid: profileData.uid || "offline-uid-123",
-          email: profileData.email,
-          displayName: profileData.name,
-          photoURL: profileData.photoURL || ""
-        };
-        setUser(offlineUser as any);
-        setProfile(profileData);
-        setSchedule(blocksToEntries(profileData.weeklySchedule || []));
-        setAuthLoading(false);
-        return;
-      }
-      
-      throw { code: "auth/network-request-failed" };
-    }
-
-    const { signInWithEmailAndPassword } = await import("firebase/auth");
-    await signInWithEmailAndPassword(auth, email, pass);
-  };
 
   const resetPassword = async (email: string) => {
     const { sendPasswordResetEmail } = await import("firebase/auth");
