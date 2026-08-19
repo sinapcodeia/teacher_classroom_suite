@@ -323,6 +323,15 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
                                 {student.grades.length} {student.grades.length === 1 ? 'Actividad' : 'Actividades'}
                               </span>
                             )}
+                            {(() => {
+                              const partCount = student.grades ? student.grades.filter((g: any) => g.type === 'participation').length : 0;
+                              const partBonus = Math.min(0.5, partCount * 0.10).toFixed(2);
+                              return partCount > 0 ? (
+                                <span className="text-[8px] font-black bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 uppercase flex items-center gap-1" title="Bono Salvavidas por Participación (+0.10 por cada una)">
+                                  ⭐ {partCount} (+{partBonus} Bono)
+                                </span>
+                              ) : null;
+                            })()}
                             {isFailing && <span className="text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 uppercase">Bajo Rendimiento</span>}
                           </div>
                         </div>

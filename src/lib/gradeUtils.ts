@@ -16,6 +16,8 @@ export interface StudentAcademicSummary {
 export interface MinimalStudentForSummary {
   avgGrade?: number;
   detailedGrades?: Record<string, Record<string, DetailedGrades>>;
+  grades?: { score: number; type?: string }[];
+  participationCap?: number;
 }
 
 /**
@@ -53,6 +55,30 @@ export function calculateDetailedFinal(detailed: DetailedGrades): number {
   const final = active.reduce((sum, p) => sum + (p.avg * p.weight) / totalWeight, 0);
 
   return Number(final.toFixed(2));
+}
+
+/**
+ * BONO SALVAVIDAS POR PARTICIPACIÓN EN CLASE
+ * Suma décimas adicionales directamente sobre la nota final del período.
+ * Regla de peso: Cada participación (nota 5.0) aporta +0.10 décimas adicionales (+0.1).
+ * @param participations Cantidad o array de participaciones registradas
+ * @param maxCap Tope máximo configurable (+0.5 por defecto, o +1.0 punto máximo)
+ */
+export function calculateParticipationBonus(
+  participations: number | { score: number; type?: string }[],
+  maxCap: number = 0.5
+): number {
+  if (!participations) return 0;
+
+  let rawBonus = 0;
+  if (typeof participations === "number") {
+    rawBonus = participations * 0.10;
+  } else if (Array.isArray(participations)) {
+    const partGrades = participations.filter(g => g.type === 'participation');
+    rawBonus = partGrades.reduce((sum, g) => sum + ((g.score || 5.0) * 0.02), 0);
+  }
+
+  return Number(Math.min(maxCap, rawBonus).toFixed(2));
 }
 
 /**
@@ -116,13 +142,17 @@ export function calculateStudentAcademicSummary(
     periodAvg = totalCumulativeCount > 0 ? Number((totalCumulativeSum / totalCumulativeCount).toFixed(2)) : (student.avgGrade || 0);
   }
 
-  const overallAvg = totalCumulativeCount > 0 
+  const rawOverallAvg = totalCumulativeCount > 0 
     ? Number((totalCumulativeSum / totalCumulativeCount).toFixed(2)) 
     : (student.avgGrade || 0);
 
+  const bonus = student.grades ? calculateParticipationBonus(student.grades, student.participationCap || 0.5) : 0;
+  const finalPeriodAvg = Math.min(5.0, Number((periodAvg + bonus).toFixed(2)));
+  const finalOverallAvg = Math.min(5.0, Number((rawOverallAvg + bonus).toFixed(2)));
+
   return {
-    overallAvg,
-    periodAvg,
+    overallAvg: finalOverallAvg,
+    periodAvg: finalPeriodAvg,
     subjectAverages,
     periodSubjectAverages
   };
