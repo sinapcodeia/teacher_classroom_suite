@@ -8,9 +8,10 @@ import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp, ScheduleBlock } from "@/context/AppContext";
 import { printStudentsByCourse, printStudentsByGrade, printAttendanceSheet, printWeeklySchedule } from "@/lib/printService";
-import { User, Calendar, Printer, Save, Plus, Trash2, ChevronRight, AlertTriangle, Sun, CheckCircle2, Loader2 } from "lucide-react";
+import { User, Calendar, Printer, Save, Plus, Trash2, ChevronRight, AlertTriangle, Sun, CheckCircle2, Loader2, Database, Trash } from "lucide-react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import DatabaseBackup from "@/components/shared/DatabaseBackup";
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────────
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] as const;
@@ -37,7 +38,7 @@ const BLOCK_COLORS = [
   "bg-orange-100 text-orange-900 border-orange-200",
 ];
 
-type Tab = "perfil" | "horario" | "impresion";
+type Tab = "perfil" | "horario" | "impresion" | "sistema";
 type Jornada = "MAÑANA";
 
 function TabBtn({ id, active, label, icon: Icon, onClick }: { id: Tab; active: Tab; label: string; icon: React.ElementType; onClick: (t: Tab) => void }) {
@@ -306,7 +307,7 @@ function ScheduleGrid({
 
 // ── MAIN PAGE ──────────────────────────────────────────────────────────────────
 export default function ConfiguracionPage() {
-  const { user, profile, updateProfile, students, masterData } = useApp();
+  const { user, profile, updateProfile, students, masterData, myStudents, agendaNotes, curriculum, subjects } = useApp();
   const [tab, setTab] = useState<Tab>("perfil");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -449,6 +450,7 @@ export default function ConfiguracionPage() {
             <TabBtn id="perfil"    active={tab} label="Perfil"     icon={User}     onClick={setTab} />
             {!profile.isSuperAdmin && <TabBtn id="horario"  active={tab} label="Horario"   icon={Calendar} onClick={setTab} />}
             <TabBtn id="impresion" active={tab} label="Impresión"  icon={Printer}  onClick={setTab} />
+            <TabBtn id="sistema"   active={tab} label="Sistema"    icon={Database} onClick={setTab} />
           </div>
 
           <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
@@ -568,6 +570,54 @@ export default function ConfiguracionPage() {
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            
+            {/* ── SISTEMA Y BACKUP ── */}
+            {tab === "sistema" && (
+              <div className="animate-in fade-in zoom-in-95 duration-300">
+                <div className="mb-8 border-b border-gray-100 pb-4">
+                  <h2 className="text-xl font-black uppercase tracking-tighter text-gray-900 flex items-center gap-2">
+                    <Database className="text-rose-500" /> Sistema
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Gestión de Memoria y Respaldo Local</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Backup */}
+                  <div className="p-6 rounded-3xl border border-gray-100 bg-gray-50 flex flex-col justify-between">
+                    <div>
+                      <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-4">
+                        <Save size={24} />
+                      </div>
+                      <h3 className="text-sm font-black uppercase tracking-widest text-gray-900 mb-2">Copia de Seguridad (Backup)</h3>
+                      <p className="text-xs text-gray-500 leading-relaxed mb-6">
+                        Descarga toda la base de datos de tus estudiantes, notas, currículo, bitácora y configuración a tu dispositivo en formato JSON seguro.
+                      </p>
+                    </div>
+                    <DatabaseBackup backupData={{ profile, students: myStudents, agendaNotes, curriculum, subjects, masterData }} />
+                  </div>
+
+                  {/* Limpieza */}
+                  <div className="p-6 rounded-3xl border border-rose-100 bg-rose-50/30 flex flex-col justify-between">
+                    <div>
+                      <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-4">
+                        <Trash size={24} />
+                      </div>
+                      <h3 className="text-sm font-black uppercase tracking-widest text-rose-900 mb-2">Limpieza de Memoria Local</h3>
+                      <p className="text-xs text-rose-700/70 leading-relaxed mb-6">
+                        Si experimentas errores de carga o problemas de sincronización en esta máquina, puedes forzar el borrado de la caché local.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleClearStorage}
+                      className="flex items-center justify-center gap-2 bg-white border-2 border-rose-200 hover:bg-rose-50 text-rose-700 px-5 py-3 rounded-xl font-bold shadow-sm transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" /> Vaciar Caché Local
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
