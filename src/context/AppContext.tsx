@@ -1947,7 +1947,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       curriculum, updateTopicStatus, updateTopicSlides, saveCurriculumLocal,
       governanceStats,
       studentsLoading,
-      isOnline
+      isOnline,
+      globalGradeFilter,
+      setGlobalGradeFilter,
+      globalCursoFilter,
+      setGlobalCursoFilter
     }}>
       {children}
     </AppContext.Provider>
