@@ -47,21 +47,23 @@ const QUICK_ACTIONS = (isSuperAdmin: boolean) => isSuperAdmin
     ];
 
 export default function Home() {
-  const { schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents } = useApp();
+  const { 
+    schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents,
+    globalGradeFilter: gradoFilter, setGlobalGradeFilter: setGradoFilter,
+    globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter
+  } = useApp();
   
   const formattedDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long", day: "numeric", month: "long" });
 
   const firstName = profile.name.split(" ")[0];
 
-  const [gradoFilter, setGradoFilter] = useState("TODOS");
-  const [cursoFilter, setCursoFilter] = useState("TODOS");
-
   // Opciones de filtro dinámicas basadas en los datos del docente
   const gradoOptions = useMemo(() => {
     const list = profile.isSuperAdmin ? students : myStudents;
     return [...new Set(list.map(s => normalizeGrade(s.grado)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [students, myStudents, profile.isSuperAdmin]);
+
 
   const cursoOptions = useMemo(() => {
     const list = profile.isSuperAdmin ? students : myStudents;

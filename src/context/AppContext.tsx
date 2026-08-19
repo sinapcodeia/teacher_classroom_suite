@@ -282,6 +282,10 @@ interface AppContextType {
   acceptTerms: () => Promise<void>;
   saveDailyAttendance: (dateStr: string, records: Record<string, string>) => Promise<void>;
   isOnline: boolean;
+  globalGradeFilter: string;
+  setGlobalGradeFilter: (grade: string) => void;
+  globalCursoFilter: string;
+  setGlobalCursoFilter: (course: string) => void;
   // CURRICULUM
   curriculum: Curriculum[];
   updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
@@ -372,6 +376,31 @@ const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
 // ── PROVIDER ─────────────────────────────────────────────────────────────────
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [globalGradeFilter, setGlobalGradeFilterState] = useState<string>("TODOS");
+  const [globalCursoFilter, setGlobalCursoFilterState] = useState<string>("TODOS");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedG = localStorage.getItem("edu_global_grade");
+      const savedC = localStorage.getItem("edu_global_curso");
+      if (savedG) setGlobalGradeFilterState(savedG);
+      if (savedC) setGlobalCursoFilterState(savedC);
+    }
+  }, []);
+
+  const setGlobalGradeFilter = (grade: string) => {
+    setGlobalGradeFilterState(grade);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("edu_global_grade", grade);
+    }
+  };
+
+  const setGlobalCursoFilter = (course: string) => {
+    setGlobalCursoFilterState(course);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("edu_global_curso", course);
+    }
+  };
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isOnline, setIsOnline] = useState<boolean>(true);

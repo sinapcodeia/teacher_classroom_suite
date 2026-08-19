@@ -1,8 +1,4 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
-
-
-
 import { useState, useEffect, useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
@@ -11,22 +7,23 @@ const StudentList = nextDynamic(() => import("@/components/students/StudentList"
 const StudentProfile = nextDynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
 const PerformanceStats = nextDynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
 const ImportSummaryModal = nextDynamic(() => import("@/components/students/ImportSummaryModal"), { ssr: false });
-import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2 } from "lucide-react";
+import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2, Users } from "lucide-react";
 import Papa from "papaparse";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { Users } from "lucide-react";
 import { printInstitutionalStudentReport } from "@/lib/printService";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 
 export default function StudentsPage() {
-  const { myStudents, addStudent, masterData, profile, importStudents } = useApp();
+  const { 
+    myStudents, addStudent, masterData, profile, importStudents,
+    globalGradeFilter: gradoFilter, setGlobalGradeFilter: setGradoFilter,
+    globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter
+  } = useApp();
   
-  const [gradoFilter, setGradoFilter] = useState("TODOS");
-  const [cursoFilter, setCursoFilter] = useState("TODOS");
   const [materiaFilter, setMateriaFilter] = useState("TODAS");
-
   const [selectedId, setSelectedId] = useState("");
   const [mounted, setMounted] = useState(false);
 
