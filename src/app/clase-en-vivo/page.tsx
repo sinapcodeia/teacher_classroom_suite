@@ -14,7 +14,7 @@ const ActivityGrader = nextDynamic(() => import("@/components/live-class/Activit
 const ClassInsights = nextDynamic(() => import("@/components/live-class/ClassInsights"), { ssr: false });
 const GradebookManager = nextDynamic(() => import("@/components/live-class/GradebookManager"), { ssr: false });
 const SessionReminders = nextDynamic(() => import("@/components/live-class/SessionReminders"), { ssr: false });
-import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { useEffect, useState, useMemo, Suspense } from "react";
@@ -29,7 +29,8 @@ function LiveClassPageContent() {
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
   const [initialSyncDone, setInitialSyncDone] = useState(false);
-  const [draftCount, setDraftCount] = useState(0);
+  type DraftInfo = { key: string, type: "attendance" | "activity", grade: string, course: string, subject: string };
+  const [drafts, setDrafts] = useState<DraftInfo[]>([]);
 
   useEffect(() => {
     const checkDrafts = () => {
@@ -206,18 +207,32 @@ function LiveClassPageContent() {
             </div>
           </div>
 
-          {draftCount > 0 && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 shadow-sm animate-in fade-in">
+          {drafts.length > 0 && (
+            <button 
+              onClick={() => {
+                const first = drafts[0];
+                setSelectedGrado(first.grade);
+                setSelectedCurso(first.course);
+                setSelectedSubject(first.subject);
+                if (first.type === "activity") setViewMode("gradebook");
+                else setViewMode("live");
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="w-full text-left mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all animate-in fade-in cursor-pointer group"
+            >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-amber-500 text-white rounded-xl flex items-center justify-center font-black text-xs shrink-0 animate-pulse">
-                  {draftCount}
+                <div className="w-8 h-8 bg-amber-500 text-white rounded-xl flex items-center justify-center font-black text-xs shrink-0 group-hover:animate-pulse shadow-sm">
+                  {drafts.length}
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider">Protección de Datos Activa</p>
-                  <p className="text-[9px] font-bold opacity-80 uppercase">Tienes {draftCount} borrador(es) pendiente(s) de clases anteriores o no guardadas. Al seleccionar el curso correspondiente se restaurarán tus datos.</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider">Borrador Pendiente</p>
+                  <p className="text-[9px] font-bold opacity-80 uppercase">
+                    Tienes {drafts.length} clase(s) sin guardar. <span className="underline decoration-amber-400 decoration-2 underline-offset-2">Haz clic aquí</span> para ir a grado {drafts[0].grade} curso {drafts[0].course} y guardarlo.
+                  </p>
                 </div>
               </div>
-            </div>
+              <ChevronRight size={18} className="text-amber-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+            </button>
           )}
 
           <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 gap-3">
@@ -322,4 +337,5 @@ export default function LiveClassPage() {
     </Suspense>
   );
 }
+
 
