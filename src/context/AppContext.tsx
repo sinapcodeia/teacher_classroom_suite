@@ -813,6 +813,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         unsubs.push(unsubscribeCurriculum);
 
+        // Carga de datos offline restantes al iniciar sesión
+        if (typeof window !== "undefined") {
+          const ls = localStorage.getItem("edu_students");
+          if (ls) setStudents(JSON.parse(ls));
+          const la = localStorage.getItem("edu_agendaNotes");
+          if (la) setAgendaNotes(JSON.parse(la));
+          const lc = localStorage.getItem("edu_curriculum");
+          if (lc) setCurriculum(JSON.parse(lc));
+          const lmd = localStorage.getItem("edu_masterData");
+          if (lmd) setMasterData(JSON.parse(lmd));
+          const lsub = localStorage.getItem("edu_subjects");
+          if (lsub) setSubjects(JSON.parse(lsub));
+        }
+
         setUser(firebaseUser);
       } else {
         // Si no hay firebaseUser pero tenemos sesión cacheada (útil si falla indexedDB o auth timeout)
@@ -828,6 +842,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (offlineProfile.weeklySchedule && offlineProfile.weeklySchedule.length > 0) {
               setSchedule(blocksToEntries(offlineProfile.weeklySchedule));
             }
+            if (typeof window !== "undefined") {
+              const ls = localStorage.getItem("edu_students");
+              if (ls) setStudents(JSON.parse(ls));
+              const la = localStorage.getItem("edu_agendaNotes");
+              if (la) setAgendaNotes(JSON.parse(la));
+              const lc = localStorage.getItem("edu_curriculum");
+              if (lc) setCurriculum(JSON.parse(lc));
+              const lmd = localStorage.getItem("edu_masterData");
+              if (lmd) setMasterData(JSON.parse(lmd));
+              const lsub = localStorage.getItem("edu_subjects");
+              if (lsub) setSubjects(JSON.parse(lsub));
+            }
+            setStudentsLoading(false);
             setAuthLoading(false);
             return;
           } catch (e) {
@@ -937,6 +964,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (cachedProfile.weeklySchedule && cachedProfile.weeklySchedule.length > 0) {
           setSchedule(blocksToEntries(cachedProfile.weeklySchedule));
         }
+        if (typeof window !== "undefined") {
+          const ls = localStorage.getItem("edu_students");
+          if (ls) setStudents(JSON.parse(ls));
+          const la = localStorage.getItem("edu_agendaNotes");
+          if (la) setAgendaNotes(JSON.parse(la));
+          const lc = localStorage.getItem("edu_curriculum");
+          if (lc) setCurriculum(JSON.parse(lc));
+          const lmd = localStorage.getItem("edu_masterData");
+          if (lmd) setMasterData(JSON.parse(lmd));
+          const lsub = localStorage.getItem("edu_subjects");
+          if (lsub) setSubjects(JSON.parse(lsub));
+        }
+        setStudentsLoading(false);
         setAuthLoading(false);
         return;
       } catch (e) {
@@ -978,6 +1018,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(offlineUser as any);
     setProfile(profileData);
     setSchedule(blocksToEntries(profileData.weeklySchedule || []));
+    if (typeof window !== "undefined") {
+      const ls = localStorage.getItem("edu_students");
+      if (ls) setStudents(JSON.parse(ls));
+      const la = localStorage.getItem("edu_agendaNotes");
+      if (la) setAgendaNotes(JSON.parse(la));
+      const lc = localStorage.getItem("edu_curriculum");
+      if (lc) setCurriculum(JSON.parse(lc));
+      const lmd = localStorage.getItem("edu_masterData");
+      if (lmd) setMasterData(JSON.parse(lmd));
+      const lsub = localStorage.getItem("edu_subjects");
+      if (lsub) setSubjects(JSON.parse(lsub));
+    }
+    setStudentsLoading(false);
     setAuthLoading(false);
   };
 
