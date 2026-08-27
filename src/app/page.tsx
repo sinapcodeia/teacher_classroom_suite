@@ -366,7 +366,17 @@ export default function Home() {
                 </div>
                 
                 <div className="flex-1 flex gap-3">
-                   <select 
+
+                     <select 
+                        value={gradoFilter}
+                        onChange={(e) => { setGradoFilter(e.target.value); setCursoFilter("TODOS"); }}
+                        className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                     >
+                        <option value="TODOS">Todos los Grados</option>
+                        {gradoOptions.map(g => <option key={g} value={g}>Grado {g}</option>)}
+                     </select>
+
+                     <select 
                         value={cursoFilter}
                         onChange={(e) => setCursoFilter(e.target.value)}
                         className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
