@@ -8,9 +8,10 @@ import { useMemo } from "react";
 interface GovernanceKPIsProps {
   grado: string;
   curso: string;
+  subject?: string;
 }
 
-export default function GovernanceKPIs({ grado, curso }: GovernanceKPIsProps) {
+export default function GovernanceKPIs({ grado, curso, subject }: GovernanceKPIsProps) {
   const { students, myStudents, profile } = useApp();
   
   const stats = useMemo(() => {

@@ -50,7 +50,8 @@ export default function Home() {
   const { 
     schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents,
     globalGradeFilter: gradoFilter, setGlobalGradeFilter: setGradoFilter,
-    globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter
+    globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter,
+      globalSubjectFilter: subjectFilter, setGlobalSubjectFilter: setSubjectFilter
   } = useApp();
   
   const formattedDate = new Date().toLocaleDateString("es-ES", {
@@ -66,12 +67,15 @@ export default function Home() {
 
 
   const cursoOptions = useMemo(() => {
-    const list = profile.isSuperAdmin ? students : myStudents;
-    const base = gradoFilter === "TODOS"
-      ? list
-      : list.filter(s => normalizeGrade(s.grado) === gradoFilter);
-    return [...new Set(base.map(s => s.curso))].filter(Boolean).sort();
-  }, [students, myStudents, gradoFilter, profile.isSuperAdmin]);
+      const list = profile.isSuperAdmin ? students : myStudents;
+      const base = gradoFilter === "TODOS" ? list : list.filter(s => normalizeGrade(s.grado) === gradoFilter);
+      return [...new Set(base.map(s => s.curso))].filter(Boolean).sort();
+    }, [students, myStudents, gradoFilter, profile.isSuperAdmin]);
+
+    const subjectOptions = useMemo(() => {
+      if (profile.isSuperAdmin) return [...new Set(subjects.map(s => s.name))].sort();
+      return profile.teachingSubjectsList || [];
+    }, [profile, subjects]);
   
   // Lista filtrada globalmente que afecta a TODO el dashboard
   const filteredDashboardStudents = useMemo(() => {
@@ -94,7 +98,8 @@ export default function Home() {
     return courses;
   }, [profile, schedule]);
 
-  const todaySchedule = useMemo(() => {
+  const recentLogs = agendaNotes.filter(n => subjectFilter === "TODOS" || n.subject === subjectFilter);
+    const todaySchedule = useMemo(() => {
     const days = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
     const currentDay = days[new Date().getDay()];
     // Filtrar por el día de hoy. Si es fin de semana o no hay clases, mostrará vacío.
@@ -193,7 +198,8 @@ export default function Home() {
 
   // Filtro para excluir notas de tareas, talleres o actividades del inicio
   const filteredRecentAgendaNotes = useMemo(() => {
-    return agendaNotes.filter(n => {
+      return agendaNotes.filter(n => {
+        if (subjectFilter !== "TODOS" && n.subject !== subjectFilter) return false;
       if (n.type === "TASK") return false;
       const content = (n.content || "").toLowerCase();
       const isActivityOrTaller = content.includes("taller") || 
@@ -204,7 +210,7 @@ export default function Home() {
                                  content.includes("examen");
       return !isActivityOrTaller;
     });
-  }, [agendaNotes]);
+  }, [agendaNotes, subjectFilter]);
 
   const quickStats = useMemo(() => [
     {
@@ -361,22 +367,22 @@ export default function Home() {
                 
                 <div className="flex-1 flex gap-3">
                    <select 
-                      value={gradoFilter}
-                      onChange={(e) => { setGradoFilter(e.target.value); setCursoFilter("TODOS"); }}
-                      className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
-                   >
-                      <option value="TODOS">Todos los Grados</option>
-                      {gradoOptions.map(g => <option key={g} value={g}>Grado {g}</option>)}
-                   </select>
+                        value={cursoFilter}
+                        onChange={(e) => setCursoFilter(e.target.value)}
+                        className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                     >
+                        <option value="TODOS">Todos los Cursos</option>
+                        {cursoOptions.map(c => <option key={c} value={c}>Curso {c}</option>)}
+                     </select>
 
-                   <select 
-                      value={cursoFilter}
-                      onChange={(e) => setCursoFilter(e.target.value)}
-                      className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
-                   >
-                      <option value="TODOS">Todos los Cursos</option>
-                      {cursoOptions.map(c => <option key={c} value={c}>Curso {c}</option>)}
-                   </select>
+                     <select 
+                        value={subjectFilter}
+                        onChange={(e) => setSubjectFilter(e.target.value)}
+                        className="flex-1 h-12 md:h-14 bg-white border-2 border-outline-variant/30 rounded-2xl px-4 md:px-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm"
+                     >
+                        <option value="TODOS">Todas las Materias</option>
+                        {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                     </select>
                 </div>
 
                 <div className="hidden md:flex items-center gap-2 px-6 py-3 bg-primary/5 border border-primary/10 rounded-[1.5rem]">
@@ -431,7 +437,7 @@ export default function Home() {
 
           {/* ── Novedad: ESTADO ACUMULADO SIEEE — ¿QUIÉN GANA O PIERDE EL AÑO? ── */}
           <section className="mb-10">
-            <AcademicAccumulatedWidget gradoFilter={gradoFilter} cursoFilter={cursoFilter} />
+            <AcademicAccumulatedWidget gradoFilter={gradoFilter} cursoFilter={cursoFilter} subjectFilter={subjectFilter} />
           </section>
 
           {/* ── ALERTA CRÍTICA PARA DIRECTIVOS ── */}
@@ -439,7 +445,7 @@ export default function Home() {
 
           {/* ── KPI DE GOBERNANZA E INTELIGENCIA DE POBLACIÓN ── */}
           <section className="mb-10">
-            <GovernanceKPIs grado={gradoFilter} curso={cursoFilter} />
+            <GovernanceKPIs grado={gradoFilter} curso={cursoFilter} subject={subjectFilter} />
           </section>
 
           {/* ── KPI STATS ── */}
@@ -489,7 +495,7 @@ export default function Home() {
           <PredictiveTrends />
 
           {/* ── EDUAI SENTINEL (IA PROFESIONAL) ── */}
-          <EduAISentinel grado={gradoFilter} curso={cursoFilter} />
+          <EduAISentinel grado={gradoFilter} curso={cursoFilter} subject={subjectFilter} />
 
           {/* ── MAIN GRID ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

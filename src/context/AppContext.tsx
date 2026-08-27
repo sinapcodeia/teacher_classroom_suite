@@ -285,6 +285,9 @@ interface AppContextType {
   globalGradeFilter: string;
   setGlobalGradeFilter: (grade: string) => void;
   globalCursoFilter: string;
+  setGlobalCursoFilter: (curso: string) => void;
+  globalSubjectFilter: string;
+  setGlobalSubjectFilter: (subjectId: string) => void;
   setGlobalCursoFilter: (course: string) => void;
   // CURRICULUM
   curriculum: Curriculum[];
@@ -378,6 +381,7 @@ const DEFAULT_SCHEDULE_BLOCKS: ScheduleBlock[] = [
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [globalGradeFilter, setGlobalGradeFilterState] = useState<string>("TODOS");
   const [globalCursoFilter, setGlobalCursoFilterState] = useState<string>("TODOS");
+  const [globalSubjectFilter, setGlobalSubjectFilterState] = useState<string>("TODOS");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -385,6 +389,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const savedC = localStorage.getItem("edu_global_curso");
       if (savedG) setGlobalGradeFilterState(savedG);
       if (savedC) setGlobalCursoFilterState(savedC);
+      const savedS = localStorage.getItem("edu_subject_filter");
+      if (savedS) setGlobalSubjectFilterState(savedS);
     }
   }, []);
 
@@ -1452,13 +1458,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const tempStudent = { ...student, detailedGrades: newDetailedGrades };
       const summary = calculateStudentAcademicSummary(tempStudent, periodId);
       
-      const updates = { 
-        detailedGrades: newDetailedGrades,
+      const firestoreUpdates = {
+        [`detailedGrades.${subjectId}.${periodId}`]: detailed,
         avgGrade: summary.periodAvg 
       };
 
-      await updateDoc(doc(db, "students", studentId), updates);
-      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
+      await updateDoc(doc(db, "students", studentId), firestoreUpdates);
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, detailedGrades: newDetailedGrades, avgGrade: summary.periodAvg } : s));
     } catch (err) {
       console.error("Error al actualizar notas detalladas:", err);
     }
@@ -1485,11 +1491,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const tempStudent = { ...student, detailedGrades: newDetailedGrades };
         const summary = calculateStudentAcademicSummary(tempStudent, periodId);
-        const updates = { 
-          detailedGrades: newDetailedGrades,
+        const firestoreUpdates = { 
+          [`detailedGrades.${subjectId}.${periodId}`]: item.detailed,
           avgGrade: summary.periodAvg 
         };
-        allUpdates.push({ studentId: item.studentId, updates });
+        const localUpdates = {
+          detailedGrades: newDetailedGrades,
+          avgGrade: summary.periodAvg
+        };
+        allUpdates.push({ studentId: item.studentId, firestoreUpdates, localUpdates });
       }
 
       // Execute in batches
@@ -1497,7 +1507,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const batch = writeBatch(db);
         const chunk = allUpdates.slice(i, i + LIMITE_LOTE);
         for (const up of chunk) {
-          batch.update(doc(db, "students", up.studentId), up.updates);
+          batch.update(doc(db, "students", up.studentId), up.firestoreUpdates);
         }
         await batch.commit();
       }
@@ -1507,7 +1517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const mapa = new Map(prev.map(s => [s.id, s]));
         for (const up of allUpdates) {
           const s = mapa.get(up.studentId);
-          if (s) mapa.set(up.studentId, { ...s, ...up.updates });
+          if (s) mapa.set(up.studentId, { ...s, ...up.localUpdates });
         }
         return Array.from(mapa.values());
       });
