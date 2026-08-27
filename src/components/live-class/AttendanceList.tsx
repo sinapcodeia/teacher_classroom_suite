@@ -178,7 +178,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
     } else {
       setAttendance({});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [subjectId, course, studentAttendanceKey, agendaNotes, subjects, draftKey]);
 
   const stats = useMemo(() => ({

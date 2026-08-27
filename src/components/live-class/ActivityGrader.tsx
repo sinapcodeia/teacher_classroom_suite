@@ -339,7 +339,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
 
     setGrades(loadedGrades);
     setSavedIds(new Set()); // Reset save flags when slot changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [targetCategory, targetSlot, subject, course, grade, filteredStudentIds, getActivePeriod, draftKey]);
 
   // Sync individual student score when selection changes
