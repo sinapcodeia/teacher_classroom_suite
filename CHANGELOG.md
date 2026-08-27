@@ -1,15 +1,15 @@
 ## [2.8.0] - 2026-08-19
 
-### Añadido
-- Sincronización 360° global: los filtros de grado y curso ahora se comparten entre Inicio, Estudiantes y Analíticas mediante \AppContext\.
-- Nueva pestaña "Sistema" en la página de Configuración con integración de módulo de Backup de Base de Datos y opción de Vaciar Caché Local de forma segura.
+### Aï¿½adido
+- Sincronizaciï¿½n 360ï¿½ global: los filtros de grado y curso ahora se comparten entre Inicio, Estudiantes y Analï¿½ticas mediante \AppContext\.
+- Nueva pestaï¿½a "Sistema" en la pï¿½gina de Configuraciï¿½n con integraciï¿½n de mï¿½dulo de Backup de Base de Datos y opciï¿½n de Vaciar Cachï¿½ Local de forma segura.
 
 ### Arreglado
-- Corrección Crítica Offline (PWA): Parche en la inicialización de sesión cuando el equipo no tiene conexión a internet. Ahora los arreglos de estudiantes, agenda, currículo y materias se cargan correctamente desde \localStorage\, evitando que las vistas se muestren vacías sin red.
-- Recuperación de Borradores en Clase en Vivo: El banner de advertencia de borrador sin guardar ahora es interactivo (clicable) y autoredirige al docente al grado, curso y materia correctos, activando el modo de planilla (Gradebook) para restaurar el progreso instantáneamente.
+- Correcciï¿½n Crï¿½tica Offline (PWA): Parche en la inicializaciï¿½n de sesiï¿½n cuando el equipo no tiene conexiï¿½n a internet. Ahora los arreglos de estudiantes, agenda, currï¿½culo y materias se cargan correctamente desde \localStorage\, evitando que las vistas se muestren vacï¿½as sin red.
+- Recuperaciï¿½n de Borradores en Clase en Vivo: El banner de advertencia de borrador sin guardar ahora es interactivo (clicable) y autoredirige al docente al grado, curso y materia correctos, activando el modo de planilla (Gradebook) para restaurar el progreso instantï¿½neamente.
 
 ### Optimizado
-- Limpieza de código y consolidación de estados compartidos en el provider principal (\AppContext.tsx\).
+- Limpieza de cï¿½digo y consolidaciï¿½n de estados compartidos en el provider principal (\AppContext.tsx\).
 
 # CHANGELOG â€” Teacher Classroom Suite
 
