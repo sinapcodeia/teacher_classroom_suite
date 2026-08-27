@@ -50,5 +50,7 @@ Esta aplicación puede ser instalada en dispositivos móviles o escritorio:
 
 ---
 
-Desarrollado con ❤️ para la comunidad educativa de **IETABA**.
-**EduManager — Gestión Docente de Nivel Superior**
+Desarrollado y licenciado por **[SinapCode](https://sinap-code.vercel.app/)** para IETABA.
+****EduManager — Gestión Docente de Nivel Superior**
+
+*© Todos los derechos reservados. El uso y distribución de este software está regido por los Términos de Servicio de SinapCode (https://sinap-code.vercel.app/).*

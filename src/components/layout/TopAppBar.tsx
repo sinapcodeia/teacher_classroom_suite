@@ -229,8 +229,14 @@ export default function TopAppBar() {
 
               {/* Version Info */}
               <div className="mt-3 pt-3 border-t border-outline-variant/10 text-center">
-                 <p className="text-[8px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em]">
-                   {APP_VERSION_LABEL} • Enterprise Edition
+                 <p className="text-[9px] font-bold text-on-surface-variant/50 uppercase tracking-[0.15em]">
+                   Powered by <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">SinapCode</a>
+                 </p>
+                 <p className="text-[7px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em] mt-1">
+                   {APP_VERSION_LABEL} · Enterprise Edition
+                 </p>
+                 <p className="text-[6px] font-bold text-on-surface-variant/20 uppercase tracking-[0.1em] mt-1">
+                   <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:underline">Políticas y Derechos Reservados</a>
                  </p>
               </div>
             </div>

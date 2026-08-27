@@ -453,7 +453,11 @@ export default function LoginPage() {
             {/* Footer */}
             <div style={{ marginTop: 36, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
               <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.25em", textTransform: "uppercase" }}>
-                SinapCodeIA · Enterprise Infrastructure · {APP_VERSION_LABEL}
+                Powered by <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ color: "#4f8cff", textDecoration: "none" }}>SinapCode</a> · Enterprise Infrastructure · {APP_VERSION_LABEL}
+              </p>
+              <p style={{ color: "rgba(255,255,255,0.15)", fontSize: 9, fontWeight: 500, marginTop: 8, lineHeight: 1.4 }}>
+                © {new Date().getFullYear()} Todos los derechos reservados.<br />
+                El uso de esta plataforma está sujeto a las <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", color: "rgba(255,255,255,0.25)" }}>Políticas de Privacidad y Términos de Servicio</a>.
               </p>
             </div>
           </div>
