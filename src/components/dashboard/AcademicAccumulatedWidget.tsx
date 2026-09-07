@@ -42,7 +42,12 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
       
       ["p1", "p2", "p3"].forEach(pId => {
         const subNotes: number[] = [];
-        Object.values(detailedGrades).forEach(pMap => {
+        
+          const mapsToCheck = (subjectFilter && subjectFilter !== "TODOS") 
+            ? (detailedGrades[activeSubject] ? [detailedGrades[activeSubject]] : [])
+            : Object.values(detailedGrades);
+          
+          mapsToCheck.forEach(pMap => {
           if (pMap && pMap[pId]) {
             const finalSubNote = calculateDetailedFinal(pMap[pId]);
             if (finalSubNote > 0) subNotes.push(finalSubNote);
@@ -113,7 +118,7 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
         guidanceText
       };
     }).sort((a, b) => a.currentOverallAvg - b.currentOverallAvg);
-  }, [myStudents, gradoFilter, cursoFilter, activePeriod]);
+  }, [myStudents, gradoFilter, cursoFilter, activePeriod, activeSubject, subjectFilter]);
 
   // Métricas globales del grupo
   const stats = useMemo(() => {

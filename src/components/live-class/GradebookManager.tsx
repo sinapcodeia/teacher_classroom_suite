@@ -286,13 +286,18 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
           </div>
 
           {masterData.periodStatus[selectedPeriod] === "closed" && !isTransientOpen && (
+              PERIODS.findIndex(p => p.id === selectedPeriod) <= PERIODS.findIndex(p => p.id === (masterData.activePeriod || "p1")) ? (
             <button
               onClick={() => setIsTransientOpen(true)}
               className="px-4 py-2 bg-amber-100 text-amber-700 rounded-xl text-[8px] font-black uppercase tracking-widest border border-amber-200 hover:bg-amber-200 transition-all flex items-center gap-2 whitespace-nowrap"
             >
               <Lock size={12} /> <span className="hidden sm:inline">Abrir para Corrección</span><span className="sm:hidden text-[7px]">ABRIR</span>
-            </button>
-          )}
+              </button>
+            ) : (
+              <div className="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-slate-200 flex items-center gap-2 whitespace-nowrap">
+                <Lock size={12} /> <span className="hidden sm:inline">Aún no inicia</span><span className="sm:hidden text-[7px]">BLOQUEADO</span>
+              </div>
+            ))}
 
           {isTransientOpen && (
             <div className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-200 flex items-center gap-2 animate-pulse whitespace-nowrap">
