@@ -323,7 +323,7 @@ export default function LoginPage() {
                     width: "100%", padding: "14px 24px", marginTop: 12,
                     background: "rgba(245, 158, 11, 0.15)", borderRadius: 16,
                     border: "1px solid rgba(245, 158, 11, 0.35)",
-                    display: "flex", : "center", justifyContent: "center", gap: 10,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
                     fontSize: 11, fontWeight: 900, color: "#fbbf24",
                     letterSpacing: "0.08em", textTransform: "uppercase",
                     cursor: "pointer", transition: "all 0.2s"
