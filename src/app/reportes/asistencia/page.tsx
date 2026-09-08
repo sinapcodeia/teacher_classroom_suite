@@ -146,13 +146,13 @@ export default function AttendanceReportPage() {
         {/* Institutional Header */}
         <div className="flex justify-between items-center mb-6 text-center border-b-2 border-on-surface pb-6">
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center border-2 border-on-surface/10 relative overflow-hidden">
-             <Image src="/logo.png" alt="Logo UNIPA" fill className="object-contain p-2" />
+             <Image src="/logo.png" alt="Logo UNIPA" fill sizes="100px" className="object-contain p-2" />
           </div>
           
           <div className="flex-1 space-y-0.5">
-            <h2 className="text-lg font-black uppercase leading-tight">UNIDAD INDIGENA DEL PUEBLO AWA</h2>
-            <h3 className="text-md font-bold uppercase leading-tight">GOBERNACION DE NARIÑO</h3>
-            <h4 className="text-sm font-bold uppercase leading-tight">SECRETARIA DE EDUCACION DEPARTAMENTAL</h4>
+            <h2 className="text-lg font-black uppercase leading-tight">INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ</h2>
+            <h3 className="text-sm font-black uppercase leading-tight text-on-surface/70">IETABA · GOBERNACIÓN DE NARIÑO</h3>
+            <h4 className="text-sm font-bold uppercase leading-tight">SECRETARIA DE EDUCACIÓN DEPARTAMENTAL</h4>
             <p className="text-sm font-black uppercase italic">CONTRATO No. 1987 - 26 DEL 2025</p>
             <div className="mt-4 inline-block border-2 border-on-surface px-6 py-1">
                <span className="text-xs font-black uppercase tracking-[0.3em]">LISTA DE ASISTENCIA</span>
@@ -160,7 +160,7 @@ export default function AttendanceReportPage() {
           </div>
 
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center border-2 border-on-surface/10 relative overflow-hidden">
-             <Image src="/logo.png" alt="Logo IETABA" fill className="object-contain p-2" />
+             <Image src="/logo.png" alt="Logo IETABA" fill sizes="100px" className="object-contain p-2" />
           </div>
         </div>
 

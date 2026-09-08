@@ -288,7 +288,6 @@ interface AppContextType {
   setGlobalCursoFilter: (curso: string) => void;
   globalSubjectFilter: string;
   setGlobalSubjectFilter: (subjectId: string) => void;
-  setGlobalCursoFilter: (course: string) => void;
   // CURRICULUM
   curriculum: Curriculum[];
   updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
@@ -304,7 +303,7 @@ const DEFAULT_PROFILE: TeacherProfile = {
   lastName: "",
   phone: "",
   email: "",
-  institution: "IETABA",
+  institution: "INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ - IETABA",
   location: "EL DIVISO / NARIÑO",
   role: "DOCENTE",
   status: "PENDING",
@@ -405,6 +404,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setGlobalCursoFilterState(course);
     if (typeof window !== "undefined") {
       localStorage.setItem("edu_global_curso", course);
+    }
+  };
+  const setGlobalSubjectFilter = (subjectId: string) => {
+    setGlobalSubjectFilterState(subjectId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("edu_subject_filter", subjectId);
     }
   };
   const [user, setUser] = useState<User | null>(null);
@@ -2014,7 +2019,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       globalGradeFilter,
       setGlobalGradeFilter,
       globalCursoFilter,
-      setGlobalCursoFilter
+      setGlobalCursoFilter,
+      globalSubjectFilter,
+      setGlobalSubjectFilter
     }}>
       {children}
     </AppContext.Provider>

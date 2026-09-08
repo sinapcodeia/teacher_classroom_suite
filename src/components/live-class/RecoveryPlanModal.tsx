@@ -5,6 +5,7 @@ import { X, Sparkles, AlertTriangle, Printer, CheckCircle, GraduationCap, BookOp
 import { printRecoveryPlan } from "@/lib/printService";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/lib/constants";
+import { INSTITUTION_FULL_NAME_UPPER } from "@/lib/constants";
 
 interface RecoveryPlanModalProps {
   isOpen: boolean;
@@ -37,8 +38,9 @@ export default function RecoveryPlanModal({ isOpen, onClose, student, subject }:
       setGeneratedPlanText(null);
 
       // Buscar los contenidos reales de la malla curricular del docente para esta asignatura y grado
-      const matchingCurriculum = curriculum.find(c => 
-        c.subject.toUpperCase() === subject.toUpperCase() && 
+      const safeSubject = (subject || "").toUpperCase();
+      const matchingCurriculum = curriculum.find(c =>
+        (c.subjectId || "").toUpperCase() === safeSubject &&
         normalizeGrade(c.grade) === normalizeGrade(student.grado)
       );
 
@@ -61,14 +63,14 @@ export default function RecoveryPlanModal({ isOpen, onClose, student, subject }:
       }
 
       if (!mallaTopicsText) {
-        mallaTopicsText = `\n📌 NÚCLEOS TEMÁTICOS DE LA MALLA CURRICULAR A REFORZAR:\n• Fundamentos conceptuales de ${subject.toUpperCase()}\n• Aplicación práctica y resolución de problemas en el territorio\n• Trabajo analítico y comprensión de guías técnicas\n`;
+        mallaTopicsText = `\n📌 NÚCLEOS TEMÁTICOS DE LA MALLA CURRICULAR A REFORZAR:\n• Fundamentos conceptuales de ${safeSubject}\n• Aplicación práctica y resolución de problemas en el territorio\n• Trabajo analítico y comprensión de guías técnicas\n`;
       }
 
       setTimeout(() => {
         const text = `ESTRATEGIA PEDAGÓGICA DE APOYO Y PLAN DE NIVELACIÓN (SIEEE)
 ----------------------------------------------------------------------
-INSTITUCIÓN: I.E. TÉCNICA AGROPECUARIA BUENAVISTA - IETABA
-ASIGNATURA: ${subject.toUpperCase()} | GRADO: ${normalizeGrade(student.grado)} - CURSO ${student.curso}
+INSTITUCIÓN: ${INSTITUTION_FULL_NAME_UPPER} - IETABA
+ASIGNATURA: ${safeSubject} | GRADO: ${normalizeGrade(student.grado)} - CURSO ${student.curso}
 DOCENTE: ${profile.name.toUpperCase()}
 ESTUDIANTE: ${studentName.toUpperCase()} (DOC: ${student.nroDocumento})
 ESTADO ACTUAL: DESEMPEÑO BAJO (PROMEDIO ACUMULADO: ${average.toFixed(2)} / 5.0)

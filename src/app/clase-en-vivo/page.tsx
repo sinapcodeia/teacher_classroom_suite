@@ -35,14 +35,23 @@ function LiveClassPageContent() {
   useEffect(() => {
     const checkDrafts = () => {
       try {
-        let count = 0;
+        const newDrafts: DraftInfo[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && (key.startsWith('draft_attendance_') || key.startsWith('draft_activity_'))) {
-            count++;
+            const parts = key.split('_');
+            if (parts.length >= 5) {
+              newDrafts.push({
+                key,
+                type: key.includes('attendance') ? 'attendance' : 'activity',
+                grade: parts[2],
+                course: parts[3],
+                subject: parts.slice(4).join('_')
+              });
+            }
           }
         }
-        setDraftCount(count);
+        setDrafts(newDrafts);
       } catch (_) {}
     };
     checkDrafts();

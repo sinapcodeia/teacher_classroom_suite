@@ -5,6 +5,8 @@ import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp } from "@/context/AppContext";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, updateDoc, doc, deleteField } from "firebase/firestore";
 import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
@@ -54,6 +56,38 @@ export default function Home() {
       globalSubjectFilter: subjectFilter, setGlobalSubjectFilter: setSubjectFilter
   } = useApp();
   
+  
+  const [cleaningP3, setCleaningP3] = useState(false);
+  const runCleanup = async () => {
+    if (!confirm("¿Limpiar notas fantasma del Periodo 3 en Firestore?")) return;
+    setCleaningP3(true);
+    try {
+      const snap = await getDocs(collection(db, "students"));
+      let fixed = 0;
+      for (const studentDoc of snap.docs) {
+        const data = studentDoc.data();
+        if (!data.detailedGrades) continue;
+        const updates = {};
+        let hasP3 = false;
+        for (const subjectId of Object.keys(data.detailedGrades)) {
+          if (data.detailedGrades[subjectId]?.["p3"] !== undefined) {
+            updates[`detailedGrades.${subjectId}.p3`] = deleteField();
+            hasP3 = true;
+          }
+        }
+        if (hasP3) {
+          await updateDoc(doc(db, "students", studentDoc.id), updates);
+          fixed++;
+        }
+      }
+      if (typeof window !== "undefined") localStorage.removeItem("edu_students");
+      alert("✅ Limpieza completada. Se corrigieron " + fixed + " estudiantes.\nPor favor, recarga la página (F5).");
+    } catch (e) {
+      alert("❌ Error: " + e.message);
+    }
+    setCleaningP3(false);
+  };
+
   const formattedDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long", day: "numeric", month: "long" });
 

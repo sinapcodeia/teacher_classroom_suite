@@ -177,7 +177,10 @@ export default function GradesReportPage() {
     }
 
     // 2. Compatibilidad con calificaciones legadas st.grades
-    if (!st.grades) return "";
+    // EVITAR SANGRADO: Solo mostrar notas heredadas (sin periodo) en el Periodo 1.
+    // Si estamos en p2 o p3 y no hay detailedGrades, el estudiante no tiene notas.
+    if (!st.grades || pid !== "p1") return "";
+    
     const subjectGrades = st.grades.filter((g: any) => g.title?.includes(`[${subject}]`));
 
     if (colType === "DEF") {

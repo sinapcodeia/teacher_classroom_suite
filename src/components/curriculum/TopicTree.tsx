@@ -3,10 +3,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { CheckCircle, ChevronDown, ChevronUp, Circle, Book, Loader2, Sparkles, FilePlus } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import LessonCopilotModal from "./LessonCopilotModal";
 
 export default function TopicTree({ grade, subject }: { grade: string, subject: string }) {
   const { curriculum, updateTopicStatus } = useApp();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copilotTopic, setCopilotTopic] = useState<any>(null);
 
   // Seleccionar el currículo activo basado en los filtros
   const activeCurriculum = useMemo(() => {
@@ -134,7 +136,19 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
                           </p>
                         </div>
                       </div>
-                      {expandedId === topic.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCopilotTopic({ name: topic.title, ...topic });
+                          }}
+                          className="mr-3 w-8 h-8 md:w-9 md:h-9 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0 transition-colors shadow-sm border border-indigo-200"
+                          title="Copiloto IA de Planeación"
+                        >
+                          <Sparkles size={16} className="md:w-5 md:h-5" />
+                        </button>
+
+                        {expandedId === topic.id ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
                     </div>
 
                     {expandedId === topic.id && (
@@ -204,6 +218,13 @@ export default function TopicTree({ grade, subject }: { grade: string, subject: 
           </div>
         ))}
       </div>
+      <LessonCopilotModal 
+        isOpen={!!copilotTopic}
+        onClose={() => setCopilotTopic(null)}
+        topic={copilotTopic}
+        subject={subject}
+        grade={grade}
+      />
     </div>
   );
 }

@@ -18,7 +18,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
-## [2.7.0] — 2026-08-13 · Motor de Borradores Persistentes, Validación Decimal & Seguridad Militar
+## [2.9.0] — 2026-08-13 · Motor de Borradores Persistentes, Validación Decimal & Seguridad Militar
 
 ### 🚀 Agregado
 - **Motor de Borradores Locales (`localStorage`)**:
@@ -35,6 +35,29 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 ### 🔴 Corregido (Crítico)
 - **Bloqueo del Teclado Táctil en Tablets**: Se eliminaron los atributos `disabled` y se configuraron las propiedades `pointer-events-none` en iconos para permitir la entrada instantánea de texto en pantallas táctiles.
 - **Optimización de Guardado**: Modificada la sincronización de asistencia para actualizar el estado React local de forma optimista (0ms de latencia).
+
+---
+
+
+## [2.7.0] - 2026-09-07 | Copiloto IA & PDF Editorial
+
+### ✨ Agregado (Copiloto IA de Planeación)
+- **Copiloto de Planeación Didáctica (`LessonCopilotModal.tsx`)**:
+  - Motor generador de secuencias didácticas automatizadas a partir del árbol de temas (Malla Curricular).
+  - Incluye objetivo de aprendizaje, fases de clase (Inicio, Desarrollo, Práctica, Cierre), materiales sugeridos y sección de Trabajo Autónomo.
+- **Rediseño de PDF Editorial de Alta Gama (`printCopilotLessonPlan`)**:
+  - Nuevo diseño de exportación PDF inspirado en plataformas SaaS líderes (Notion, Linear).
+  - Tipografía premium combinada (*Playfair Display* y *Inter*).
+  - Acentos de color pastel sutiles y elegantes para las fases de la clase que ahorran tinta de impresión.
+  - Generación instantánea nativa sin requerir librerías externas de terceros.
+
+### 🐛 Corregido & Optimizado (Performance y Offline)
+- **Limpieza Estricta de Código (TypeScript)**:
+  - Solucionados errores de tipado de `setDraftCount`, propiedades no reconocidas en `Login`, y casteos estrictos de `detailedGrades`.
+- **Carga Ultrarrápida y PWA**:
+  - Confirmación de arquitectura `next-pwa` y `persistentMultipleTabManager` en Firebase, lo que blinda la aplicación contra cortes de internet en Producción.
+- **Auditoría de Seguridad Firestore**:
+  - Verificada la integridad de `firestore.rules` bloqueando mutaciones no autorizadas en `masterData`.
 
 ---
 

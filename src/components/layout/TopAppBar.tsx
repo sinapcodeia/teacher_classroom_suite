@@ -5,13 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { APP_VERSION_LABEL } from "@/lib/version";
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, LogOut, ChevronDown, Search, Bell, Command } from "lucide-react";
+import { ShieldCheck, LogOut, ChevronDown, Search, Bell, Command, CalendarDays } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 
 
 export default function TopAppBar() {
-  const { profile, user, logout, isOnline } = useApp();
+  const { profile, user, logout, isOnline, masterData } = useApp();
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -64,23 +64,28 @@ export default function TopAppBar() {
     .map((w) => w[0])
     .join("");
 
+  const periodLabel =
+    masterData?.activePeriod === "p1" ? "PERIODO 1" :
+    masterData?.activePeriod === "p2" ? "PERIODO 2" :
+    masterData?.activePeriod === "p3" ? "PERIODO 3" : "PERIODO";
+
   return (
-    <header 
+    <header
       className={`fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-500 border-b ${
-        scrolled 
-          ? "bg-white/80 backdrop-blur-xl border-outline-variant/30 shadow-lg" 
+        scrolled
+          ? "bg-white/80 backdrop-blur-xl border-outline-variant/30 shadow-lg"
           : "bg-white border-transparent"
-      } flex items-center px-4 md:px-8 gap-6`}
+      } flex items-center px-4 md:px-8 gap-4`}
     >
-      {/* Branding - Startup Logo Style */}
+      {/* Branding */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg overflow-hidden border border-outline-variant/10 relative">
-          <Image 
-            src="/logo.png" 
-            alt="Logo IETABA" 
-            fill 
-            className="object-contain p-1"
+          <Image
+            src="/logo.png"
+            alt="Logo IETABA"
+            fill
             sizes="40px"
+            className="object-contain p-1"
           />
         </div>
         <div className="hidden lg:flex flex-col leading-none">
@@ -88,13 +93,29 @@ export default function TopAppBar() {
             EduManager
           </span>
           <div className="flex items-center gap-1.5 mt-0.5">
-             <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-             <span className="text-[7px] font-black text-on-surface-variant uppercase tracking-[0.4em]">IETABA · Premium Suite</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+            <span className="text-[7px] font-black text-on-surface-variant uppercase tracking-[0.4em]">IETABA · Premium Suite</span>
           </div>
         </div>
       </div>
 
       {/* Startup Divider */}
+      <div className="hidden md:block w-px h-6 bg-outline-variant/30" />
+
+      {/* Active Period Badge — Visible intuitivo para el docente */}
+      <div
+        className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-xl border border-indigo-100 shadow-sm cursor-help shrink-0"
+        title="Periodo académico activo en la institución"
+      >
+        <CalendarDays size={13} className="text-indigo-500" />
+        <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest">
+          {periodLabel}
+        </span>
+        {masterData?.periodStatus?.[masterData?.activePeriod] === "open" && (
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        )}
+      </div>
+
       <div className="hidden md:block w-px h-6 bg-outline-variant/30" />
 
       {/* Dynamic Navigation */}
@@ -119,33 +140,33 @@ export default function TopAppBar() {
 
       {/* Search / Command Palette Shortcut */}
       <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-surface-container rounded-2xl border border-outline-variant/20 text-on-surface-variant/40 hover:border-primary/30 transition-all cursor-pointer group">
-         <Search size={14} className="group-hover:text-primary transition-colors" />
-         <span className="text-[9px] font-black uppercase tracking-widest">Buscar Registro...</span>
-         <div className="flex items-center gap-1 ml-6 bg-white/50 px-1.5 py-0.5 rounded-md border border-outline-variant/10">
-            <Command size={10} />
-            <span className="text-[8px] font-bold">K</span>
-         </div>
+        <Search size={14} className="group-hover:text-primary transition-colors" />
+        <span className="text-[9px] font-black uppercase tracking-widest">Buscar Registro...</span>
+        <div className="flex items-center gap-1 ml-6 bg-white/50 px-1.5 py-0.5 rounded-md border border-outline-variant/10">
+          <Command size={10} />
+          <span className="text-[8px] font-bold">K</span>
+        </div>
       </div>
 
       {/* Right Actions */}
       <div className="flex items-center gap-3">
-        {/* Cloud Sync Status - High End Feel */}
+        {/* Cloud Sync Status */}
         {isOnline ? (
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 group">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">En Línea • Sincronizado</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">En Línea • Sincronizado</span>
           </div>
         ) : (
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-full border border-amber-200 group">
-             <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-             <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Modo Local (Offline)</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Modo Local (Offline)</span>
           </div>
         )}
 
         {/* Notifications */}
         <button className="relative p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
-           <Bell size={18} />
-           <div className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white" />
+          <Bell size={18} />
+          <div className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white" />
         </button>
 
         {/* Admin Access */}
@@ -175,7 +196,7 @@ export default function TopAppBar() {
                 alt="Avatar"
                 width={32}
                 height={32}
-                className="w-8 h-8 rounded-xl object-cover shadow-sm"
+                className="rounded-xl object-cover shadow-sm"
                 referrerPolicy="no-referrer"
               />
             ) : (
@@ -229,15 +250,15 @@ export default function TopAppBar() {
 
               {/* Version Info */}
               <div className="mt-3 pt-3 border-t border-outline-variant/10 text-center">
-                 <p className="text-[9px] font-bold text-on-surface-variant/50 uppercase tracking-[0.15em]">
-                   Powered by <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">SinapCode</a>
-                 </p>
-                 <p className="text-[7px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em] mt-1">
-                   {APP_VERSION_LABEL} · Enterprise Edition
-                 </p>
-                 <p className="text-[6px] font-bold text-on-surface-variant/20 uppercase tracking-[0.1em] mt-1">
-                   <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:underline">Políticas y Derechos Reservados</a>
-                 </p>
+                <p className="text-[9px] font-bold text-on-surface-variant/50 uppercase tracking-[0.15em]">
+                  Powered by <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">SinapCode</a>
+                </p>
+                <p className="text-[7px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em] mt-1">
+                  {APP_VERSION_LABEL} · Enterprise Edition
+                </p>
+                <p className="text-[6px] font-bold text-on-surface-variant/20 uppercase tracking-[0.1em] mt-1">
+                  <a href="https://sinap-code.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:underline">Políticas y Derechos Reservados</a>
+                </p>
               </div>
             </div>
           )}

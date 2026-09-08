@@ -12,8 +12,10 @@ export const APP_VERSION_LABEL: string = `v${pkg.version}`;
 
 // ── INSTITUCIÓN ──────────────────────────────────────────────────────────────
 export const INSTITUTION_NAME = "IETABA";
-export const INSTITUTION_FULL_NAME = "Institución Educativa Técnica Agropecuaria Bosques del Awa";
-export const INSTITUTION_LOCATION = "Resguardo Awá Katsa Su · Colombia";
+export const INSTITUTION_FULL_NAME = "Institución Educativa Indígena Técnica Agroambiental Bilingüe Awá";
+export const INSTITUTION_FULL_NAME_UPPER = "INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ";
+export const INSTITUTION_SHORT = "I.E.I.T.A.B.A";
+export const INSTITUTION_LOCATION = "Resguardo Awá Katsa Su · El Diviso · Nariño · Colombia";
 
 // ── PLATAFORMA ───────────────────────────────────────────────────────────────
 export const APP_NAME = "EduManager";

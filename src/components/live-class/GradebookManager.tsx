@@ -25,7 +25,7 @@ const PERIODS = [
 ];
 
 export default function GradebookManager({ grade, course, subject }: GradebookManagerProps) {
-  const { myStudents, updateDetailedGrades, importDetailedGrades, profile, masterData, togglePeriodStatus, students } = useApp();
+  const { myStudents, updateDetailedGrades, importDetailedGrades, profile, masterData, togglePeriodStatus, setActivePeriod, students } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p1");
   const [recoveryStudent, setRecoveryStudent] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);

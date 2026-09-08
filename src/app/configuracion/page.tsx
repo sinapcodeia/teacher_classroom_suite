@@ -413,6 +413,22 @@ export default function ConfiguracionPage() {
     setTimeout(() => setSaved(false), 2500);
   }
 
+
+  const handleClearStorage = () => {
+    if (confirm("¿Estás seguro de que deseas vaciar la caché local? Esto cerrará tu sesión temporalmente para recargar los datos frescos.")) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    }
+  };
+
   return (
     <RoleGuard>
       <div className="flex flex-col min-h-screen" style={{ background: "#f8faff" }}>

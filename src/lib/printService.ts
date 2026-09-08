@@ -9,6 +9,7 @@ import {
   APP_NAME,
   APP_EDITION,
   INSTITUTION_NAME,
+  INSTITUTION_FULL_NAME_UPPER,
   INSTITUTION_LOCATION,
   APP_BRAND,
   normalizeGrade,
@@ -796,4 +797,268 @@ export function printMissingGradesReport(
       <div>Documento de Control Pedagógico Oficial · Generado por ${APP_NAME} ${APP_EDITION}</div>
     </div>
   </body></html>`);
+}
+
+
+
+
+
+export function printCopilotLessonPlan(
+  plan: any,
+  meta: { topic: string; grade: string; subject: string; teacher: string }
+) {
+  const content = `
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+      
+      @media print { 
+        * { 
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important; 
+        }
+        body { margin: 0; padding: 0; }
+        .page-break { page-break-inside: avoid; }
+      }
+      
+      body {
+        font-family: 'Inter', sans-serif;
+        color: #27272a;
+        background: white;
+        margin: 0;
+        padding: 50px 60px;
+        line-height: 1.7;
+      }
+
+      .header-meta {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: #71717a;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #f4f4f5;
+        padding-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .document-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 32px;
+        font-weight: 700;
+        color: #18181b;
+        margin: 0 0 12px 0;
+        line-height: 1.2;
+      }
+
+      .topic-name {
+        font-size: 18px;
+        font-weight: 400;
+        color: #3f3f46;
+        margin: 0 0 48px 0;
+        max-width: 90%;
+        position: relative;
+        padding-bottom: 16px;
+      }
+
+      /* Subtle pastel underline for the main topic */
+      .topic-name::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 3px;
+        background: #c7d2fe; /* Soft pastel indigo */
+        border-radius: 2px;
+      }
+
+      .grid-meta {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px;
+        margin-bottom: 48px;
+        padding-left: 20px;
+        border-left: 2px solid #e0e7ff; /* Soft pastel line */
+      }
+
+      .meta-block p {
+        margin: 0;
+      }
+
+      .meta-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #71717a;
+        margin-bottom: 4px;
+      }
+
+      .meta-value {
+        font-size: 14px;
+        font-weight: 500;
+        color: #18181b;
+      }
+
+      .section {
+        margin-bottom: 48px;
+      }
+
+      .section-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 20px;
+        font-weight: 600;
+        color: #18181b;
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .section-title::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #f4f4f5;
+      }
+
+      .text-content {
+        font-size: 14px;
+        font-weight: 400;
+        color: #3f3f46;
+        line-height: 1.8;
+      }
+
+      .phase-block {
+        margin-bottom: 24px;
+        padding-left: 16px;
+      }
+
+      .phase-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #27272a;
+        margin: 0 0 8px 0;
+        display: flex;
+        align-items: center;
+      }
+
+      /* Subtle pastel lines for each phase */
+      .phase-inicio { border-left: 3px solid #fde68a; } /* Pastel Amber */
+      .phase-desarrollo { border-left: 3px solid #bfdbfe; } /* Pastel Blue */
+      .phase-practica { border-left: 3px solid #bbf7d0; } /* Pastel Green */
+      .phase-cierre { border-left: 3px solid #e9d5ff; } /* Pastel Purple */
+
+      ul.materials-list {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      ul.materials-list li {
+        font-size: 12px;
+        color: #52525b;
+        padding: 6px 16px;
+        background: #ffffff;
+        border: 1px solid #e4e4e7;
+        border-radius: 4px;
+        box-shadow: 2px 2px 0px #f4f4f5; /* Subtle drop shadow */
+      }
+
+      .footer {
+        margin-top: 80px;
+        padding-top: 24px;
+        border-top: 1px solid #f4f4f5;
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: #a1a1aa;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+    </style>
+    
+    <div style="max-width: 800px; margin: 0 auto;">
+      
+      <div class="header-meta">
+        <span>Diseño de Secuencia Didáctica</span>
+        <span>${new Date().toLocaleDateString('es-CO')}</span>
+      </div>
+
+      <h1 class="document-title">Planeación Pedagógica</h1>
+      <h2 class="topic-name">${meta.topic}</h2>
+
+      <div class="grid-meta">
+        <div class="meta-block">
+          <div class="meta-label">Institución Educativa</div>
+          <div class="meta-value">${INSTITUTION_FULL_NAME_UPPER}</div>
+        </div>
+        <div class="meta-block">
+          <div class="meta-label">Docente Responsable</div>
+          <div class="meta-value">${meta.teacher.toUpperCase()}</div>
+        </div>
+        <div class="meta-block">
+          <div class="meta-label">Área / Asignatura</div>
+          <div class="meta-value">${meta.subject.toUpperCase()}</div>
+        </div>
+        <div class="meta-block">
+          <div class="meta-label">Grado Académico</div>
+          <div class="meta-value">${meta.grade}</div>
+        </div>
+      </div>
+
+      <div class="section page-break">
+        <h3 class="section-title">Objetivo de Aprendizaje</h3>
+        <div class="text-content">${plan.objective}</div>
+      </div>
+
+      <div class="section page-break">
+        <h3 class="section-title">Desarrollo de la Clase</h3>
+        
+        <div class="phase-block phase-inicio">
+          <div class="phase-label">I. Inicio / Exploración</div>
+          <div class="text-content">${plan.warmup}</div>
+        </div>
+        
+        <div class="phase-block phase-desarrollo">
+          <div class="phase-label">II. Estructuración Cognitiva</div>
+          <div class="text-content">${plan.development}</div>
+        </div>
+        
+        <div class="phase-block phase-practica">
+          <div class="phase-label">III. Transferencia y Práctica</div>
+          <div class="text-content">${plan.activity}</div>
+        </div>
+        
+        <div class="phase-block phase-cierre">
+          <div class="phase-label">IV. Cierre y Evaluación</div>
+          <div class="text-content">${plan.assessment}</div>
+        </div>
+      </div>
+
+      <div class="section page-break" style="border-left: 3px solid #e2e8f0; padding-left: 16px;">
+        <h3 class="section-title" style="margin-bottom: 8px;">Trabajo Autónomo</h3>
+        <div class="text-content">${plan.homework}</div>
+      </div>
+
+      <div class="section page-break" style="margin-top: 40px;">
+        <h3 class="section-title">Materiales Requeridos</h3>
+        <ul class="materials-list">
+          ${plan.materials.map((m: string) => `<li>${m}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div class="footer">
+        <span>SinapCode IA • EduManager v2.8</span>
+        <span>Documento Confidencial</span>
+      </div>
+
+    </div>
+  `;
+
+  open(content);
 }
