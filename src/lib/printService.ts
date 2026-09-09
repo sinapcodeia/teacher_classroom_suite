@@ -1076,41 +1076,128 @@ export function printExecutiveReport(
   const activePeriod = masterData.activePeriod || "p2";
   const pName = activePeriod.toUpperCase();
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
-  // 1. Crunch the Data
-  let totalStudentsCount = 0;
+  // 1. DATA CRUNCHING MULTIDIMENSIONAL
   let totalGrades = 0;
   let passedCount = 0;
   let failedCount = 0;
   let recoveredCount = 0;
+  let totalScoreSum = 0;
+
+  // Métricas de Sabidurías / Pilares Awá (Global)
+  const sabidurias = {
+    sb: { name: "Saber (Conceptual)", weight: "30%", sum: 0, count: 0, color: "#3b82f6" },
+    sbh: { name: "Saber-Hacer (Práctico / Agroambiental)", weight: "40%", sum: 0, count: 0, color: "#10b981" },
+    sr: { name: "Ser (Identidad Awá / Actitudinal)", weight: "20%", sum: 0, count: 0, color: "#8b5cf6" },
+    cv: { name: "Convivencia Comunitaria", weight: "5%", sum: 0, count: 0, color: "#f59e0b" },
+    aut: { name: "Autoevaluación", weight: "5%", sum: 0, count: 0, color: "#ec4899" }
+  };
+
+  // Métricas y Desempeño por Grado
+  const gradeAnalytics: Record<string, {
+    grado: string;
+    totalEvaluated: number;
+    passed: number;
+    failed: number;
+    recovery: number;
+    scoreSum: number;
+    totalAbsences: number;
+    studentCount: number;
+    sbSum: number; sbCount: number;
+    sbhSum: number; sbhCount: number;
+    srSum: number; srCount: number;
+  }> = {};
 
   const groups: Record<string, Record<string, any[]>> = {};
 
+  // Auxiliar para promediar arrays
+  const getAvg = (vals: (number | null)[] | null | undefined): number | null => {
+    if (!vals) return null;
+    const valid = (vals as (number | null)[]).filter((v): v is number => v !== null && v !== undefined);
+    return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+  };
+
   students.forEach(st => {
     if (st.isActive === false) return;
-    const g = `${st.grado}-${st.curso}`;
-    
+    const g = normalizeGrade(st.grado || "SIN GRADO");
+    const gCourse = `${g}-${st.curso || '1'}`;
+
+    if (!gradeAnalytics[g]) {
+      gradeAnalytics[g] = {
+        grado: g,
+        totalEvaluated: 0,
+        passed: 0,
+        failed: 0,
+        recovery: 0,
+        scoreSum: 0,
+        totalAbsences: 0,
+        studentCount: 0,
+        sbSum: 0, sbCount: 0,
+        sbhSum: 0, sbhCount: 0,
+        srSum: 0, srCount: 0
+      };
+    }
+    gradeAnalytics[g].studentCount++;
+
+    // Contar ausencias registradas
+    if (st.attendanceRecord) {
+      const absences = Object.values(st.attendanceRecord).filter(v => v === 'absent').length;
+      gradeAnalytics[g].totalAbsences += absences;
+    }
+
     if (st.detailedGrades) {
       Object.keys(st.detailedGrades).forEach(subject => {
         const d = st.detailedGrades[subject][activePeriod];
         if (d) {
-          if (!groups[g]) groups[g] = {};
-          if (!groups[g][subject]) groups[g][subject] = [];
-          
+          if (!groups[gCourse]) groups[gCourse] = {};
+          if (!groups[gCourse][subject]) groups[gCourse][subject] = [];
+
           const grades = calculatePeriodGrades(d);
           const hasGrades = [d.sb, d.sbh, d.sr, d.cv, d.aut].some(arr => 
             Array.isArray(arr) ? arr.some(x => x !== null) : arr !== null
           );
-          
+
           if (hasGrades) {
-            groups[g][subject].push({ st, grades });
+            groups[gCourse][subject].push({ st, grades });
             totalGrades++;
-            
-            if (grades.rec !== null) {
-               recoveredCount++;
-               if (Number(grades.definitiva.toFixed(1)) >= 3.0) passedCount++; else failedCount++;
+            totalScoreSum += grades.definitiva;
+
+            gradeAnalytics[g].totalEvaluated++;
+            gradeAnalytics[g].scoreSum += grades.definitiva;
+
+            // Registrar Sabidurías
+            const sbA = getAvg(d.sb);
+            if (sbA !== null) {
+              sabidurias.sb.sum += sbA; sabidurias.sb.count++;
+              gradeAnalytics[g].sbSum += sbA; gradeAnalytics[g].sbCount++;
+            }
+            const sbhA = getAvg(d.sbh);
+            if (sbhA !== null) {
+              sabidurias.sbh.sum += sbhA; sabidurias.sbh.count++;
+              gradeAnalytics[g].sbhSum += sbhA; gradeAnalytics[g].sbhCount++;
+            }
+            const srA = getAvg(d.sr);
+            if (srA !== null) {
+              sabidurias.sr.sum += srA; sabidurias.sr.count++;
+              gradeAnalytics[g].srSum += srA; gradeAnalytics[g].srCount++;
+            }
+            const cvA = getAvg(d.cv);
+            if (cvA !== null) { sabidurias.cv.sum += cvA; sabidurias.cv.count++; }
+            if (d.aut !== null && d.aut !== undefined) { sabidurias.aut.sum += d.aut; sabidurias.aut.count++; }
+
+            const pRound = Number(grades.definitiva.toFixed(1));
+            if (pRound >= 3.0) {
+              passedCount++;
+              gradeAnalytics[g].passed++;
             } else {
-               if (Number(grades.definitiva.toFixed(1)) >= 3.0) passedCount++; else failedCount++;
+              failedCount++;
+              gradeAnalytics[g].failed++;
+            }
+
+            if (grades.rec !== null) {
+              recoveredCount++;
+              gradeAnalytics[g].recovery++;
             }
           }
         }
@@ -1121,197 +1208,366 @@ export function printExecutiveReport(
   const passRate = totalGrades > 0 ? Math.round((passedCount / totalGrades) * 100) : 0;
   const failRate = totalGrades > 0 ? Math.round((failedCount / totalGrades) * 100) : 0;
   const recRate = totalGrades > 0 ? Math.round((recoveredCount / totalGrades) * 100) : 0;
+  const globalAvg = totalGrades > 0 ? (totalScoreSum / totalGrades).toFixed(2) : "0.00";
 
   let reportHtml = `
     <!DOCTYPE html>
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>INFORME ACADÉMICO - ${teacherProfile.name}</title>
+      <title>INFORME EJECUTIVO Y ACADÉMICO - ${teacherProfile.name}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
         @media print {
           body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .page-break-before { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
-          @page { margin: 1cm; size: letter; }
+          @page { margin: 0.8cm; size: letter; }
         }
 
         body {
-          font-family: 'Inter', sans-serif;
-          color: #334155;
-          line-height: 1.6;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: #1e293b;
+          line-height: 1.5;
           margin: 0;
-          padding: 20px 40px;
+          padding: 15px 30px;
           background: #f8fafc;
         }
 
         .print-container {
-          max-width: 900px;
+          max-width: 920px;
           margin: 0 auto;
           background: white;
-          padding: 40px 60px;
+          padding: 35px 50px;
           border-radius: 24px;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.03);
         }
 
         .print-container.borderless {
           border-radius: 0;
           box-shadow: none;
-          padding-top: 20px;
+          padding-top: 10px;
         }
 
-        /* Membrete */
-        .header-institucional { text-align: center; margin-bottom: 40px; position: relative; }
-        .header-institucional h1 { font-weight: 900; font-size: 14px; margin: 0; color: #0f172a; letter-spacing: -0.02em; }
-        .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 6px 0; color: #1e293b; }
-        .header-institucional p { font-size: 10px; margin: 2px 0; color: #64748b; }
-        .fecha-dir { margin-top: 30px; font-size: 11px; color: #334155; }
+        /* Membrete Oficial */
+        .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
+        .header-institucional h1 { font-weight: 900; font-size: 13px; margin: 0; color: #0f172a; letter-spacing: -0.01em; }
+        .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #1e3a8a; }
+        .header-institucional p { font-size: 9.5px; margin: 1px 0; color: #64748b; }
         
-        .saludo { margin-top: 24px; font-size: 12px; text-align: justify; color: #334155; font-weight: 400; }
-
-        /* Modern Bento Grid */
-        .bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 30px 0; }
-        .bento-card { background: #ffffff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 24px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
-        .bento-card.highlight { background: linear-gradient(145deg, #f0f9ff, #e0f2fe); border-color: #bae6fd; }
-        .bento-val { font-size: 36px; font-weight: 900; color: #0f172a; line-height: 1; margin-bottom: 8px; letter-spacing: -0.03em; }
-        .bento-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
-
-        /* Visual Progress Bar (Modern replacement for donut) */
-        .chart-container {
-          grid-column: span 3;
-          background: #ffffff;
-          border: 1px solid #f1f5f9;
+        .report-badge {
+          display: inline-block;
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+          font-size: 9px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          padding: 3px 10px;
           border-radius: 20px;
-          padding: 24px 32px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+          margin-top: 8px;
         }
-        .progress-bar-wrapper {
-          width: 100%;
-          height: 24px;
-          background: #f1f5f9;
-          border-radius: 999px;
-          display: flex;
-          overflow: hidden;
-          margin: 16px 0;
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-        }
-        .segment { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: white; transition: width 0.5s ease; }
-        
-        .legend-row { display: flex; gap: 24px; justify-content: center; margin-top: 16px; }
-        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #475569; }
-        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
 
-        /* Tables (Minimalist) */
-        .table-container { margin-top: 30px; }
-        .table-title { font-size: 12px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
-        .table-title::before { content: ''; display: block; width: 4px; height: 14px; background: #3b82f6; border-radius: 4px; }
-        
-        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; margin-bottom: 40px; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
-        th, td { padding: 10px 14px; text-align: center; border-bottom: 1px solid #f1f5f9; }
-        th { background: #f8fafc; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0; }
-        tr:last-child td { border-bottom: none; }
-        td.text-left { text-align: left; font-weight: 500; color: #1e293b; }
-        
-        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; line-height: 1; }
+        .fecha-dir { margin-top: 20px; font-size: 10.5px; color: #334155; }
+        .saludo { margin-top: 14px; font-size: 11px; text-align: justify; color: #334155; line-height: 1.6; }
+
+        /* Bento KPI Grid */
+        .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+        .bento-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: center; }
+        .bento-card.highlight { background: linear-gradient(145deg, #f0fdf4, #dcfce7); border-color: #86efac; }
+        .bento-card.highlight-blue { background: linear-gradient(145deg, #f0f9ff, #e0f2fe); border-color: #7dd3fc; }
+        .bento-val { font-size: 28px; font-weight: 900; color: #0f172a; line-height: 1.1; margin-bottom: 4px; }
+        .bento-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+
+        /* Sabidurías Section */
+        .sabiduria-section {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 20px 24px;
+          margin: 20px 0;
+        }
+        .section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .section-title {
+          font-size: 12px;
+          font-weight: 800;
+          color: #0f172a;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .section-title::before {
+          content: '';
+          display: inline-block;
+          width: 4px;
+          height: 14px;
+          background: #2563eb;
+          border-radius: 2px;
+        }
+
+        .sabiduria-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 10px;
+        }
+        .sab-item {
+          background: #f8fafc;
+          border: 1px solid #f1f5f9;
+          border-radius: 12px;
+          padding: 12px 10px;
+          text-align: center;
+        }
+        .sab-val { font-size: 18px; font-weight: 900; color: #0f172a; }
+        .sab-name { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 2px; line-height: 1.2; }
+        .sab-weight { font-size: 7.5px; font-weight: 800; color: #94a3b8; margin-top: 4px; display: inline-block; background: #fff; padding: 1px 5px; border-radius: 4px; border: 1px solid #e2e8f0; }
+
+        /* Grade Matrix Table */
+        .matrix-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 10px;
+          margin: 15px 0 25px 0;
+          border-radius: 14px;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+        }
+        .matrix-table th {
+          background: #f1f5f9;
+          font-weight: 800;
+          color: #334155;
+          text-transform: uppercase;
+          font-size: 8.5px;
+          letter-spacing: 0.05em;
+          padding: 10px 8px;
+          border-bottom: 2px solid #cbd5e1;
+        }
+        .matrix-table td {
+          padding: 9px 8px;
+          text-align: center;
+          border-bottom: 1px solid #f1f5f9;
+          font-weight: 600;
+        }
+        .matrix-table tr:last-child td { border-bottom: none; }
+        .grade-badge {
+          background: #1e293b;
+          color: white;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-size: 9.5px;
+        }
+
+        /* Micro Progress Bar */
+        .micro-bar {
+          width: 100%;
+          height: 8px;
+          background: #fee2e2;
+          border-radius: 4px;
+          overflow: hidden;
+          display: flex;
+        }
+        .micro-fill {
+          height: 100%;
+          background: #22c55e;
+        }
+
+        /* Tables de Dificultades */
+        .detail-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 10px;
+          margin-bottom: 25px;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+        }
+        .detail-table th {
+          background: #f8fafc;
+          font-weight: 700;
+          color: #475569;
+          text-transform: uppercase;
+          font-size: 8.5px;
+          letter-spacing: 0.05em;
+          padding: 8px 10px;
+          border-bottom: 2px solid #e2e8f0;
+        }
+        .detail-table td {
+          padding: 7px 10px;
+          text-align: center;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .detail-table td.text-left { text-align: left; font-weight: 600; color: #1e293b; }
+
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 8.5px;
+          font-weight: 700;
+        }
         .bg-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .bg-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .bg-yellow { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
 
-        .firma { margin-top: 80px; text-align: center; width: 300px; margin-left: auto; margin-right: auto; }
-        .firma-line { border-bottom: 1px solid #cbd5e1; margin-bottom: 8px; }
+        .firma { margin-top: 60px; text-align: center; width: 280px; margin-left: auto; margin-right: auto; }
+        .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 6px; }
       </style>
     </head>
     <body>
       <div class="print-container">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
-          <img src="${window.location.origin}/logo.png" style="width: 50px; height: auto; position: absolute; left: 0; top: 0;" onerror="this.style.display='none'">
+          <img src="${baseUrl}/logo.png" style="width: 48px; height: auto; position: absolute; left: 0; top: 0;" onerror="this.style.display='none'">
           <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
-          <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004</p>
-          <p>Emanada de la Secretaria Departamental de Educación y Cultura de Nariño</p>
-          <p><strong>Código DANE 25207900204501 - NIT. 900000095-4</strong></p>
+          <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
           <p><i>Ambiente – Cultura – Ciencia</i></p>
+          <div class="report-badge">INFORME GERENCIAL ACADÉMICO & ANALÍTICA DE SABIDURÍAS</div>
         </div>
 
         <div class="fecha-dir">
-          <p>Predio el Verde IETABA, ${dateStr}</p>
-          <br>
-          <p>Señores (as)</p>
-          <p><strong>DIRECTIVOS IETABA</strong></p>
-          <p><strong>DIRECTORES (AS) DE GRADO - IETABA</strong></p>
+          <p><strong>Predio el Verde IETABA</strong>, ${dateStr}</p>
+          <p>Para: <strong>RECTORÍA, COORDINACIÓN ACADÉMICA Y DIRECTORES DE GRADO</strong></p>
+          <p>Docente Responsable: <strong>${teacherProfile.name}</strong></p>
         </div>
 
         <div class="saludo">
-          <p>Cordial saludo,</p>
-          <p>Espero que se encuentren muy bien.</p>
-          <p>A través de este documento, les comparto el consolidado del rendimiento académico correspondiente al <strong>periodo ${pName}</strong>. El propósito de este reporte es brindarnos una radiografía clara del proceso de nuestros estudiantes, identificar a quienes requieren mayor acompañamiento y evaluar el impacto de los planes de nivelación de manera objetiva y humana.</p>
-          <p>A continuación, detallo las métricas globales del curso y el estado actual de los estudiantes que presentan dificultades en sus áreas.</p>
+          <p>Cordial saludo institucional,</p>
+          <p>Me dirijo a la comunidad directiva con el fin de presentar el <strong>Informe Gerencial y Académico Consolidado</strong> correspondiente al <strong>periodo ${pName}</strong>. Este reporte sintetiza de forma objetiva y analítica el rendimiento por grado, el índice de ausentismo y el comportamiento en las <strong>Sabidurías del Saber, Saber-Hacer, Ser, Convivencia y Autoevaluación</strong> bajo el enfoque de educación propia Awá.</p>
         </div>
 
-        <!-- BENTO DASHBOARD -->
+        <!-- BENTO DASHBOARD GLOBAL -->
         <div class="bento-grid">
-          <div class="bento-card highlight">
+          <div class="bento-card highlight-blue">
             <div class="bento-val">${totalGrades}</div>
-            <div class="bento-label">Estudiantes Evaluados</div>
+            <div class="bento-label">Registros Evaluados</div>
+          </div>
+          <div class="bento-card highlight">
+            <div class="bento-val" style="color: #16a34a;">${passRate}%</div>
+            <div class="bento-label">Aprobación Global</div>
+          </div>
+          <div class="bento-card" style="border-color: #fecaca; background: #fff5f5;">
+            <div class="bento-val" style="color: #dc2626;">${failRate}%</div>
+            <div class="bento-label">Tasa de Pérdida</div>
           </div>
           <div class="bento-card">
-            <div class="bento-val" style="color: #059669;">${passRate}%</div>
-            <div class="bento-label">Aprobación General</div>
+            <div class="bento-val" style="color: #2563eb;">${globalAvg}</div>
+            <div class="bento-label">Promedio Institucional</div>
           </div>
-          <div class="bento-card" style="border: 1px solid #fecaca; background: #fff5f5;">
-            <div class="bento-val" style="color: #dc2626;">${recoveredCount}</div>
-            <div class="bento-label">Requieren Nivelación</div>
-          </div>
+        </div>
 
-          <!-- TRENDING METRICS CHART (MODERN BAR) -->
-          <div class="chart-container">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-              <div>
-                <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Distribución de Desempeño</h3>
-                <p style="font-size: 11px; color: #64748b; margin: 0;">Representación visual del progreso académico del periodo.</p>
-              </div>
+        <!-- RENDIMIENTO POR SABIDURÍAS INSTITUCIONALES AWÁ -->
+        <div class="sabiduria-section avoid-break">
+          <div class="section-header">
+            <div class="section-title">Promedio Global por Sabidurías (Dimensiones Pedagógicas)</div>
+            <span style="font-size: 8.5px; font-weight: 700; color: #64748b;">Sistema Institucional de Evaluación Awá</span>
+          </div>
+          <div class="sabiduria-grid">
+            <div class="sab-item">
+              <div class="sab-val" style="color: ${sabidurias.sb.color}">${sabidurias.sb.count > 0 ? (sabidurias.sb.sum / sabidurias.sb.count).toFixed(2) : "—"}</div>
+              <div class="sab-name">${sabidurias.sb.name}</div>
+              <span class="sab-weight">${sabidurias.sb.weight}</span>
             </div>
-            
-            <div class="progress-bar-wrapper">
-              <div class="segment" style="width: ${passRate}%; background: linear-gradient(90deg, #34d399, #059669);">${passRate > 5 ? passRate + '%' : ''}</div>
-              <div class="segment" style="width: ${recRate}%; background: linear-gradient(90deg, #facc15, #ca8a04);">${recRate > 5 ? recRate + '%' : ''}</div>
-              <div class="segment" style="width: ${failRate}%; background: linear-gradient(90deg, #f87171, #dc2626);">${failRate > 5 ? failRate + '%' : ''}</div>
+            <div class="sab-item">
+              <div class="sab-val" style="color: ${sabidurias.sbh.color}">${sabidurias.sbh.count > 0 ? (sabidurias.sbh.sum / sabidurias.sbh.count).toFixed(2) : "—"}</div>
+              <div class="sab-name">${sabidurias.sbh.name}</div>
+              <span class="sab-weight">${sabidurias.sbh.weight}</span>
             </div>
-            
-            <div class="legend-row">
-              <div class="legend-item">
-                <span class="legend-dot" style="background: #059669; box-shadow: 0 2px 4px rgba(5,150,105,0.3);"></span> Aprobados
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background: #ca8a04; box-shadow: 0 2px 4px rgba(202,138,4,0.3);"></span> Nivelación
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background: #dc2626; box-shadow: 0 2px 4px rgba(220,38,38,0.3);"></span> Reprobados
-              </div>
+            <div class="sab-item">
+              <div class="sab-val" style="color: ${sabidurias.sr.color}">${sabidurias.sr.count > 0 ? (sabidurias.sr.sum / sabidurias.sr.count).toFixed(2) : "—"}</div>
+              <div class="sab-name">${sabidurias.sr.name}</div>
+              <span class="sab-weight">${sabidurias.sr.weight}</span>
+            </div>
+            <div class="sab-item">
+              <div class="sab-val" style="color: ${sabidurias.cv.color}">${sabidurias.cv.count > 0 ? (sabidurias.cv.sum / sabidurias.cv.count).toFixed(2) : "—"}</div>
+              <div class="sab-name">${sabidurias.cv.name}</div>
+              <span class="sab-weight">${sabidurias.cv.weight}</span>
+            </div>
+            <div class="sab-item">
+              <div class="sab-val" style="color: ${sabidurias.aut.color}">${sabidurias.aut.count > 0 ? (sabidurias.aut.sum / sabidurias.aut.count).toFixed(2) : "—"}</div>
+              <div class="sab-name">${sabidurias.aut.name}</div>
+              <span class="sab-weight">${sabidurias.aut.weight}</span>
             </div>
           </div>
         </div>
 
-        <div class="saludo avoid-break" style="background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 40px;">
-          <p style="margin-top: 0; color: #0f172a;"><strong>Oportunidades de mejora observadas (Contexto General):</strong></p>
-          <ul style="margin-bottom: 0; font-size: 11px; color: #475569; padding-left: 20px;">
-            <li style="margin-bottom: 6px;">Dificultad de conectividad o inasistencia reiterada que interrumpe el hilo pedagógico.</li>
-            <li style="margin-bottom: 6px;">Necesidad de mayor acompañamiento familiar en la entrega de actividades y talleres.</li>
-            <li style="margin-bottom: 6px;">Falta de material de trabajo o cuadernos para el seguimiento en clase.</li>
-            <li style="margin-bottom: 0;">Es fundamental reforzar la motivación y el trabajo en el aula tras episodios de ausencia.</li>
+        <!-- TABLA GERENCIAL COMPARATIVA POR GRADO -->
+        <div class="avoid-break" style="margin-top: 25px;">
+          <div class="section-title" style="margin-bottom: 8px;">Matriz Comparativa de Rendimiento y Ausentismo por Grado</div>
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th style="width: 14%; text-align: left; padding-left: 14px;">Grado</th>
+                <th style="width: 12%;">Evaluados</th>
+                <th style="width: 12%;">Aprobados</th>
+                <th style="width: 12%;">Reprobados</th>
+                <th style="width: 14%;">% Aprobación</th>
+                <th style="width: 14%;">Promedio</th>
+                <th style="width: 10%;">Nivelación</th>
+                <th style="width: 12%;">Inasistencias</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.keys(gradeAnalytics).sort().map(g => {
+                const data = gradeAnalytics[g];
+                if (data.totalEvaluated === 0) return '';
+                const pRate = Math.round((data.passed / data.totalEvaluated) * 100);
+                const gAvg = (data.scoreSum / data.totalEvaluated).toFixed(2);
+                
+                return `
+                  <tr>
+                    <td style="text-align: left; padding-left: 14px;">
+                      <span class="grade-badge">${data.grado}</span>
+                    </td>
+                    <td>${data.totalEvaluated}</td>
+                    <td><strong style="color: #16a34a;">${data.passed}</strong></td>
+                    <td><strong style="color: #dc2626;">${data.failed}</strong></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <div class="micro-bar">
+                          <div class="micro-fill" style="width: ${pRate}%;"></div>
+                        </div>
+                        <span style="font-size: 8.5px; font-weight: 800;">${pRate}%</span>
+                      </div>
+                    </td>
+                    <td><strong style="color: #0f172a; font-size: 11px;">${gAvg}</strong></td>
+                    <td>${data.recovery > 0 ? `<span style="color: #d97706; font-weight: 800;">${data.recovery}</span>` : '<span style="color: #cbd5e1;">0</span>'}</td>
+                    <td><span style="color: ${data.totalAbsences > 5 ? '#dc2626' : '#64748b'}; font-weight: 700;">${data.totalAbsences} faltas</span></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="saludo avoid-break" style="background: #f8fafc; padding: 14px 18px; border-radius: 14px; border: 1px solid #e2e8f0; margin-top: 15px;">
+          <p style="margin: 0; color: #0f172a; font-size: 10.5px;"><strong>Factores de Seguimiento Pedagógico Observados:</strong></p>
+          <ul style="margin: 6px 0 0 0; font-size: 9.5px; color: #475569; padding-left: 18px; line-height: 1.5;">
+            <li>El pilar de <strong>Saber-Hacer</strong> refleja alta destreza en talleres vivenciales y prácticas en el territorio.</li>
+            <li>El ausentismo es el factor directo de mayor correlación con los estudiantes que requieren nivelación.</li>
+            <li>Se recomienda fortalecer la retroalimentación continua y los compromisos pedagógicos con padres de familia.</li>
           </ul>
         </div>
       </div>
 
+      <!-- PÁGINAS DE DETALLE POR ASIGNATURA Y CURSO -->
       <div class="print-container borderless">
   `;
 
-  // --- TABLES ---
-  
+  // --- TABLAS DE ESTUDIANTES EN NIVELACIÓN / DIFICULTAD ---
   Object.keys(groups).sort().forEach(grado => {
     Object.keys(groups[grado]).sort().forEach(subject => {
       const allSubjectStudents = groups[grado][subject];
@@ -1323,16 +1579,16 @@ export function printExecutiveReport(
       
       if (targetStudents.length > 0) {
         reportHtml += `
-        <div class="avoid-break">
-          <h3 class="table-title">GRADO: ${grado} — ${subject}</h3>
-          <table>
+        <div class="avoid-break" style="margin-top: 20px;">
+          <h3 class="section-title" style="font-size: 11px; margin-bottom: 8px;">CURSO: ${grado} — ASIGNATURA: ${subject}</h3>
+          <table class="detail-table">
             <thead>
               <tr>
                 <th style="width: 5%;">No.</th>
                 <th style="width: 40%; text-align: left;">NOMBRES Y APELLIDOS</th>
                 <th style="width: 15%;">DEFINITIVA</th>
                 <th style="width: 15%;">NIVELACIÓN</th>
-                <th style="width: 25%;">OBSERVACIÓN</th>
+                <th style="width: 25%;">ESTADO / OBSERVACIÓN</th>
               </tr>
             </thead>
             <tbody>
@@ -1363,7 +1619,7 @@ export function printExecutiveReport(
                 <td><span style="color: #94a3b8; font-weight: 700;">${index + 1}</span></td>
                 <td class="text-left">${item.st.primerApellido} ${item.st.segundoApellido || ''} ${item.st.primerNombre}</td>
                 <td><strong style="color: #0f172a;">${g.parcial.toFixed(1)}</strong></td>
-                <td>${g.rec !== null ? `<strong style="color: #3b82f6;">${g.rec.toFixed(1)}</strong>` : '<span style="color:#cbd5e1;">—</span>'}</td>
+                <td>${g.rec !== null ? `<strong style="color: #2563eb;">${g.rec.toFixed(1)}</strong>` : '<span style="color:#cbd5e1;">—</span>'}</td>
                 <td><span class="badge ${badgeClass}">${obs}</span></td>
               </tr>
           `;
@@ -1381,13 +1637,13 @@ export function printExecutiveReport(
   reportHtml += `
         <div class="firma avoid-break">
           <div class="firma-line"></div>
-          <div style="font-weight: 800; font-size: 12px; text-transform: uppercase; color: #0f172a;">${teacherProfile.name}</div>
-          <div style="font-size: 10px; color: #64748b; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
+          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${teacherProfile.name}</div>
+          <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
         </div>
         
-        <div style="text-align: center; margin-top: 50px; font-size: 9px; color: #94a3b8; line-height: 1.4;">
-          <strong>Por la pervivencia e identidad del Pueblo Awa</strong><br>
-          Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso- Barbacoas Nariño<br>
+        <div style="text-align: center; margin-top: 40px; font-size: 8.5px; color: #94a3b8; line-height: 1.4;">
+          <strong>Por la pervivencia e identidad del Pueblo Awá</strong><br>
+          Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño<br>
           E-Mail: ietabaawa@yahoo.es
         </div>
       </div>
@@ -1399,7 +1655,6 @@ export function printExecutiveReport(
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank");
 }
-
 
 
 export function printAnalyticsReport(
