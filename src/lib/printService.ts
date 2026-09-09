@@ -1296,7 +1296,7 @@ export function printExecutiveReport(
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>INFORME GERENCIAL Y PEDAGÓGICO - ${teacherProfile.name}</title>
+      <title>IETABA_INFORME_EJECUTIVO_${pName}_${(teacherProfile?.name || "DOCENTE").replace(/\s+/g, "_")}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
@@ -1874,9 +1874,22 @@ export function printExecutiveReport(
     </html>
   `;
 
-  const blob = new Blob([reportHtml], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
+  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
+  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
+  const normalizedFileName = `IETABA_INFORME_EJECUTIVO_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.title = normalizedFileName;
+    printWindow.document.close();
+  } else {
+    // Fallback if popup blocked
+    const blob = new Blob([reportHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
 }
 
 
@@ -2112,7 +2125,7 @@ export function printAnalyticsReport(
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>SUITE DE INTELIGENCIA PEDAGÓGICA (BI) - ${teacherProfile.name}</title>
+      <title>IETABA_ANALITICA_BI_${pName}_${(teacherProfile?.name || "DOCENTE").replace(/\s+/g, "_")}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
@@ -2520,7 +2533,19 @@ export function printAnalyticsReport(
     </html>
   `;
 
-  const blob = new Blob([reportHtml], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
+  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
+  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
+  const normalizedFileName = `IETABA_ANALITICA_BI_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.title = normalizedFileName;
+    printWindow.document.close();
+  } else {
+    const blob = new Blob([reportHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
 }
