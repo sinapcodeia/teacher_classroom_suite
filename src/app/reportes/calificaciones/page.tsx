@@ -146,7 +146,9 @@ export default function GradesReportPage() {
     ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
     ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
     { id: "AUT", type: "AUT", idx: 0 },
-    { id: "DEF", type: "DEF", idx: 0 }
+      { id: "PARC", type: "PARC", idx: 0 },
+      { id: "REC", type: "REC", idx: 0 },
+      { id: "DEF", type: "DEF", idx: 0 }
   ];
 
   const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId: string) => {
@@ -160,20 +162,39 @@ export default function GradesReportPage() {
       if (colType === "SR") return (d.sr && typeof d.sr[index] === 'number') ? d.sr[index].toFixed(1) : "";
       if (colType === "CV") return (d.cv && typeof d.cv[index] === 'number') ? d.cv[index].toFixed(1) : "";
       if (colType === "AUT") return typeof d.aut === 'number' ? d.aut.toFixed(1) : "";
-      if (colType === "DEF") {
-        const getAvg = (vals: (number | null)[]) => {
-          if (!vals) return 0;
-          const valid = vals.filter(v => typeof v === 'number') as number[];
-          return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
-        };
-        const sbAvg = getAvg(d.sb);
-        const sbhAvg = getAvg(d.sbh);
-        const srAvg = getAvg(d.sr);
-        const cvAvg = getAvg(d.cv);
-        const aut = typeof d.aut === 'number' ? d.aut : 0;
-        const final = (sbAvg * 0.3) + (sbhAvg * 0.4) + (srAvg * 0.2) + (cvAvg * 0.05) + (aut * 0.05);
-        return final > 0 ? final.toFixed(1) : "0.0";
-      }
+      if (colType === "PARC" || colType === "DEF") {
+          const getAvg = (vals: (number | null)[]) => {
+            if (!vals) return 0;
+            const valid = vals.filter(v => typeof v === 'number') as number[];
+            return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+          };
+          const sbAvg = getAvg(d.sb);
+          const sbhAvg = getAvg(d.sbh);
+          const srAvg = getAvg(d.sr);
+          const cvAvg = getAvg(d.cv);
+          const aut = typeof d.aut === 'number' ? d.aut : 0;
+          
+          let parcial = 0;
+          const active = [];
+          if (sbAvg > 0 || (d.sb && d.sb.some((x:any)=>x!==null))) active.push({ avg: sbAvg, w: 0.3 });
+          if (sbhAvg > 0 || (d.sbh && d.sbh.some((x:any)=>x!==null))) active.push({ avg: sbhAvg, w: 0.4 });
+          if (srAvg > 0 || (d.sr && d.sr.some((x:any)=>x!==null))) active.push({ avg: srAvg, w: 0.2 });
+          if (cvAvg > 0 || (d.cv && d.cv.some((x:any)=>x!==null))) active.push({ avg: cvAvg, w: 0.05 });
+          if (aut > 0 || d.aut !== null) active.push({ avg: aut, w: 0.05 });
+
+          if (active.length > 0) {
+             const totalW = active.reduce((s, p) => s + p.w, 0);
+             parcial = active.reduce((s, p) => s + (p.avg * p.w) / totalW, 0);
+          }
+          parcial = Number(parcial.toFixed(2));
+          
+          if (colType === "PARC") return parcial > 0 ? parcial.toFixed(1) : "";
+          
+          const rec = typeof d.rec === 'number' ? d.rec : null;
+          const definitiva = rec !== null ? rec : parcial;
+          return definitiva > 0 ? definitiva.toFixed(1) : "";
+        }
+        if (colType === "REC") return typeof d.rec === 'number' ? d.rec.toFixed(1) : "";
     }
 
     // 2. Compatibilidad con calificaciones legadas st.grades
@@ -894,27 +915,27 @@ export default function GradesReportPage() {
             <tr>
               <td className="border border-black font-bold text-center w-[12%]" colSpan={2}>COD_SECCION</td>
               <td className="border border-black font-bold text-center w-[18%]">11350</td>
-              <td className="border border-black font-bold text-center w-[70%]" colSpan={25}>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGUE AWA</td>
+              <td className="border border-black font-bold text-center w-[70%]" colSpan={columns.length}>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGUE AWA</td>
             </tr>
             <tr>
               <td className="border border-black font-bold text-center" colSpan={2}>COD_ASIGNATURA</td>
               <td className="border border-black font-bold text-center">60</td>
-              <td className="border border-black px-2" colSpan={25}>FECHA REPORTE: {new Date().toLocaleDateString()}</td>
+              <td className="border border-black px-2" colSpan={columns.length}>FECHA REPORTE: {new Date().toLocaleDateString()}</td>
             </tr>
             <tr>
               <td className="border border-black font-bold text-center" colSpan={2}>SECCION</td>
               <td className="border border-black font-bold text-center">{selectedGrade === "TODOS" ? "5-1" : selectedGrade.replace("°", "")}-{selectedCurso === "TODOS" ? "1" : selectedCurso} IETABA</td>
-              <td className="border border-black" colSpan={25}></td>
+              <td className="border border-black" colSpan={columns.length}></td>
             </tr>
             <tr>
               <td className="border border-black font-bold text-center" colSpan={2}>ASIGNATURA</td>
               <td className="border border-black font-bold text-center leading-tight uppercase">{selectedSubject}</td>
-              <td className="border border-black" colSpan={25}></td>
+              <td className="border border-black" colSpan={columns.length}></td>
             </tr>
             <tr>
               <td className="border border-black font-bold text-center" colSpan={2}>DOCENTE</td>
               <td className="border border-black font-bold text-center leading-tight uppercase">{profile.name}</td>
-              <td className="border border-black" colSpan={25}></td>
+              <td className="border border-black" colSpan={columns.length}></td>
             </tr>
 
             {/* Table Headers */}
@@ -1008,7 +1029,7 @@ export default function GradesReportPage() {
             {/* Convenciones Header */}
             <tr>
               <td colSpan={3} className="border-none h-4"></td>
-              <td colSpan={25} className="border border-black font-bold text-center p-0.5 bg-slate-100">CONVENCIONES Y ESCALA DE VALORACIÓN</td>
+              <td colSpan={columns.length} className="border border-black font-bold text-center p-0.5 bg-slate-100">CONVENCIONES Y ESCALA DE VALORACIÓN</td>
             </tr>
 
             {/* Convenciones Legend */}
@@ -1031,7 +1052,7 @@ export default function GradesReportPage() {
             {/* Leyenda de Puntos de Colores / Alertas al lado del nombre */}
             <tr>
               <td className="border border-black font-bold text-center p-0.5 bg-slate-200" colSpan={1}>ALERTAS</td>
-              <td className="border border-black px-2 p-1 font-bold text-[8px]" colSpan={27}>
+              <td className="border border-black px-2 p-1 font-bold text-[8px]" colSpan={columns.length + 2}>
                 <div className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> 🟠 <b>PUNTO NARANJA:</b> EXAMEN FALTANTE (PENDIENTE EVALUACIÓN DEL SABER 30%)</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> 🔵 <b>PUNTO AZUL:</b> TAREA/TALLER PENDIENTE (SABER-HACER 40%)</span>

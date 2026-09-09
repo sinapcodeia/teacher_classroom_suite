@@ -4,6 +4,7 @@ export type DetailedGrades = {
   sr: (number | null)[]; // Ser (5 slots)
   cv: (number | null)[]; // Convivencia (3 slots)
   aut: number | null; // Autoevaluación (1 slot)
+  rec?: number | null; // Recuperación del Periodo (1 slot)
 };
 
 export interface StudentAcademicSummary {
@@ -24,7 +25,7 @@ export interface MinimalStudentForSummary {
  * Calcula la nota final ponderada según los Pilares Institucionales IETABA.
  * Pesos definidos: SB=30%, SBH=40%, SR=20%, CV=5%, AUT=5%.
  */
-export function calculateDetailedFinal(detailed: DetailedGrades): number {
+export function calculatePeriodGrades(detailed: DetailedGrades): { parcial: number, rec: number | null, definitiva: number } {
   const getAvg = (vals: (number | null)[] | null | undefined): number | null => {
     if (!vals) return null;
     const valid = (vals as (number | null)[]).filter((v): v is number => v !== null && v !== undefined);
@@ -48,13 +49,27 @@ export function calculateDetailedFinal(detailed: DetailedGrades): number {
   if (cvAvg  !== null) active.push({ avg: cvAvg,  weight: WEIGHTS.cv  });
   if (autVal !== null) active.push({ avg: autVal, weight: WEIGHTS.aut });
 
-  if (active.length === 0) return 0;
+  let parcial = 0;
+  if (active.length > 0) {
+    const totalWeight = active.reduce((sum, p) => sum + p.weight, 0);
+    parcial = active.reduce((sum, p) => sum + (p.avg * p.weight) / totalWeight, 0);
+  }
+  
+  parcial = Number(parcial.toFixed(2));
+  const rec = (detailed.rec !== undefined && detailed.rec !== null) ? detailed.rec : null;
+  
+  // Si hay recuperación, generalmente la nota definitiva es la de recuperación (o el máximo entre ambas, según la regla. Asumiremos que reemplaza).
+  const definitiva = rec !== null ? rec : parcial;
 
-  // Normalizar pesos según los pilares activos
-  const totalWeight = active.reduce((sum, p) => sum + p.weight, 0);
-  const final = active.reduce((sum, p) => sum + (p.avg * p.weight) / totalWeight, 0);
+  return { parcial, rec, definitiva };
+}
 
-  return Number(final.toFixed(2));
+/**
+ * Calcula la nota final ponderada según los Pilares Institucionales IETABA.
+ * Retorna la definitiva (considerando la recuperación si existe).
+ */
+export function calculateDetailedFinal(detailed: DetailedGrades): number {
+  return calculatePeriodGrades(detailed).definitiva;
 }
 
 /**

@@ -1545,9 +1545,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sr:  existingPeriodData?.sr  ? [...existingPeriodData.sr]  : Array(5).fill(null),
         cv:  existingPeriodData?.cv  ? [...existingPeriodData.cv]  : Array(3).fill(null),
         aut: existingPeriodData?.aut !== undefined ? existingPeriodData.aut : null,
-      };
+          rec: existingPeriodData?.rec !== undefined ? existingPeriodData.rec : null,
+        };
 
-      if (category === 'aut') {
+      if (category === 'aut' || category === 'rec') {
         // aut es un valor escalar (no array)
         currentSubjectGrades.aut = score;
       } else {

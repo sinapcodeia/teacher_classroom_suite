@@ -1,4 +1,5 @@
 "use client";
+import { printExecutiveReport, printAnalyticsReport } from "@/lib/printService";
 import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 import { useState, useMemo, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
@@ -50,7 +51,7 @@ const QUICK_ACTIONS = (isSuperAdmin: boolean) => isSuperAdmin
 
 export default function Home() {
   const { 
-    schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents,
+    masterData, schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents,
     globalGradeFilter: gradoFilter, setGlobalGradeFilter: setGradoFilter,
     globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter,
       globalSubjectFilter: subjectFilter, setGlobalSubjectFilter: setSubjectFilter
@@ -437,6 +438,55 @@ export default function Home() {
                 </div>
              </div>
           </section>
+            
+            {/* INFORME GERENCIAL - VISIBLE AL USUARIO */}
+            <section className="mb-10 animate-in fade-in zoom-in duration-700">
+               <div className="bg-white/60 backdrop-blur-md border border-indigo-100 rounded-[2.5rem] p-4 md:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+                 <div className="flex items-center gap-4">
+                   <div className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center shadow-inner">
+                     <BarChart3 size={28} className="text-indigo-600" />
+                   </div>
+                   <div>
+                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Informe Académico Consolidado</h3>
+                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Reporte detallado de rendimiento y nivelación</p>
+                   </div>
+                 </div>
+                 
+                 <div className="flex w-full md:w-auto items-center gap-3">
+                    <select id="reportPeriodSelect" className="flex-1 md:flex-none h-14 bg-white border-2 border-indigo-50 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-indigo-900 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm">
+                      <option value="p1">Periodo 1</option>
+                      <option value="p2">Periodo 2</option>
+                      <option value="p3">Periodo 3</option>
+                    </select>
+                    
+                    <button
+                      onClick={() => {
+                        const p = (document.getElementById('reportPeriodSelect') as HTMLSelectElement).value;
+                        const modMaster = { ...masterData, activePeriod: p };
+                        printExecutiveReport(students, profile, modMaster);
+                      }}
+                      className="flex-1 md:flex-none h-14 flex items-center justify-center gap-2 px-8 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-indigo-500/20"
+                      style={{ background: "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)", color: "white" }}
+                    >
+                      <FileText size={18} className="text-white" />
+                      <span className="text-[11px] font-black uppercase tracking-widest text-white leading-none">Descargar PDF</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const p = (document.getElementById('reportPeriodSelect') as HTMLSelectElement).value;
+                        const modMaster = { ...masterData, activePeriod: p };
+                        printAnalyticsReport(students, profile, modMaster);
+                      }}
+                      className="flex-1 md:flex-none h-14 flex items-center justify-center gap-2 px-6 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-teal-500/20"
+                      style={{ background: "linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)", color: "white" }}
+                    >
+                      <Activity size={18} className="text-white" />
+                      <span className="text-[11px] font-black uppercase tracking-widest text-white leading-none">Analítica BI</span>
+                    </button>
+                 </div>
+               </div>
+            </section>
 
           {/* ── RECENT AGENDA (BITÁCORA) ── */}
           {!profile.isSuperAdmin && filteredRecentAgendaNotes.length > 0 && (

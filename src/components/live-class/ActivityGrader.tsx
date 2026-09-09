@@ -105,7 +105,7 @@ StudentRow.displayName = "StudentRow";
 
 export default function ActivityGrader({ course, subject, grade }: ActivityGraderProps) {
   const { students, myStudents, addGrade, addGradesBatch, updateSingleDetailedGrade, masterData } = useApp();
-  const [targetCategory, setTargetCategory] = useState<"sb" | "sbh" | "sr" | "cv" | "aut">("sbh");
+  const [targetCategory, setTargetCategory] = useState<"sb" | "sbh" | "sr" | "cv" | "aut" | "rec">("sbh");
   const [targetSlot, setTargetSlot] = useState(0);
 
   const [mode, setMode] = useState<GradeMode>("list");
@@ -172,7 +172,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
       const detailed = student.detailedGrades?.[subject]?.[periodId];
       if (detailed) {
         let score: number | null = null;
-        if (targetCategory === 'aut') score = detailed.aut;
+        if (targetCategory === 'aut') score = detailed.aut; else if (targetCategory === 'rec') score = detailed.rec || null;
         else {
           const catArray = detailed[targetCategory];
           if (catArray && catArray[targetSlot] !== undefined) score = catArray[targetSlot];
@@ -207,11 +207,11 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const firstFreeSlot = useMemo(() => {
     if (filteredStudents.length === 0) return 0;
     const periodId = getActivePeriod();
-    const maxSlots = targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : (targetCategory === 'aut' ? 1 : 8));
+    const maxSlots = targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : ((targetCategory === 'aut' || targetCategory === 'rec') ? 1 : 8));
     for (let slot = 0; slot < maxSlots; slot++) {
       // El slot está libre si NINGÚN estudiante tiene un valor en esa posición
       const hasData = filteredStudents.some(s => {
-        if (targetCategory === 'aut') return s.detailedGrades?.[subject]?.[periodId]?.aut != null;
+        if (targetCategory === 'aut' || targetCategory === 'rec') return s.detailedGrades?.[subject]?.[periodId]?.[targetCategory] != null;
         const arr = s.detailedGrades?.[subject]?.[periodId]?.[targetCategory as "sb"|"sbh"|"sr"|"cv"];
         return arr && arr[slot] != null;
       });
@@ -245,7 +245,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     if (selectedActivityKey !== "new") { setSlotOccupied(false); return; }
     const periodId = getActivePeriod();
     const occupied = filteredStudents.some(s => {
-      if (targetCategory === 'aut') return s.detailedGrades?.[subject]?.[periodId]?.aut != null;
+      if (targetCategory === 'aut' || targetCategory === 'rec') return s.detailedGrades?.[subject]?.[periodId]?.[targetCategory] != null;
       const arr = s.detailedGrades?.[subject]?.[periodId]?.[targetCategory as "sb"|"sbh"|"sr"|"cv"];
       return arr && arr[targetSlot] != null;
     });
@@ -257,7 +257,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     const activityMap = new Map<string, {
       title: string;
       cleanTitle: string;
-      category: "sb" | "sbh" | "sr" | "cv" | "aut";
+      category: "sb" | "sbh" | "sr" | "cv" | "aut" | "rec";
       slotIndex: number;
       date: string;
     }>();
@@ -323,8 +323,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
       const detailed = student.detailedGrades?.[subject]?.[periodId];
       if (detailed) {
         let score: number | null = null;
-        if (targetCategory === 'aut') {
-          score = detailed.aut;
+        if (targetCategory === 'aut' || targetCategory === 'rec') {
+            score = detailed[targetCategory] || null;
         } else {
           const catArray = detailed[targetCategory];
           if (catArray && catArray[targetSlot] !== undefined) {
@@ -349,8 +349,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
       const detailed = currentStudent.detailedGrades?.[subject]?.[periodId];
       let score: number | null = null;
       if (detailed) {
-        if (targetCategory === 'aut') {
-          score = detailed.aut;
+        if (targetCategory === 'aut' || targetCategory === 'rec') {
+            score = detailed[targetCategory] || null;
         } else {
           const catArray = detailed[targetCategory];
           if (catArray && catArray[targetSlot] !== undefined) {
@@ -639,6 +639,7 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
                 <option value="sr">SER (20%) - ACTITUDINAL</option>
                 <option value="cv">CONVIVENCIA (5%)</option>
                 <option value="aut">AUTOEVALUACIÓN (5%)</option>
+                  <option value="rec">RECUPERACIÓN (REEMPLAZA FINAL)</option>
               </select>
             </div>
 
@@ -667,10 +668,10 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
                     : "bg-emerald-50 border-emerald-300 text-emerald-700 focus:ring-emerald-200"
                 }`}
               >
-                {[...Array(targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : (targetCategory === 'aut' ? 1 : 8)))].map((_, i) => {
+                {[...Array(targetCategory === 'sr' ? 5 : (targetCategory === 'cv' ? 3 : ((targetCategory === 'aut' || targetCategory === 'rec') ? 1 : 8)))].map((_, i) => {
                   const periodId = getActivePeriod();
                   const colOccupied = filteredStudents.some(s => {
-                    if (targetCategory === 'aut') return s.detailedGrades?.[subject]?.[periodId]?.aut != null;
+                    if (targetCategory === 'aut' || targetCategory === 'rec') return s.detailedGrades?.[subject]?.[periodId]?.[targetCategory] != null;
                     const arr = s.detailedGrades?.[subject]?.[periodId]?.[targetCategory as "sb"|"sbh"|"sr"|"cv"];
                     return arr && arr[i] != null;
                   });

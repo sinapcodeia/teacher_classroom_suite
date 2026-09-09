@@ -3,7 +3,7 @@ import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constant
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useApp, Student } from "@/context/AppContext";
-import { DetailedGrades, calculateDetailedFinal } from "@/lib/gradeUtils";
+import { DetailedGrades, calculateDetailedFinal, calculatePeriodGrades } from "@/lib/gradeUtils";
 import { 
   FileSpreadsheet, Download, Upload, Save, 
   Calculator, CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft, Lock, Unlock
@@ -80,12 +80,13 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
         sbh: Array(8).fill(null),
         sr: Array(5).fill(null),
         cv: Array(3).fill(null),
-        aut: null
-      };
+          aut: null,
+          rec: null
+        };
       return {
         ...s,
         grades,
-        finalScore: calculateDetailedFinal(grades)
+        periodGrades: calculatePeriodGrades(grades)
       };
     });
   }, [filteredStudents, subject, selectedPeriod]);
@@ -97,23 +98,28 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
         sbh: Array(8).fill(null),
         sr: Array(5).fill(null),
         cv: Array(3).fill(null),
-        aut: null
-      };
+          aut: null,
+          rec: null
+        };
 
       const row: any = {
         CODIGO: s.nroDocumento,
         PRIMER_APELLIDO: s.primerApellido,
         SEGUNDO_APELLIDO: s.segundoApellido || "",
         PRIMER_NOMBRE: s.primerNombre,
-        SEGUNDO_NOMBRE: s.segundoNombre || "" };
+        SEGUNDO_NOMBRE: s.segundoNombre || ""
+      };
 
-      // Add category columns — usar v != null para no confundir nota 0 con vacío
+      const periodNotes = calculatePeriodGrades(grades);
+
       grades.sb.forEach((v, i)  => row[`SB${i + 1}`]  = v != null ? v : "");
       grades.sbh.forEach((v, i) => row[`SBH${i + 1}`] = v != null ? v : "");
       grades.sr.forEach((v, i)  => row[`SR${i + 1}`]  = v != null ? v : "");
       grades.cv.forEach((v, i)  => row[`CV${i + 1}`]  = v != null ? v : "");
-      row["AUT"]   = grades.aut != null ? grades.aut : "";
-      row["FINAL"] = calculateDetailedFinal(grades);
+      row["AUT"]     = grades.aut != null ? grades.aut : "";
+      row["PARCIAL"] = periodNotes.parcial;
+      row["REC"]     = grades.rec != null ? grades.rec : "";
+      row["FINAL"]   = periodNotes.definitiva;
 
       return row;
     });
@@ -349,7 +355,9 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
               <th colSpan={5} className="px-4 py-4 text-center border-r border-outline-variant/30 bg-amber-50/30 text-amber-800">SR (Ser)</th>
               <th colSpan={3} className="px-4 py-4 text-center border-r border-outline-variant/30 bg-purple-50/30 text-purple-800">CV</th>
               <th className="px-4 py-4 text-center bg-rose-50/30 text-rose-800">AUT</th>
-              <th className="px-6 py-4 text-center bg-on-surface text-white">Final</th>
+                <th className="px-4 py-4 text-center bg-slate-100 text-slate-800">Parcial</th>
+                <th className="px-4 py-4 text-center bg-amber-50 text-amber-800">Rec.</th>
+                <th className="px-6 py-4 text-center bg-on-surface text-white">DEF</th>
             </tr>
             <tr className="bg-surface-container-low text-[8px] font-bold text-on-surface-variant/40 border-b border-outline-variant">
                <th className="sticky left-0 z-30 bg-surface-container-low px-6 py-2 text-left border-r border-outline-variant/30">Datos</th>
@@ -362,62 +370,71 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                {/* CV 1-3 */}
                {[1,2,3].map(i => <th key={`cv-${i}`} className="px-2 py-2 border-r border-outline-variant/10">CV{i}</th>)}
                <th className="px-2 py-2">AUT</th>
-               <th className="px-6 py-2">DEF</th>
+                 <th className="px-4 py-2 border-r border-outline-variant/10">PARC</th>
+                 <th className="px-4 py-2 border-r border-outline-variant/10">REC1</th>
+                 <th className="px-6 py-2">DEF</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/10">
             {processedStudents.map(student => {
-              const { grades, finalScore } = student;
+              const { grades, periodGrades } = student;
+                const { parcial, rec, definitiva: finalScore } = periodGrades;
 
-              return (
-                <tr key={student.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="sticky left-0 z-20 bg-white group-hover:bg-slate-50 px-6 py-4 border-r border-outline-variant/30 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                    <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black text-[9px] uppercase border border-primary/10">
-                         {(student.primerApellido || "")[0] || ""}{(student.primerNombre || "")[0] || ""}
-                       </div>
-                       <div>
-                         <p className="text-[11px] font-black text-on-surface uppercase leading-tight">
-                           {student.primerApellido || ""} {student.segundoApellido || ""}{student.primerApellido ? "," : ""} {student.primerNombre || ""} {student.segundoNombre || ""}
-                         </p>
-                         <p className="text-[8px] font-bold text-on-surface-variant opacity-40 uppercase">{student.nroDocumento}</p>
-                       </div>
-                    </div>
-                  </td>
-                  
-                  {/* SB Cells */}
-                  {grades.sb.map((v, i) => (
-                    <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-blue-600">
-                      {v?.toFixed(1) || "—"}
+                return (
+                  <tr key={student.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="sticky left-0 z-20 bg-white group-hover:bg-slate-50 px-6 py-4 border-r border-outline-variant/30 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black text-[9px] uppercase border border-primary/10">
+                           {(student.primerApellido || "")[0] || ""}{(student.primerNombre || "")[0] || ""}
+                         </div>
+                         <div>
+                           <p className="text-[11px] font-black text-on-surface uppercase leading-tight">
+                             {student.primerApellido || ""} {student.segundoApellido || ""}{student.primerApellido ? "," : ""} {student.primerNombre || ""} {student.segundoNombre || ""}
+                           </p>
+                           <p className="text-[8px] font-bold text-on-surface-variant opacity-40 uppercase">{student.nroDocumento}</p>
+                         </div>
+                      </div>
                     </td>
-                  ))}
-                  {/* SBH Cells */}
-                  {grades.sbh.map((v, i) => (
-                    <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-emerald-600">
-                      {v?.toFixed(1) || "—"}
+                    
+                    {/* SB Cells */}
+                    {grades.sb.map((v: any, i: number) => (
+                      <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-blue-600">
+                        {v?.toFixed(1) || "-"}
+                      </td>
+                    ))}
+                    {/* SBH Cells */}
+                    {grades.sbh.map((v: any, i: number) => (
+                      <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-emerald-600">
+                        {v?.toFixed(1) || "-"}
+                      </td>
+                    ))}
+                    {/* SR Cells */}
+                    {grades.sr.map((v: any, i: number) => (
+                      <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-amber-600">
+                        {v?.toFixed(1) || "-"}
+                      </td>
+                    ))}
+                    {/* CV Cells */}
+                    {grades.cv.map((v: any, i: number) => (
+                      <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-purple-600">
+                        {v?.toFixed(1) || "-"}
+                      </td>
+                    ))}
+                    <td className="px-2 py-4 text-center text-[10px] font-bold text-rose-600 border-r border-outline-variant/5">
+                      {grades.aut?.toFixed(1) || "-"}
                     </td>
-                  ))}
-                  {/* SR Cells */}
-                  {grades.sr.map((v, i) => (
-                    <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-amber-600">
-                      {v?.toFixed(1) || "—"}
+                    <td className="px-4 py-4 text-center text-[10px] font-bold text-slate-700 bg-slate-50/50 border-r border-outline-variant/5">
+                      {parcial.toFixed(1)}
                     </td>
-                  ))}
-                  {/* CV Cells */}
-                  {grades.cv.map((v, i) => (
-                    <td key={i} className="px-2 py-4 text-center border-r border-outline-variant/5 text-[10px] font-bold text-purple-600">
-                      {v?.toFixed(1) || "—"}
+                    <td className="px-4 py-4 text-center text-[10px] font-bold text-amber-700 bg-amber-50/30 border-r border-outline-variant/5">
+                      {rec?.toFixed(1) || "-"}
                     </td>
-                  ))}
-                  <td className="px-2 py-4 text-center text-[10px] font-bold text-rose-600">
-                    {grades.aut?.toFixed(1) || "—"}
-                  </td>
-                  <td className="px-6 py-3 text-center text-xs font-black bg-on-surface/5">
-                    <div className="flex flex-col items-center justify-center gap-1">
-                      <span className={finalScore < 3 ? 'text-red-600' : 'text-on-surface'}>
-                        {finalScore.toFixed(1)}
-                      </span>
-                      {finalScore < 3 && (
+                    <td className="px-6 py-3 text-center text-xs font-black bg-on-surface/5">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <span className={finalScore < 3 ? 'text-red-600' : 'text-on-surface'}>
+                          {finalScore.toFixed(1)}
+                        </span>
+                        {finalScore < 3 && (
                         <button
                           onClick={() => setRecoveryStudent({
                             id: student.id,
