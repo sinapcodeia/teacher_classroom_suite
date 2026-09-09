@@ -1073,6 +1073,10 @@ export function printExecutiveReport(
   teacherProfile: any,
   masterData: any
 ) {
+  if (!students || students.length === 0) {
+    if (typeof window !== "undefined") alert("Aviso: No hay registros de estudiantes disponibles para generar el informe.");
+    return;
+  }
   const activePeriod = (masterData.activePeriod || "p2").toLowerCase();
   const pName = activePeriod.toUpperCase();
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -1886,6 +1890,10 @@ export function printAnalyticsReport(
   teacherProfile: any,
   masterData: any
 ) {
+  if (!students || students.length === 0) {
+    if (typeof window !== "undefined") alert("Aviso: No hay registros de estudiantes disponibles para generar la analítica BI.");
+    return;
+  }
   const activePeriod = (masterData.activePeriod || "p2").toLowerCase();
   const pName = activePeriod.toUpperCase();
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
