@@ -1917,6 +1917,7 @@ export function printAnalyticsReport(
     femaleSum: number;
     maleSum: number;
     aiInsight: string;
+    pedagogicalAction: string;
   }> = {};
 
   students.forEach(st => {
@@ -1961,7 +1962,8 @@ export function printAnalyticsReport(
               maleCount: 0,
               femaleSum: 0,
               maleSum: 0,
-              aiInsight: ""
+              aiInsight: "",
+              pedagogicalAction: ""
             };
           }
 
@@ -2007,23 +2009,84 @@ export function printAnalyticsReport(
   const avgM = genderStats.M.count > 0 ? (genderStats.M.sum / genderStats.M.count).toFixed(2) : "0.00";
   const avgF = genderStats.F.count > 0 ? (genderStats.F.sum / genderStats.F.count).toFixed(2) : "0.00";
 
-  // Generación de Síntesis Pedagógica con IA (Humanizada para cada curso)
+  // ═════════════════════════════════════════════════════════════════════════════
+  // MOTOR DE INTELIGENCIA PEDAGÓGICA HIPER-DINÁMICA & HUMANIZADA
+  // ═════════════════════════════════════════════════════════════════════════════
   Object.keys(detailedCourseSubjectBI).forEach(k => {
     const item = detailedCourseSubjectBI[k];
     if (item.total === 0) return;
+    
     const avg = Number((item.scoreSum / item.total).toFixed(2));
-    const passPercent = Math.round(((item.superior + item.alto + item.basico) / item.total) * 100);
+    const pSup = Math.round((item.superior / item.total) * 100);
+    const pAlt = Math.round((item.alto / item.total) * 100);
+    const pBas = Math.round((item.basico / item.total) * 100);
+    const pBaj = Math.round((item.bajo / item.total) * 100);
+    const passPercent = pSup + pAlt + pBas;
     const absRate = item.attendanceEvents > 0 ? Math.round((item.absences / item.attendanceEvents) * 100) : 0;
+    
+    const fAvg = item.femaleCount > 0 ? (item.femaleSum / item.femaleCount).toFixed(1) : null;
+    const mAvg = item.maleCount > 0 ? (item.maleSum / item.maleCount).toFixed(1) : null;
 
-    let insight = "";
-    if (passPercent >= 85) {
-      insight = `🌟 Grupo con excelente apropiación conceptual y vivencial. El ${passPercent}% de los estudiantes avanza con solidez. Se recomienda incentivar proyectos de profundización.`;
-    } else if (passPercent >= 65) {
-      insight = `📘 Curso en evolución positiva con un promedio de ${avg}. Es oportuno fortalecer el acompañamiento grupal para impulsar al ${100 - passPercent}% que requiere apoyo.`;
-    } else {
-      insight = `🎯 Grupo prioritario para intervención pedagógica y diálogo con familias. El ${100 - passPercent}% presenta dificultades vinculadas a inasistencias (${absRate}%). Se sugiere activar talleres prácticos.`;
+    const subName = item.subject.toUpperCase();
+
+    // Contexto Temático según la Asignatura
+    let areaFocus = "en el desarrollo integral de las competencias";
+    let subEmoji = "🌱";
+    if (subName.includes("FÍSIC") || subName.includes("FISIC")) {
+      areaFocus = "en la comprensión de leyes físicas, modelado de fenómenos naturales y pensamiento lógico";
+      subEmoji = "⚡";
+    } else if (subName.includes("TECNOLOG") || subName.includes("INFORMÁTIC")) {
+      areaFocus = "en la apropiación tecnológica, alfabetización digital y desarrollo de proyectos prácticos";
+      subEmoji = "💻";
+    } else if (subName.includes("MATEMÁT") || subName.includes("MATEMAT")) {
+      areaFocus = "en el razonamiento cuantitativo, cálculo aplicado y resolución de problemas cotidianos";
+      subEmoji = "📐";
+    } else if (subName.includes("ÉTIC") || subName.includes("ETIC") || subName.includes("RELIG")) {
+      areaFocus = "en la vivencia de valores comunitarios, empatía, diálogo pacífico y cosmovisión Awá";
+      subEmoji = "🤝";
+    } else if (subName.includes("AGRO") || subName.includes("CIENC") || subName.includes("NATURAL")) {
+      areaFocus = "en el cuidado del territorio agroambiental, soberanía alimentaria y saberes ancestrales";
+      subEmoji = "🌿";
     }
-    item.aiInsight = insight;
+
+    // 1. Diagnóstico del Rendimiento y Clima de Aula
+    let narrative = "";
+    if (pBaj === 0 && (pSup + pAlt) >= 60) {
+      narrative = `${subEmoji} <strong>Desempeño Sobresaliente:</strong> El 100% del curso superó los objetivos con solidez ${areaFocus}. Destaca un ${pSup}%` +
+        ` en nivel Superior (${item.superior} estudiantes) y ${pAlt}% en nivel Alto. El grupo demuestra gran autonomía y compromiso constante.`;
+    } else if (pBaj === 0) {
+      narrative = `${subEmoji} <strong>Consolidación Positiva:</strong> Plena aprobación grupal con promedio de ${avg}. Aunque no hay reprobación, la mayor concentración está en nivel Básico (${pBas}%), lo que invita a profundizar en retos más estimulantes para impulsar sus saberes hacia niveles de excelencia.`;
+    } else if (pBaj <= 15) {
+      narrative = `${subEmoji} <strong>Buen Ritmo con Foco Preventivo:</strong> El ${passPercent}% del curso avanza satisfactoriamente. Existen ${item.bajo} estudiante(s) (${pBaj}%) en zona de dificultad transitoria que requieren seguimiento cercano en talleres prácticos.`;
+    } else {
+      narrative = `${subEmoji} <strong>Grupo Prioritario de Acompañamiento:</strong> El ${pBaj}% (${item.bajo} estudiantes) presenta rezago significativo ${areaFocus}. ` +
+        (absRate > 10 ? `Existe una correlación directa con la inasistencia (${absRate}% de ausentismo registrado). ` : '') +
+        `Se requiere una intervención pedagógica flexible y oportuna.`;
+    }
+
+    // 2. Detalle de Equidad de Género y Factores Dinámicos
+    let genderNote = "";
+    if (fAvg && mAvg && Math.abs(Number(fAvg) - Number(mAvg)) >= 0.4) {
+      const lider = Number(fAvg) > Number(mAvg) ? "las estudiantes mujeres (" + fAvg + ")" : "los estudiantes hombres (" + mAvg + ")";
+      genderNote = ` En equidad grupal, se observa mayor dinamismo académico en ${lider}.`;
+    }
+
+    // 3. Recomendación Pedagógica Concreta
+    let action = "";
+    if (activePeriod === "p1") {
+      action = `🎯 <strong>Ruta de Aprendizaje (P1):</strong> Afianzar hábitos de estudio, fomentar el trabajo en duplas colaborativas y dinamizar las actividades vivenciales en el aula.`;
+    } else if (activePeriod === "p2") {
+      if (pBaj > 0) {
+        action = `🎯 <strong>Plan de Rescate Inmediato (P2):</strong> Asignar talleres de nivelación sobre los conceptos nodales y convocar a las familias de los ${item.bajo} estudiantes en riesgo para acordar compromisos antes de iniciar el Periodo 3.`;
+      } else {
+        action = `🎯 <strong>Proyección al Cierre (P2):</strong> Mantener el ritmo de entrega y motivar al grupo a consolidar su año lectivo con proyectos de aplicación comunitaria.`;
+      }
+    } else {
+      action = `🎯 <strong>Balance Final (P3):</strong> Formalizar los planes de habilitación final para estudiantes no promovidos y felicitar al grupo por el camino recorrido.`;
+    }
+
+    item.aiInsight = narrative + genderNote;
+    item.pedagogicalAction = action;
   });
 
   // Top 10 Cuadro de Honor
@@ -2071,7 +2134,7 @@ export function printAnalyticsReport(
           margin: 0 auto 20px auto;
           background: #042f2e;
           color: #ccfbf1;
-          padding: 12px 24px;
+          padding: 14px 24px;
           border-radius: 18px;
           display: flex;
           align-items: center;
@@ -2083,7 +2146,7 @@ export function printAnalyticsReport(
           background: #0d9488;
           color: white;
           border: none;
-          padding: 10px 20px;
+          padding: 10px 22px;
           border-radius: 12px;
           font-weight: 800;
           font-size: 11px;
@@ -2148,7 +2211,6 @@ export function printAnalyticsReport(
         .bi-kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 18px; padding: 18px; text-align: center; }
         .bi-kpi-card.teal { background: linear-gradient(145deg, #f0fdfa, #ccfbf1); border-color: #5eead4; }
         
-        /* Vector Gender Bars */
         .gender-box {
           background: #ffffff;
           border: 1px solid #e2e8f0;
@@ -2163,7 +2225,6 @@ export function printAnalyticsReport(
         .gender-fill-m { background: linear-gradient(90deg, #0ea5e9, #0284c7); }
         .gender-val { font-size: 11px; font-weight: 900; color: #0f172a; width: 45px; text-align: right; }
 
-        /* Course Compendium Card */
         .course-card {
           background: #ffffff;
           border: 1px solid #e2e8f0;
@@ -2199,7 +2260,6 @@ export function printAnalyticsReport(
           color: #0d9488;
         }
 
-        /* Distribution Vector Bar */
         .dist-stacked-bar {
           width: 100%;
           height: 18px;
@@ -2232,10 +2292,20 @@ export function printAnalyticsReport(
           background: #f0fdfa;
           border: 1px solid #ccfbf1;
           border-radius: 12px;
-          padding: 10px 14px;
+          padding: 12px 16px;
           margin-top: 14px;
-          font-size: 10px;
+          font-size: 10.5px;
           color: #0f766e;
+          line-height: 1.6;
+        }
+        .ai-action-box {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 10px 16px;
+          margin-top: 8px;
+          font-size: 10px;
+          color: #334155;
           line-height: 1.5;
         }
 
@@ -2271,8 +2341,13 @@ export function printAnalyticsReport(
     </head>
     <body>
       <div class="action-bar-top no-print">
-        <div style="font-weight: 800; font-size: 12px; letter-spacing: 0.05em;">
-          📊 Suite de Inteligencia Académica BI · IETABA
+        <div>
+          <div style="font-weight: 900; font-size: 12px; letter-spacing: 0.05em;">
+            📊 Suite de Inteligencia Académica BI · IETABA
+          </div>
+          <div style="font-size: 9.5px; color: #99f6e4; margin-top: 2px;">
+            💡 Tip: En el cuadro de impresión, desmarca "Encabezados y pies de página" para un PDF limpio.
+          </div>
         </div>
         <button onclick="window.print()" class="btn-print-bi">
           🖨️ Imprimir / Guardar en PDF
@@ -2290,7 +2365,7 @@ export function printAnalyticsReport(
         </div>
 
         <div class="saludo">
-          <p>Estimados directivos y equipo docente,</p>
+          <p>Apreciada comunidad directiva y equipo pedagógico,</p>
           <p>
             Presentamos la <strong>Radiografía Integral de Inteligencia Pedagógica del Periodo ${pName}</strong>. Este compendio transforma los registros de evaluación en reflexiones cualitativas y cuantitativas profundas por cada grado y asignatura, identificando las fortalezas grupales y orientando con calidez las acciones de mejoramiento continuo.
           </p>
@@ -2407,9 +2482,14 @@ export function printAnalyticsReport(
                 <span><span class="dist-dot" style="background:#ef4444;"></span> Bajo: ${item.bajo} (${pBaj}%)</span>
               </div>
 
-              <!-- Síntesis con IA Humanizada -->
+              <!-- Diagnóstico de IA Humanizado y Dinámico por Asignatura -->
               <div class="ai-insight-box">
-                <strong>💡 Orientación Pedagógica del Curso:</strong> ${item.aiInsight}
+                ${item.aiInsight}
+              </div>
+
+              <!-- Plan de Acción Concreto -->
+              <div class="ai-action-box">
+                ${item.pedagogicalAction}
               </div>
             </div>
             `;
