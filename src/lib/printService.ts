@@ -1,3 +1,15 @@
+
+// ── SANITIZACIÓN MILITAR CONTRA INYECCIÓN XSS (Security Hardening) ──
+function escapeHtml(unsafe: any): string {
+  if (unsafe === null || unsafe === undefined) return "";
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 /**
  * printService.ts
  * Opens a printer-ready HTML page in a new tab.
@@ -1306,7 +1318,15 @@ export function printExecutiveReport(
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
           .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
-          @page { margin: 1.2cm; size: letter; }
+          @page { margin: 10mm 12mm; size: A4 portrait; }
+        @media screen and (max-width: 640px) {
+          body { padding: 8px !important; }
+          .print-container { padding: 20px 14px !important; border-radius: 14px !important; }
+          .bento-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .sabiduria-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+          .bi-kpi-grid { grid-template-columns: 1fr !important; }
+          .action-bar-top { flex-direction: column; gap: 10px; text-align: center; }
+        }
         }
 
         body {
@@ -1552,7 +1572,7 @@ export function printExecutiveReport(
       <div class="print-container">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 48px; height: auto; position: absolute; left: 0; top: 0;" onerror="this.style.display='none'">
+          <img src="${baseUrl}/logo.png" style="width: 58px; height: auto; position: absolute; left: 0; top: 0; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));" onerror="this.style.display='none'">
           <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
@@ -1567,7 +1587,7 @@ export function printExecutiveReport(
         <div class="fecha-dir">
           <p><strong>Predio el Verde IETABA</strong>, ${dateStr}</p>
           <p>Para: <strong>RECTORÍA, COORDINACIÓN ACADÉMICA Y DIRECTORES DE GRADO</strong></p>
-          <p>Docente Responsable: <strong>${teacherProfile.name}</strong></p>
+          <p>Docente Responsable: <strong>${escapeHtml(teacherProfile?.name || "DOCENTE")}</strong></p>
         </div>
 
         <div class="saludo">
@@ -1715,7 +1735,7 @@ export function printExecutiveReport(
               ${projectionAlerts.map(item => `
                 <tr>
                   <td class="text-left">
-                    <strong>${item.st.primerApellido} ${item.st.segundoApellido || ''} ${item.st.primerNombre}</strong>
+                    <strong>${escapeHtml(item.st.primerApellido)} ${escapeHtml(item.st.segundoApellido || "")} ${escapeHtml(item.st.primerNombre)}</strong>
                   </td>
                   <td>${item.grado}-${item.curso} · ${item.subject}</td>
                   <td>${item.p1?.toFixed(1) || '—'}</td>
@@ -1758,7 +1778,7 @@ export function printExecutiveReport(
               ${projectionAlerts.map(item => `
                 <tr>
                   <td class="text-left">
-                    <strong>${item.st.primerApellido} ${item.st.segundoApellido || ''} ${item.st.primerNombre}</strong>
+                    <strong>${escapeHtml(item.st.primerApellido)} ${escapeHtml(item.st.segundoApellido || "")} ${escapeHtml(item.st.primerNombre)}</strong>
                   </td>
                   <td>${item.grado}-${item.curso} · ${item.subject}</td>
                   <td>${item.p1?.toFixed(1) || '—'}</td>
@@ -1840,7 +1860,7 @@ export function printExecutiveReport(
           reportHtml += `
               <tr>
                 <td><span style="color: #94a3b8; font-weight: 700;">${index + 1}</span></td>
-                <td class="text-left">${item.st.primerApellido} ${item.st.segundoApellido || ''} ${item.st.primerNombre}</td>
+                <td class="text-left">${escapeHtml(item.st.primerApellido)} ${escapeHtml(item.st.segundoApellido || "")} ${escapeHtml(item.st.primerNombre)}</td>
                 <td><strong style="color: #0f172a;">${g.parcial.toFixed(1)}</strong></td>
                 <td>${g.rec !== null ? `<strong style="color: #2563eb;">${g.rec.toFixed(1)}</strong>` : '<span style="color:#cbd5e1;">—</span>'}</td>
                 <td><span class="badge ${badgeClass}">${obs}</span></td>
@@ -1860,7 +1880,7 @@ export function printExecutiveReport(
   reportHtml += `
         <div class="firma avoid-break">
           <div class="firma-line"></div>
-          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${teacherProfile.name}</div>
+          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${escapeHtml(teacherProfile?.name || "DOCENTE")}</div>
           <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
         </div>
         
@@ -2135,7 +2155,15 @@ export function printAnalyticsReport(
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
           .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
-          @page { margin: 1.2cm; size: letter; }
+          @page { margin: 10mm 12mm; size: A4 portrait; }
+        @media screen and (max-width: 640px) {
+          body { padding: 8px !important; }
+          .print-container { padding: 20px 14px !important; border-radius: 14px !important; }
+          .bento-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .sabiduria-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+          .bi-kpi-grid { grid-template-columns: 1fr !important; }
+          .action-bar-top { flex-direction: column; gap: 10px; text-align: center; }
+        }
         }
 
         body {
@@ -2378,7 +2406,7 @@ export function printAnalyticsReport(
       <div class="print-container">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 48px; height: auto; position: absolute; left: 0; top: 0;" onerror="this.style.display='none'">
+          <img src="${baseUrl}/logo.png" style="width: 58px; height: auto; position: absolute; left: 0; top: 0; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));" onerror="this.style.display='none'">
           <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
@@ -2449,7 +2477,7 @@ export function printAnalyticsReport(
               ${honorRoll.map((h, i) => `
                 <tr>
                   <td><strong style="color: ${i===0 ? '#eab308' : i===1 ? '#94a3b8' : i===2 ? '#b45309' : '#64748b'}; font-size: 11px;">#${i+1}</strong></td>
-                  <td class="text-left">${h.st.primerApellido} ${h.st.segundoApellido || ''} ${h.st.primerNombre}</td>
+                  <td class="text-left">${escapeHtml(h.st.primerApellido)} ${escapeHtml(h.st.segundoApellido || "")} ${escapeHtml(h.st.primerNombre)}</td>
                   <td>${h.st.grado}-${h.st.curso || '1'}</td>
                   <td><strong style="color: #0d9488; font-size: 11px;">${h.avg.toFixed(2)}</strong></td>
                 </tr>
@@ -2519,7 +2547,7 @@ export function printAnalyticsReport(
 
         <div class="firma avoid-break">
           <div class="firma-line"></div>
-          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${teacherProfile.name}</div>
+          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${escapeHtml(teacherProfile?.name || "DOCENTE")}</div>
           <div style="font-size: 9.5px; color: #0d9488; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
         </div>
 
