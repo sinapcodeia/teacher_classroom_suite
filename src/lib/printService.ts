@@ -1125,7 +1125,6 @@ export function printExecutiveReport(
     totalAbsences: number;
   }> = {};
 
-  // Listado de Estudiantes en Alerta y Proyecciones
   const projectionAlerts: {
     st: any;
     grado: string;
@@ -1205,7 +1204,6 @@ export function printExecutiveReport(
             item.totalAttendanceEvents += (studentTotalDays || 1);
             item.totalAbsences += studentAbsences;
 
-            // Sabidurías
             const sbA = getAvg(d.sb);
             if (sbA !== null) { sabidurias.sb.sum += sbA; sabidurias.sb.count++; }
             const sbhA = getAvg(d.sbh);
@@ -1230,7 +1228,7 @@ export function printExecutiveReport(
               item.recovery++;
             }
 
-            // ── CÁLCULO DE PROYECCIÓN ANUAL DINÁMICA (SOLO P2 Y P3) ──
+            // Proyección P2 / P3
             if (activePeriod === "p2" || activePeriod === "p3") {
               const p1Data = subjectData?.p1 ? calculatePeriodGrades(subjectData.p1).definitiva : null;
               const p2Data = subjectData?.p2 ? calculatePeriodGrades(subjectData.p2).definitiva : null;
@@ -1252,10 +1250,10 @@ export function printExecutiveReport(
                   statusLabel = `Meta P3: ${neededInP3.toFixed(1)}`;
                 } else if (neededInP3 <= 5.0) {
                   status = "warning";
-                  statusLabel = `Acompañamiento Prioritario (P3: ${neededInP3.toFixed(1)})`;
+                  statusLabel = `Acompañamiento (P3: ${neededInP3.toFixed(1)})`;
                 } else {
                   status = "critical";
-                  statusLabel = `Plan de Rescate Obligatorio (P3: ${neededInP3.toFixed(1)})`;
+                  statusLabel = `Plan Rescate (P3: ${neededInP3.toFixed(1)})`;
                 }
 
                 if (status === "warning" || status === "critical") {
@@ -1275,7 +1273,7 @@ export function printExecutiveReport(
                   accumulated: finalYearAvg,
                   neededInP3: 0,
                   status: isPassed ? "passed_final" : "failed_final",
-                  statusLabel: isPassed ? "Promovido Satisfactoriamente" : "Requiere Plan de Nivelación Final"
+                  statusLabel: isPassed ? "Promovido Satisfactoriamente" : "Requiere Plan Nivelación Final"
                 });
               }
             }
@@ -1289,10 +1287,6 @@ export function printExecutiveReport(
   const failRate = totalGrades > 0 ? Math.round((failedCount / totalGrades) * 100) : 0;
   const globalAvg = totalGrades > 0 ? (totalScoreSum / totalGrades).toFixed(2) : "0.00";
 
-  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
-  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
-  const normalizedFileName = `IETABA_INFORME_EJECUTIVO_${pName}_${teacherClean}_${new Date().getFullYear()}`;
-
   const getAusentismoBadge = (absences: number, totalEvents: number) => {
     if (totalEvents === 0 || absences === 0) {
       return { label: "Asistencia Ejemplar", bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
@@ -1303,9 +1297,17 @@ export function printExecutiveReport(
     } else if (rate <= 15) {
       return { label: `Moderado (${rate}%)`, bg: "#fefce8", color: "#854d0e", border: "#fef08a" };
     } else {
-      return { label: `Atención Requerida (${rate}%)`, bg: "#fef2f2", color: "#991b1b", border: "#fecaca" };
+      return { label: `Alerta (${rate}%)`, bg: "#fef2f2", color: "#991b1b", border: "#fecaca" };
     }
   };
+
+  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
+  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
+  const normalizedFileName = `IETABA_INFORME_EJECUTIVO_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+
+  const reportBadgeText = activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO PEDAGÓGICO INICIAL (PERIODO 1)" :
+    activePeriod === "p2" ? "INFORME GERENCIAL & ALERTA TEMPRANA DE PROYECCIÓN ANUAL (SIEEE)" :
+    "INFORME GERENCIAL · BALANCE FINAL Y PROMOCIÓN DE AÑO LECTIVO";
 
   let reportHtml = `
     <!DOCTYPE html>
@@ -1316,65 +1318,58 @@ export function printExecutiveReport(
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
-        @media print {
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; background: #fff !important; }
-          .page-break-before { page-break-before: always; }
-          .avoid-break { page-break-inside: avoid; }
-          .no-print { display: none !important; }
-          .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
-          @page {
-          margin: 0;
-          size: A4 portrait;
+        *, *::before, *::after {
+          box-sizing: border-box !important;
         }
+
+        @page {
+          size: A4 portrait;
+          margin: 8mm 10mm;
+        }
+
         @media print {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
-          }
-          .print-container {
-            max-width: 100% !important;
             width: 100% !important;
+            max-width: 100% !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print { display: none !important; }
+          .print-container {
+            width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
-            padding: 14mm 16mm !important;
+            padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
             border-radius: 0 !important;
           }
           .page-break-before { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
-          .no-print { display: none !important; }
-        }
-        @media screen and (max-width: 640px) {
-          body { padding: 8px !important; }
-          .print-container { padding: 20px 14px !important; border-radius: 14px !important; }
-          .bento-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-          .sabiduria-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
-          .bi-kpi-grid { grid-template-columns: 1fr !important; }
-          .action-bar-top { flex-direction: column; gap: 10px; text-align: center; }
-        }
         }
 
         body {
           font-family: 'Plus Jakarta Sans', sans-serif;
           color: #1e293b;
-          line-height: 1.5;
+          line-height: 1.4;
           margin: 0;
-          padding: 20px;
+          padding: 15px 10px;
           background: #f1f5f9;
         }
 
-        /* Barra flotante de acciones rápidas para imprimir */
         .action-bar-top {
           position: sticky;
           top: 10px;
           z-index: 9999;
-          max-width: 900px;
-          margin: 0 auto 20px auto;
+          max-width: 820px;
+          margin: 0 auto 16px auto;
           background: #0f172a;
           color: white;
-          padding: 12px 24px;
-          border-radius: 18px;
+          padding: 12px 20px;
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1384,8 +1379,8 @@ export function printExecutiveReport(
           background: #2563eb;
           color: white;
           border: none;
-          padding: 10px 20px;
-          border-radius: 12px;
+          padding: 9px 18px;
+          border-radius: 10px;
           font-weight: 800;
           font-size: 11px;
           cursor: pointer;
@@ -1394,104 +1389,131 @@ export function printExecutiveReport(
           gap: 8px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          transition: transform 0.2s, background 0.2s;
         }
-        .btn-print:hover { background: #1d4ed8; transform: scale(1.02); }
+        .btn-print:hover { background: #1d4ed8; }
 
         .print-container {
-          max-width: 900px;
-          margin: 0 auto;
+          max-width: 820px;
+          margin: 0 auto 20px auto;
           background: white;
-          padding: 40px 50px;
-          border-radius: 24px;
+          padding: 30px 36px;
+          border-radius: 20px;
           box-shadow: 0 10px 30px rgba(0,0,0,0.04);
         }
 
         .print-container.borderless {
           border-radius: 0;
           box-shadow: none;
-          padding-top: 15px;
+          padding-top: 10px;
         }
 
-        .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
-        .header-institucional h1 { font-weight: 900; font-size: 13.5px; margin: 0; color: #0f172a; letter-spacing: -0.01em; }
-        .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #1e3a8a; }
-        .header-institucional p { font-size: 9.5px; margin: 1px 0; color: #64748b; }
+        /* HEADER INSTITUCIONAL CON FLEX (CERO DESBORDAMIENTOS) */
+        .header-institucional {
+          margin-bottom: 20px;
+          border-bottom: 2px solid #e2e8f0;
+          padding-bottom: 14px;
+          text-align: center;
+        }
+        .header-flex {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          margin-bottom: 10px;
+        }
+        .header-logo {
+          width: 72px;
+          height: auto;
+          flex-shrink: 0;
+          object-fit: contain;
+          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.08));
+        }
+        .header-text {
+          flex: 1;
+          text-align: center;
+        }
+        .header-text h1 { font-weight: 900; font-size: 12.5px; margin: 0; color: #0f172a; line-height: 1.3; }
+        .header-text h2 { font-weight: 800; font-size: 10.5px; margin: 3px 0; color: #1e3a8a; line-height: 1.3; }
+        .header-text p { font-size: 8.5px; margin: 1px 0; color: #64748b; }
         
         .report-badge {
           display: inline-block;
           background: #eff6ff;
           color: #1d4ed8;
           border: 1px solid #bfdbfe;
-          font-size: 9px;
+          font-size: 8.5px;
           font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.1em;
-          padding: 4px 12px;
+          letter-spacing: 0.08em;
+          padding: 3px 10px;
           border-radius: 20px;
-          margin-top: 8px;
         }
 
-        .fecha-dir { margin-top: 20px; font-size: 10.5px; color: #334155; }
-        .saludo { margin-top: 14px; font-size: 11.5px; text-align: justify; color: #334155; line-height: 1.6; }
+        .fecha-dir { margin-top: 14px; font-size: 10px; color: #334155; }
+        .saludo { margin-top: 10px; font-size: 10.5px; text-align: justify; color: #334155; line-height: 1.5; }
 
-        .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
-        .bento-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: center; }
+        .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; width: 100%; }
+        .bento-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; text-align: center; }
         .bento-card.highlight { background: linear-gradient(145deg, #f0fdf4, #dcfce7); border-color: #86efac; }
         .bento-card.highlight-blue { background: linear-gradient(145deg, #f0f9ff, #e0f2fe); border-color: #7dd3fc; }
-        .bento-val { font-size: 28px; font-weight: 900; color: #0f172a; line-height: 1.1; margin-bottom: 4px; }
-        .bento-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+        .bento-val { font-size: 24px; font-weight: 900; color: #0f172a; line-height: 1.1; margin-bottom: 2px; }
+        .bento-label { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
 
         .sabiduria-section {
           background: #ffffff;
           border: 1px solid #e2e8f0;
-          border-radius: 20px;
-          padding: 18px 22px;
-          margin: 20px 0;
+          border-radius: 16px;
+          padding: 14px 18px;
+          margin: 16px 0;
+          width: 100%;
         }
         .section-title {
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 800;
           color: #0f172a;
           text-transform: uppercase;
           letter-spacing: 0.05em;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
         .section-title::before {
           content: '';
           display: inline-block;
           width: 4px;
-          height: 14px;
+          height: 13px;
           background: #2563eb;
           border-radius: 2px;
         }
 
         .sabiduria-grid {
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 10px;
-          margin-top: 12px;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 10px;
+          width: 100%;
         }
         .sab-item {
           background: #f8fafc;
           border: 1px solid #f1f5f9;
-          border-radius: 12px;
-          padding: 10px 8px;
+          border-radius: 10px;
+          padding: 8px 4px;
           text-align: center;
+          min-width: 0;
         }
-        .sab-val { font-size: 17px; font-weight: 900; color: #0f172a; }
-        .sab-name { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 2px; line-height: 1.2; }
-        .sab-weight { font-size: 7.5px; font-weight: 800; color: #94a3b8; margin-top: 3px; display: inline-block; background: #fff; padding: 1px 4px; border-radius: 4px; border: 1px solid #e2e8f0; }
+        .sab-val { font-size: 15px; font-weight: 900; color: #0f172a; }
+        .sab-name { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 2px; line-height: 1.2; word-break: break-word; }
+        .sab-weight { font-size: 7px; font-weight: 800; color: #94a3b8; margin-top: 2px; display: inline-block; background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px solid #e2e8f0; }
 
+        /* TABLAS CON TABLE-LAYOUT FIXED (CERO DESBORDAMIENTOS) */
         .matrix-table {
-          width: 100%;
+          width: 100% !important;
+          table-layout: fixed;
           border-collapse: separate;
           border-spacing: 0;
-          font-size: 9.5px;
-          margin: 12px 0 25px 0;
-          border-radius: 14px;
+          font-size: 9px;
+          margin: 10px 0 20px 0;
+          border-radius: 12px;
           overflow: hidden;
           border: 1px solid #e2e8f0;
         }
@@ -1501,15 +1523,16 @@ export function printExecutiveReport(
           color: #334155;
           text-transform: uppercase;
           font-size: 8px;
-          letter-spacing: 0.05em;
-          padding: 9px 8px;
+          letter-spacing: 0.04em;
+          padding: 8px 6px;
           border-bottom: 2px solid #cbd5e1;
         }
         .matrix-table td {
-          padding: 8px;
+          padding: 7px 6px;
           text-align: center;
           border-bottom: 1px solid #f1f5f9;
           font-weight: 600;
+          word-break: break-word;
         }
         .matrix-table tr:last-child td { border-bottom: none; }
         
@@ -1517,25 +1540,25 @@ export function printExecutiveReport(
           background: #1e293b;
           color: white;
           font-weight: 800;
-          padding: 2px 6px;
-          border-radius: 5px;
-          font-size: 9px;
+          padding: 2px 5px;
+          border-radius: 4px;
+          font-size: 8.5px;
         }
         .subject-badge {
           background: #eff6ff;
           color: #1e40af;
           font-weight: 800;
-          padding: 2px 7px;
-          border-radius: 5px;
-          font-size: 8.5px;
+          padding: 2px 5px;
+          border-radius: 4px;
+          font-size: 8px;
           border: 1px solid #bfdbfe;
         }
 
         .micro-bar {
           width: 100%;
-          height: 7px;
+          height: 6px;
           background: #fee2e2;
-          border-radius: 4px;
+          border-radius: 3px;
           overflow: hidden;
           display: flex;
         }
@@ -1543,19 +1566,20 @@ export function printExecutiveReport(
 
         .aus-badge {
           display: inline-block;
-          padding: 2px 7px;
-          border-radius: 5px;
-          font-size: 8.5px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 8px;
           font-weight: 800;
         }
 
         .detail-table {
-          width: 100%;
+          width: 100% !important;
+          table-layout: fixed;
           border-collapse: separate;
           border-spacing: 0;
-          font-size: 10px;
-          margin-bottom: 22px;
-          border-radius: 12px;
+          font-size: 9.5px;
+          margin-bottom: 18px;
+          border-radius: 10px;
           overflow: hidden;
           border: 1px solid #e2e8f0;
         }
@@ -1564,31 +1588,31 @@ export function printExecutiveReport(
           font-weight: 700;
           color: #475569;
           text-transform: uppercase;
-          font-size: 8.5px;
-          letter-spacing: 0.05em;
-          padding: 8px 10px;
+          font-size: 8px;
+          letter-spacing: 0.04em;
+          padding: 7px 8px;
           border-bottom: 2px solid #e2e8f0;
         }
         .detail-table td {
-          padding: 7px 10px;
+          padding: 6px 8px;
           text-align: center;
           border-bottom: 1px solid #f1f5f9;
         }
         .detail-table td.text-left { text-align: left; font-weight: 600; color: #1e293b; }
 
-        .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 8.5px; font-weight: 700; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 5px; font-size: 8px; font-weight: 700; }
         .bg-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .bg-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .bg-yellow { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
 
-        .firma { margin-top: 50px; text-align: center; width: 280px; margin-left: auto; margin-right: auto; }
-        .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 6px; }
+        .firma { margin-top: 40px; text-align: center; width: 260px; margin-left: auto; margin-right: auto; }
+        .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 5px; }
       </style>
     </head>
     <body>
       <div class="action-bar-top no-print">
-        <div style="font-weight: 800; font-size: 12px; letter-spacing: 0.05em;">
-          📄 Vista Previa de Impresión · IETABA Suite
+        <div style="font-weight: 800; font-size: 11.5px; letter-spacing: 0.04em;">
+          📄 Informe Gerencial Académico · IETABA
         </div>
         <button onclick="window.print()" class="btn-print">
           🖨️ Imprimir / Guardar en PDF
@@ -1596,18 +1620,18 @@ export function printExecutiveReport(
       </div>
 
       <div class="print-container">
-        <!-- HEADER INSTITUCIONAL -->
+        <!-- HEADER INSTITUCIONAL REESTRUCTURADO (FLEX) -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 76px; height: auto; position: absolute; left: 0; top: 2px; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
-          <div style="padding: 0 40px 0 85px;">
-            <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
-          <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
-          <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
-          <p><i>Ambiente – Cultura – Ciencia</i></p>
-          <div class="report-badge">${activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO PEDAGÓGICO INICIAL (PERIODO 1)" :
-              activePeriod === "p2" ? "INFORME GERENCIAL & ALERTA TEMPRANA DE PROYECCIÓN ANUAL (SIEEE)" :
-              "INFORME GERENCIAL · BALANCE FINAL Y PROMOCIÓN DE AÑO LECTIVO"}</div>
+          <div class="header-flex">
+            <img src="${baseUrl}/logo.png" class="header-logo" onerror="this.style.display='none'">
+            <div class="header-text">
+              <h1>UNIDAD INDÍGENA DEL PUEBLO AWÁ &quot;UNIPA&quot;</h1>
+              <h2>INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ &quot;IETABA&quot;</h2>
+              <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
+              <p style="color: #059669; font-style: italic; margin-top: 2px;">Ambiente – Cultura – Ciencia</p>
+            </div>
           </div>
+          <div class="report-badge">${reportBadgeText}</div>
         </div>
 
         <div class="fecha-dir">
@@ -1620,7 +1644,7 @@ export function printExecutiveReport(
           <p>Apreciada comunidad directiva y pedagógica,</p>
           <p>
             ${activePeriod === "p1" ? 
-              "Comparto con ustedes el <strong>Diagnóstico Académico Inicial del Periodo 1</strong>. En este primer paso del año escolar, reconocemos los talentos y áreas de oportunidad de nuestros estudiantes, valorando sus saberes teóricos, vivenciales y comunitarios bajo el modelo propio Awá para trazar juntos las mejores rutas de aprendizaje." :
+              "Comparto el <strong>Diagnóstico Académico Inicial del Periodo 1</strong>. En este primer ciclo del año, valoramos los saberes conceptuales, prácticos y comunitarios bajo el modelo propio Awá para trazar juntos las mejores rutas de aprendizaje." :
               activePeriod === "p2" ?
               "Presento el <strong>Consolidado de Acompañamiento y Alerta Temprana del Periodo 2</strong>. Habiendo recorrido dos etapas del año, nuestro propósito es tender puentes a tiempo: identificar con precisión y cariño pedagógico a los jóvenes que requieren apoyo adicional para que alcancen sus metas antes del cierre lectivo." :
               "Presento el <strong>Balance de Cierre del Año Lectivo</strong>. Celebramos el esfuerzo, la perseverancia y el crecimiento de cada estudiante a lo largo de los tres periodos, reconociendo a quienes lograron su promoción y disponiendo los planes de nivelación necesarios para quienes aún están en camino."}
@@ -1647,7 +1671,7 @@ export function printExecutiveReport(
           </div>
         </div>
 
-        <!-- RENDIMIENTO POR SABIDURÍAS INSTITUCIONALES AWÁ -->
+        <!-- RENDIMIENTO POR SABIDURÍAS AWÁ -->
         <div class="sabiduria-section avoid-break">
           <div class="section-title">Valoración de Sabidurías (Dimensiones del Ser y Aprender Awá)</div>
           <div class="sabiduria-grid">
@@ -1679,20 +1703,20 @@ export function printExecutiveReport(
           </div>
         </div>
 
-        <!-- MATRIZ COMPARATIVA DESAGREGADA POR GRADO Y MATERIA -->
-        <div class="avoid-break" style="margin-top: 20px;">
+        <!-- MATRIZ DESAGREGADA CALIBRADA AL 100% DE ANCHO -->
+        <div class="avoid-break" style="margin-top: 16px;">
           <div class="section-title" style="margin-bottom: 6px;">Compendio Detallado por Asignatura y Curso</div>
           <table class="matrix-table">
             <thead>
               <tr>
-                <th style="width: 14%; text-align: left; padding-left: 10px;">Grado / Curso</th>
-                <th style="width: 22%; text-align: left;">Materia / Asignatura</th>
-                <th style="width: 9%;">Evaluados</th>
-                <th style="width: 9%;">Aprobados</th>
-                <th style="width: 9%;">En Apoyo</th>
-                <th style="width: 13%;">% Aprobación</th>
-                <th style="width: 10%;">Promedio</th>
-                <th style="width: 14%;">Asistencia</th>
+                <th style="width: 12%; text-align: left; padding-left: 8px;">Grado</th>
+                <th style="width: 22%; text-align: left;">Materia</th>
+                <th style="width: 8%;">Eval.</th>
+                <th style="width: 8%;">Aprob.</th>
+                <th style="width: 8%;">Apoyo</th>
+                <th style="width: 15%;">% Aprobación</th>
+                <th style="width: 10%;">Prom.</th>
+                <th style="width: 17%;">Asistencia</th>
               </tr>
             </thead>
             <tbody>
@@ -1705,7 +1729,7 @@ export function printExecutiveReport(
                 
                 return `
                   <tr>
-                    <td style="text-align: left; padding-left: 10px;">
+                    <td style="text-align: left; padding-left: 8px;">
                       <span class="grade-badge">${data.grado}-${data.curso}</span>
                     </td>
                     <td style="text-align: left;">
@@ -1715,14 +1739,14 @@ export function printExecutiveReport(
                     <td><strong style="color: #16a34a;">${data.passed}</strong></td>
                     <td><strong style="color: #dc2626;">${data.failed}</strong></td>
                     <td>
-                      <div style="display: flex; align-items: center; gap: 5px;">
+                      <div style="display: flex; align-items: center; gap: 4px;">
                         <div class="micro-bar">
                           <div class="micro-fill" style="width: ${pRate}%;"></div>
                         </div>
-                        <span style="font-size: 8px; font-weight: 800;">${pRate}%</span>
+                        <span style="font-size: 7.5px; font-weight: 800;">${pRate}%</span>
                       </div>
                     </td>
-                    <td><strong style="color: #0f172a; font-size: 10.5px;">${gAvg}</strong></td>
+                    <td><strong style="color: #0f172a; font-size: 9.5px;">${gAvg}</strong></td>
                     <td>
                       <span class="aus-badge" style="background: ${ausBadge.bg}; color: ${ausBadge.color}; border: 1px solid ${ausBadge.border};">
                         ${ausBadge.label}
@@ -1737,12 +1761,12 @@ export function printExecutiveReport(
 
         ${activePeriod === "p2" ? `
         <!-- MÓDULO EXCLUSIVO P2: ALERTA TEMPRANA & PROYECCIÓN ANUAL (SIEEE) -->
-        <div class="avoid-break" style="margin-top: 25px; background: #fff; border: 2px solid #fde047; border-radius: 18px; padding: 18px 22px;">
+        <div class="avoid-break" style="margin-top: 20px; background: #fff; border: 2px solid #fde047; border-radius: 14px; padding: 14px 18px;">
           <div class="section-title" style="color: #854d0e;">
             🌱 Plan de Acompañamiento Temprano & Proyección de Cierre de Año
           </div>
-          <p style="font-size: 10px; color: #64748b; margin: 4px 0 12px 0;">
-            Estudiantes priorizados para refuerzo pedagógico oportuno. Con un esfuerzo conjunto entre docente, familia y estudiante, aseguraremos su éxito al culminar el tercer periodo.
+          <p style="font-size: 9px; color: #64748b; margin: 3px 0 10px 0;">
+            Estudiantes priorizados para refuerzo pedagógico oportuno para asegurar su éxito al culminar el tercer periodo.
           </p>
 
           ${projectionAlerts.length > 0 ? `
@@ -1750,11 +1774,11 @@ export function printExecutiveReport(
             <thead>
               <tr>
                 <th style="width: 32%; text-align: left;">Estudiante</th>
-                <th style="width: 14%;">Curso / Materia</th>
+                <th style="width: 16%;">Curso / Materia</th>
                 <th style="width: 10%;">Nota P1</th>
                 <th style="width: 10%;">Nota P2</th>
                 <th style="width: 12%;">Acumulado</th>
-                <th style="width: 22%;">Meta para Periodo 3</th>
+                <th style="width: 20%;">Meta para P3</th>
               </tr>
             </thead>
             <tbody>
@@ -1777,18 +1801,18 @@ export function printExecutiveReport(
             </tbody>
           </table>
           ` : `
-          <div style="text-align: center; padding: 15px; color: #166534; background: #f0fdf4; border-radius: 10px; font-weight: 700; font-size: 10.5px;">
-            🌟 ¡Excelente trabajo en comunidad! Todos los estudiantes se encuentran en proyección favorable para superar sus metas de año.
+          <div style="text-align: center; padding: 12px; color: #166534; background: #f0fdf4; border-radius: 8px; font-weight: 700; font-size: 9.5px;">
+            🌟 ¡Excelente trabajo en comunidad! Todos los estudiantes se encuentran en proyección favorable.
           </div>
           `}
         </div>
         ` : activePeriod === "p3" ? `
         <!-- MÓDULO EXCLUSIVO P3: BALANCE DEFINITIVO DE PROMOCIÓN ANUAL -->
-        <div class="avoid-break" style="margin-top: 25px; background: #fff; border: 2px solid #93c5fd; border-radius: 18px; padding: 18px 22px;">
+        <div class="avoid-break" style="margin-top: 20px; background: #fff; border: 2px solid #93c5fd; border-radius: 14px; padding: 14px 18px;">
           <div class="section-title" style="color: #1e40af;">
             🎓 Consolidado Definitivo de Promoción y Habilitaciones (Año Lectivo)
           </div>
-          <table class="detail-table" style="margin-top: 10px; margin-bottom: 0;">
+          <table class="detail-table" style="margin-top: 8px; margin-bottom: 0;">
             <thead>
               <tr>
                 <th style="width: 35%; text-align: left;">Estudiante</th>
@@ -1796,7 +1820,7 @@ export function printExecutiveReport(
                 <th style="width: 8%;">P1</th>
                 <th style="width: 8%;">P2</th>
                 <th style="width: 8%;">P3</th>
-                <th style="width: 12%;">Definitiva Año</th>
+                <th style="width: 12%;">Definitiva</th>
                 <th style="width: 14%;">Estatus Final</th>
               </tr>
             </thead>
@@ -1810,7 +1834,7 @@ export function printExecutiveReport(
                   <td>${item.p1?.toFixed(1) || '—'}</td>
                   <td>${item.p2?.toFixed(1) || '—'}</td>
                   <td>${item.p3?.toFixed(1) || '—'}</td>
-                  <td><strong style="color: ${item.accumulated >= 3.0 ? '#16a34a' : '#dc2626'}; font-size: 11px;">${item.accumulated.toFixed(1)}</strong></td>
+                  <td><strong style="color: ${item.accumulated >= 3.0 ? '#16a34a' : '#dc2626'}; font-size: 10px;">${item.accumulated.toFixed(1)}</strong></td>
                   <td>
                     <span class="badge ${item.status === 'passed_final' ? 'bg-green' : 'bg-red'}">
                       ${item.statusLabel}
@@ -1823,9 +1847,9 @@ export function printExecutiveReport(
         </div>
         ` : ''}
 
-        <div class="saludo avoid-break" style="background: #f8fafc; padding: 14px 18px; border-radius: 14px; border: 1px solid #e2e8f0; margin-top: 15px;">
-          <p style="margin: 0; color: #0f172a; font-size: 10.5px;"><strong>Reflexión y Compromisos para el Aprendizaje:</strong></p>
-          <ul style="margin: 6px 0 0 0; font-size: 9.5px; color: #475569; padding-left: 18px; line-height: 1.6;">
+        <div class="saludo avoid-break" style="background: #f8fafc; padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 14px;">
+          <p style="margin: 0; color: #0f172a; font-size: 9.5px;"><strong>Reflexión y Compromisos para el Aprendizaje:</strong></p>
+          <ul style="margin: 4px 0 0 0; font-size: 9px; color: #475569; padding-left: 16px; line-height: 1.5;">
             <li>Cada calificación es una oportunidad viva para reconocer el esfuerzo individual y guiar a cada estudiante con paciencia y constancia.</li>
             <li>En los casos donde se requiere mayor acompañamiento, convocaremos a los padres y acudientes en minga de diálogo pedagógico.</li>
             <li>Continuaremos entrelazando el saber teórico con la práctica agroambiental y el fortalecimiento de la identidad de nuestro pueblo Awá.</li>
@@ -1848,8 +1872,8 @@ export function printExecutiveReport(
       
       if (targetStudents.length > 0) {
         reportHtml += `
-        <div class="avoid-break" style="margin-top: 18px;">
-          <h3 class="section-title" style="font-size: 10.5px; margin-bottom: 6px;">CURSO: ${grado} — ASIGNATURA: ${subject}</h3>
+        <div class="avoid-break" style="margin-top: 16px;">
+          <h3 class="section-title" style="font-size: 10px; margin-bottom: 5px;">CURSO: ${grado} — ASIGNATURA: ${subject}</h3>
           <table class="detail-table">
             <thead>
               <tr>
@@ -1906,11 +1930,11 @@ export function printExecutiveReport(
   reportHtml += `
         <div class="firma avoid-break">
           <div class="firma-line"></div>
-          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${escapeHtml(teacherProfile?.name || "DOCENTE")}</div>
-          <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
+          <div style="font-weight: 800; font-size: 11px; text-transform: uppercase; color: #0f172a;">${escapeHtml(teacherProfile?.name || "DOCENTE")}</div>
+          <div style="font-size: 9px; color: #64748b; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
         </div>
         
-        <div style="text-align: center; margin-top: 40px; font-size: 8.5px; color: #94a3b8; line-height: 1.4;">
+        <div style="text-align: center; margin-top: 30px; font-size: 8px; color: #94a3b8; line-height: 1.4;">
           <strong>Por la pervivencia e identidad del Pueblo Awá</strong><br>
           Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño<br>
           E-Mail: ietabaawa@yahoo.es
@@ -1927,7 +1951,6 @@ export function printExecutiveReport(
     printWindow.document.title = normalizedFileName;
     printWindow.document.close();
   } else {
-    // Fallback if popup blocked
     const blob = new Blob([reportHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
@@ -1961,7 +1984,6 @@ export function printAnalyticsReport(
   const genderStats = { M: { count: 0, sum: 0 }, F: { count: 0, sum: 0 } };
   const studentAverages = new Map<string, { st: any, totalDef: number, count: number }>();
   
-  // Desglose Exhaustivo por Grado y Materia
   const detailedCourseSubjectBI: Record<string, {
     key: string;
     grado: string;
@@ -2072,13 +2094,7 @@ export function printAnalyticsReport(
   const avgM = genderStats.M.count > 0 ? (genderStats.M.sum / genderStats.M.count).toFixed(2) : "0.00";
   const avgF = genderStats.F.count > 0 ? (genderStats.F.sum / genderStats.F.count).toFixed(2) : "0.00";
 
-  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
-  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
-  const normalizedFileName = `IETABA_ANALITICA_BI_${pName}_${teacherClean}_${new Date().getFullYear()}`;
-
-  // ═════════════════════════════════════════════════════════════════════════════
-  // MOTOR DE INTELIGENCIA PEDAGÓGICA HIPER-DINÁMICA & HUMANIZADA
-  // ═════════════════════════════════════════════════════════════════════════════
+  // Motor de Inteligencia Pedagógica Contextual
   Object.keys(detailedCourseSubjectBI).forEach(k => {
     const item = detailedCourseSubjectBI[k];
     if (item.total === 0) return;
@@ -2096,67 +2112,62 @@ export function printAnalyticsReport(
 
     const subName = item.subject.toUpperCase();
 
-    // Contexto Temático según la Asignatura
-    let areaFocus = "en el desarrollo integral de las competencias";
+    let areaFocus = "en el desarrollo de sus habilidades";
     let subEmoji = "🌱";
     if (subName.includes("FÍSIC") || subName.includes("FISIC")) {
-      areaFocus = "en la comprensión de leyes físicas, modelado de fenómenos naturales y pensamiento lógico";
+      areaFocus = "en la comprensión de leyes físicas y pensamiento lógico";
       subEmoji = "⚡";
     } else if (subName.includes("TECNOLOG") || subName.includes("INFORMÁTIC")) {
-      areaFocus = "en la apropiación tecnológica, alfabetización digital y desarrollo de proyectos prácticos";
+      areaFocus = "en la apropiación digital y proyectos prácticos";
       subEmoji = "💻";
     } else if (subName.includes("MATEMÁT") || subName.includes("MATEMAT")) {
-      areaFocus = "en el razonamiento cuantitativo, cálculo aplicado y resolución de problemas cotidianos";
+      areaFocus = "en el razonamiento cuantitativo y resolución de problemas";
       subEmoji = "📐";
     } else if (subName.includes("ÉTIC") || subName.includes("ETIC") || subName.includes("RELIG")) {
-      areaFocus = "en la vivencia de valores comunitarios, empatía, diálogo pacífico y cosmovisión Awá";
+      areaFocus = "en la vivencia de valores comunitarios y cosmovisión Awá";
       subEmoji = "🤝";
     } else if (subName.includes("AGRO") || subName.includes("CIENC") || subName.includes("NATURAL")) {
-      areaFocus = "en el cuidado del territorio agroambiental, soberanía alimentaria y saberes ancestrales";
+      areaFocus = "en el cuidado del territorio agroambiental y saberes ancestrales";
       subEmoji = "🌿";
     }
 
-    // 1. Diagnóstico del Rendimiento y Clima de Aula
     let narrative = "";
     if (pBaj === 0 && (pSup + pAlt) >= 60) {
       narrative = `${subEmoji} <strong>Desempeño Sobresaliente:</strong> El 100% del curso superó los objetivos con solidez ${areaFocus}. Destaca un ${pSup}%` +
-        ` en nivel Superior (${item.superior} estudiantes) y ${pAlt}% en nivel Alto. El grupo demuestra gran autonomía y compromiso constante.`;
+        ` en nivel Superior (${item.superior} estudiantes) y ${pAlt}% en nivel Alto. El grupo demuestra gran autonomía y compromiso.`;
     } else if (pBaj === 0) {
-      narrative = `${subEmoji} <strong>Consolidación Positiva:</strong> Plena aprobación grupal con promedio de ${avg}. Aunque no hay reprobación, la mayor concentración está en nivel Básico (${pBas}%), lo que invita a profundizar en retos más estimulantes para impulsar sus saberes hacia niveles de excelencia.`;
+      narrative = `${subEmoji} <strong>Consolidación Positiva:</strong> Plena aprobación grupal con promedio de ${avg}. La mayor concentración está en nivel Básico (${pBas}%), lo que invita a profundizar en retos más estimulantes para impulsar su excelencia.`;
     } else if (pBaj <= 15) {
-      narrative = `${subEmoji} <strong>Buen Ritmo con Foco Preventivo:</strong> El ${passPercent}% del curso avanza satisfactoriamente. Existen ${item.bajo} estudiante(s) (${pBaj}%) en zona de dificultad transitoria que requieren seguimiento cercano en talleres prácticos.`;
+      narrative = `${subEmoji} <strong>Buen Ritmo con Foco Preventivo:</strong> El ${passPercent}% del curso avanza satisfactoriamente. Existen ${item.bajo} estudiante(s) (${pBaj}%) en zona de dificultad que requieren seguimiento en talleres prácticos.`;
     } else {
-      narrative = `${subEmoji} <strong>Grupo Prioritario de Acompañamiento:</strong> El ${pBaj}% (${item.bajo} estudiantes) presenta rezago significativo ${areaFocus}. ` +
-        (absRate > 10 ? `Existe una correlación directa con la inasistencia (${absRate}% de ausentismo registrado). ` : '') +
-        `Se requiere una intervención pedagógica flexible y oportuna.`;
+      narrative = `${subEmoji} <strong>Grupo Prioritario de Acompañamiento:</strong> El ${pBaj}% (${item.bajo} estudiantes) presenta rezago ${areaFocus}. ` +
+        (absRate > 10 ? `Existe correlación con la inasistencia (${absRate}% de ausentismo). ` : '') +
+        `Se requiere intervención pedagógica flexible y oportuna.`;
     }
 
-    // 2. Detalle de Equidad de Género y Factores Dinámicos
     let genderNote = "";
     if (fAvg && mAvg && Math.abs(Number(fAvg) - Number(mAvg)) >= 0.4) {
       const lider = Number(fAvg) > Number(mAvg) ? "las estudiantes mujeres (" + fAvg + ")" : "los estudiantes hombres (" + mAvg + ")";
       genderNote = ` En equidad grupal, se observa mayor dinamismo académico en ${lider}.`;
     }
 
-    // 3. Recomendación Pedagógica Concreta
     let action = "";
     if (activePeriod === "p1") {
-      action = `🎯 <strong>Ruta de Aprendizaje (P1):</strong> Afianzar hábitos de estudio, fomentar el trabajo en duplas colaborativas y dinamizar las actividades vivenciales en el aula.`;
+      action = `🎯 <strong>Ruta de Aprendizaje (P1):</strong> Afianzar hábitos de estudio y fomentar el trabajo colaborativo vivencial en el aula.`;
     } else if (activePeriod === "p2") {
       if (pBaj > 0) {
-        action = `🎯 <strong>Plan de Rescate Inmediato (P2):</strong> Asignar talleres de nivelación sobre los conceptos nodales y convocar a las familias de los ${item.bajo} estudiantes en riesgo para acordar compromisos antes de iniciar el Periodo 3.`;
+        action = `🎯 <strong>Plan de Rescate Inmediato (P2):</strong> Asignar talleres de nivelación sobre conceptos nodales y convocar a las familias de los ${item.bajo} estudiantes en riesgo antes de iniciar P3.`;
       } else {
-        action = `🎯 <strong>Proyección al Cierre (P2):</strong> Mantener el ritmo de entrega y motivar al grupo a consolidar su año lectivo con proyectos de aplicación comunitaria.`;
+        action = `🎯 <strong>Proyección al Cierre (P2):</strong> Mantener el ritmo de entrega y motivar al grupo a consolidar su año con proyectos comunitarios.`;
       }
     } else {
-      action = `🎯 <strong>Balance Final (P3):</strong> Formalizar los planes de habilitación final para estudiantes no promovidos y felicitar al grupo por el camino recorrido.`;
+      action = `🎯 <strong>Balance Final (P3):</strong> Formalizar planes de habilitación final y felicitar al grupo por el camino recorrido.`;
     }
 
     item.aiInsight = narrative + genderNote;
     item.pedagogicalAction = action;
   });
 
-  // Top 10 Cuadro de Honor
   const honorRoll = Array.from(studentAverages.values())
     .map(data => ({
       st: data.st,
@@ -2165,6 +2176,10 @@ export function printAnalyticsReport(
     .filter(item => item.avg >= 3.5)
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 10);
+
+  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
+  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
+  const normalizedFileName = `IETABA_ANALITICA_BI_${pName}_${teacherClean}_${new Date().getFullYear()}`;
 
   let reportHtml = `
     <!DOCTYPE html>
@@ -2175,51 +2190,45 @@ export function printAnalyticsReport(
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
-        @media print {
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; background: #fff !important; }
-          .page-break-before { page-break-before: always; }
-          .avoid-break { page-break-inside: avoid; }
-          .no-print { display: none !important; }
-          .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
-          @page {
-          margin: 0;
-          size: A4 portrait;
+        *, *::before, *::after {
+          box-sizing: border-box !important;
         }
+
+        @page {
+          size: A4 portrait;
+          margin: 8mm 10mm;
+        }
+
         @media print {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
-          }
-          .print-container {
-            max-width: 100% !important;
             width: 100% !important;
+            max-width: 100% !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print { display: none !important; }
+          .print-container {
+            width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
-            padding: 14mm 16mm !important;
+            padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
             border-radius: 0 !important;
           }
           .page-break-before { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
-          .no-print { display: none !important; }
-        }
-        @media screen and (max-width: 640px) {
-          body { padding: 8px !important; }
-          .print-container { padding: 20px 14px !important; border-radius: 14px !important; }
-          .bento-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-          .sabiduria-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
-          .bi-kpi-grid { grid-template-columns: 1fr !important; }
-          .action-bar-top { flex-direction: column; gap: 10px; text-align: center; }
-        }
         }
 
         body {
           font-family: 'Plus Jakarta Sans', sans-serif;
           color: #1e293b;
-          line-height: 1.5;
+          line-height: 1.4;
           margin: 0;
-          padding: 20px;
+          padding: 15px 10px;
           background: #f8fafc;
         }
 
@@ -2227,12 +2236,12 @@ export function printAnalyticsReport(
           position: sticky;
           top: 10px;
           z-index: 9999;
-          max-width: 920px;
-          margin: 0 auto 20px auto;
+          max-width: 820px;
+          margin: 0 auto 16px auto;
           background: #042f2e;
           color: #ccfbf1;
-          padding: 14px 24px;
-          border-radius: 18px;
+          padding: 12px 20px;
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -2243,8 +2252,8 @@ export function printAnalyticsReport(
           background: #0d9488;
           color: white;
           border: none;
-          padding: 10px 22px;
-          border-radius: 12px;
+          padding: 9px 18px;
+          border-radius: 10px;
           font-weight: 800;
           font-size: 11px;
           cursor: pointer;
@@ -2253,166 +2262,191 @@ export function printAnalyticsReport(
           gap: 8px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          transition: transform 0.2s, background 0.2s;
         }
-        .btn-print-bi:hover { background: #0f766e; transform: scale(1.02); }
+        .btn-print-bi:hover { background: #0f766e; }
 
         .print-container {
-          max-width: 920px;
-          margin: 0 auto;
+          max-width: 820px;
+          margin: 0 auto 20px auto;
           background: white;
-          padding: 40px 50px;
-          border-radius: 24px;
+          padding: 30px 36px;
+          border-radius: 20px;
           box-shadow: 0 10px 30px rgba(0,0,0,0.04);
         }
 
-        .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
-        .header-institucional h1 { font-weight: 900; font-size: 13.5px; margin: 0; color: #0f172a; }
-        .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #0d9488; }
-        .header-institucional p { font-size: 9.5px; margin: 1px 0; color: #64748b; }
+        .header-institucional {
+          margin-bottom: 20px;
+          border-bottom: 2px solid #e2e8f0;
+          padding-bottom: 14px;
+          text-align: center;
+        }
+        .header-flex {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          margin-bottom: 10px;
+        }
+        .header-logo {
+          width: 72px;
+          height: auto;
+          flex-shrink: 0;
+          object-fit: contain;
+          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.08));
+        }
+        .header-text {
+          flex: 1;
+          text-align: center;
+        }
+        .header-text h1 { font-weight: 900; font-size: 12.5px; margin: 0; color: #0f172a; line-height: 1.3; }
+        .header-text h2 { font-weight: 800; font-size: 10.5px; margin: 3px 0; color: #0d9488; line-height: 1.3; }
+        .header-text p { font-size: 8.5px; margin: 1px 0; color: #64748b; }
         
         .report-badge {
           display: inline-block;
           background: #f0fdfa;
           color: #0d9488;
           border: 1px solid #99f6e4;
-          font-size: 9px;
+          font-size: 8.5px;
           font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.1em;
-          padding: 4px 12px;
+          letter-spacing: 0.08em;
+          padding: 3px 10px;
           border-radius: 20px;
-          margin-top: 8px;
         }
 
         .section-title {
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 800;
           color: #0f172a;
           text-transform: uppercase;
           letter-spacing: 0.05em;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
         .section-title::before {
           content: '';
           display: inline-block;
           width: 4px;
-          height: 14px;
+          height: 13px;
           background: #0d9488;
           border-radius: 2px;
         }
 
-        .bi-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0; }
-        .bi-kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 18px; padding: 18px; text-align: center; }
+        .bi-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; width: 100%; }
+        .bi-kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; text-align: center; }
         .bi-kpi-card.teal { background: linear-gradient(145deg, #f0fdfa, #ccfbf1); border-color: #5eead4; }
         
         .gender-box {
           background: #ffffff;
           border: 1px solid #e2e8f0;
-          border-radius: 18px;
-          padding: 18px 22px;
-          margin: 20px 0;
+          border-radius: 16px;
+          padding: 14px 18px;
+          margin: 16px 0;
+          width: 100%;
         }
-        .gender-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
-        .gender-label { width: 75px; font-size: 10px; font-weight: 800; color: #0f172a; }
-        .gender-track { flex: 1; height: 14px; background: #f1f5f9; border-radius: 8px; overflow: hidden; display: flex; }
+        .gender-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+        .gender-label { width: 70px; font-size: 9.5px; font-weight: 800; color: #0f172a; }
+        .gender-track { flex: 1; height: 12px; background: #f1f5f9; border-radius: 6px; overflow: hidden; display: flex; }
         .gender-fill-f { background: linear-gradient(90deg, #ec4899, #db2777); }
         .gender-fill-m { background: linear-gradient(90deg, #0ea5e9, #0284c7); }
-        .gender-val { font-size: 11px; font-weight: 900; color: #0f172a; width: 45px; text-align: right; }
+        .gender-val { font-size: 10.5px; font-weight: 900; color: #0f172a; width: 40px; text-align: right; }
 
         .course-card {
           background: #ffffff;
           border: 1px solid #e2e8f0;
-          border-radius: 20px;
-          padding: 20px 24px;
-          margin-bottom: 20px;
+          border-radius: 16px;
+          padding: 16px 20px;
+          margin-bottom: 16px;
+          width: 100%;
         }
         .course-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           border-bottom: 1px solid #f1f5f9;
-          padding-bottom: 12px;
-          margin-bottom: 14px;
+          padding-bottom: 8px;
+          margin-bottom: 10px;
         }
         .course-tag {
           background: #0f172a;
           color: white;
-          padding: 3px 8px;
-          border-radius: 6px;
+          padding: 2px 7px;
+          border-radius: 5px;
           font-weight: 800;
-          font-size: 10px;
+          font-size: 9px;
         }
         .course-subject {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 900;
           color: #0f172a;
-          margin-left: 8px;
+          margin-left: 6px;
         }
         .course-avg {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 900;
           color: #0d9488;
         }
 
         .dist-stacked-bar {
           width: 100%;
-          height: 18px;
+          height: 14px;
           background: #f1f5f9;
           border-radius: 999px;
           display: flex;
           overflow: hidden;
-          margin: 10px 0;
+          margin: 8px 0;
         }
         .dist-segment {
           height: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 8px;
+          font-size: 7.5px;
           font-weight: 900;
           color: white;
         }
         .dist-legend {
           display: flex;
-          gap: 16px;
-          font-size: 9px;
+          gap: 12px;
+          font-size: 8px;
           font-weight: 700;
           color: #64748b;
-          margin-top: 6px;
+          margin-top: 4px;
+          flex-wrap: wrap;
         }
-        .dist-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .dist-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 3px; }
 
         .ai-insight-box {
           background: #f0fdfa;
           border: 1px solid #ccfbf1;
-          border-radius: 12px;
-          padding: 12px 16px;
-          margin-top: 14px;
-          font-size: 10.5px;
+          border-radius: 10px;
+          padding: 10px 14px;
+          margin-top: 10px;
+          font-size: 9.5px;
           color: #0f766e;
-          line-height: 1.6;
+          line-height: 1.5;
         }
         .ai-action-box {
           background: #f8fafc;
           border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 10px 16px;
-          margin-top: 8px;
-          font-size: 10px;
+          border-radius: 10px;
+          padding: 8px 14px;
+          margin-top: 6px;
+          font-size: 9px;
           color: #334155;
-          line-height: 1.5;
+          line-height: 1.4;
         }
 
         .table-honor {
-          width: 100%;
+          width: 100% !important;
+          table-layout: fixed;
           border-collapse: separate;
           border-spacing: 0;
-          font-size: 10px;
-          margin-top: 10px;
-          border-radius: 12px;
+          font-size: 9.5px;
+          margin-top: 8px;
+          border-radius: 10px;
           overflow: hidden;
           border: 1px solid #e2e8f0;
         }
@@ -2421,30 +2455,25 @@ export function printAnalyticsReport(
           font-weight: 800;
           color: #334155;
           text-transform: uppercase;
-          font-size: 8.5px;
-          padding: 8px 10px;
+          font-size: 8px;
+          padding: 7px 8px;
           border-bottom: 2px solid #e2e8f0;
         }
         .table-honor td {
-          padding: 8px 10px;
+          padding: 7px 8px;
           text-align: center;
           border-bottom: 1px solid #f1f5f9;
         }
         .table-honor td.text-left { text-align: left; font-weight: 600; color: #1e293b; }
 
-        .firma { margin-top: 50px; text-align: center; width: 280px; margin-left: auto; margin-right: auto; }
-        .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 6px; }
+        .firma { margin-top: 40px; text-align: center; width: 260px; margin-left: auto; margin-right: auto; }
+        .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 5px; }
       </style>
     </head>
     <body>
       <div class="action-bar-top no-print">
-        <div>
-          <div style="font-weight: 900; font-size: 12px; letter-spacing: 0.05em;">
-            📊 Suite de Inteligencia Académica BI · IETABA
-          </div>
-          <div style="font-size: 9.5px; color: #99f6e4; margin-top: 2px;">
-            💡 Tip: En el cuadro de impresión, desmarca "Encabezados y pies de página" para un PDF limpio.
-          </div>
+        <div style="font-weight: 800; font-size: 11.5px; letter-spacing: 0.04em;">
+          📊 Suite de Inteligencia Académica BI · IETABA
         </div>
         <button onclick="window.print()" class="btn-print-bi">
           🖨️ Imprimir / Guardar en PDF
@@ -2452,15 +2481,18 @@ export function printAnalyticsReport(
       </div>
 
       <div class="print-container">
-        <!-- HEADER INSTITUCIONAL -->
+        <!-- HEADER INSTITUCIONAL (FLEX) -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 76px; height: auto; position: absolute; left: 0; top: 2px; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
-          <div style="padding: 0 40px 0 85px;">
-            <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
-          <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
-          <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
-          <div class="report-badge">SUITE DE INTELIGENCIA ACADÉMICA & ANALÍTICA DE DESEMPEÑO (BI)</div>
+          <div class="header-flex">
+            <img src="${baseUrl}/logo.png" class="header-logo" onerror="this.style.display='none'">
+            <div class="header-text">
+              <h1>UNIDAD INDÍGENA DEL PUEBLO AWÁ &quot;UNIPA&quot;</h1>
+              <h2>INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ &quot;IETABA&quot;</h2>
+              <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
+              <p style="color: #0d9488; font-style: italic; margin-top: 2px;">Ambiente – Cultura – Ciencia</p>
+            </div>
           </div>
+          <div class="report-badge">SUITE DE INTELIGENCIA ACADÉMICA & ANALÍTICA DE DESEMPEÑO (BI)</div>
         </div>
 
         <div class="saludo">
@@ -2473,26 +2505,26 @@ export function printAnalyticsReport(
         <!-- KPI BENTO -->
         <div class="bi-kpi-grid">
           <div class="bi-kpi-card teal">
-            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #0f766e; letter-spacing: 0.05em;">Promedio Institucional</div>
-            <div style="font-size: 36px; font-weight: 900; color: #0f172a; margin: 4px 0;">${globalAvg}</div>
-            <div style="font-size: 9.5px; color: #0d9488; font-weight: 600;">${totalGrades} evaluaciones consolidadas</div>
+            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #0f766e; letter-spacing: 0.05em;">Promedio Institucional</div>
+            <div style="font-size: 30px; font-weight: 900; color: #0f172a; margin: 2px 0;">${globalAvg}</div>
+            <div style="font-size: 9px; color: #0d9488; font-weight: 600;">${totalGrades} evaluaciones consolidadas</div>
           </div>
           <div class="bi-kpi-card">
-            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Población Estudiantil</div>
-            <div style="font-size: 36px; font-weight: 900; color: #0f172a; margin: 4px 0;">${studentAverages.size}</div>
-            <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Estudiantes activos en seguimiento</div>
+            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Población Estudiantil</div>
+            <div style="font-size: 30px; font-weight: 900; color: #0f172a; margin: 2px 0;">${studentAverages.size}</div>
+            <div style="font-size: 9px; color: #64748b; font-weight: 600;">Estudiantes activos en seguimiento</div>
           </div>
           <div class="bi-kpi-card">
-            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Materias / Cursos</div>
-            <div style="font-size: 36px; font-weight: 900; color: #0f172a; margin: 4px 0;">${Object.keys(detailedCourseSubjectBI).length}</div>
-            <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Grupos analizados individualmente</div>
+            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Materias / Cursos</div>
+            <div style="font-size: 30px; font-weight: 900; color: #0f172a; margin: 2px 0;">${Object.keys(detailedCourseSubjectBI).length}</div>
+            <div style="font-size: 9px; color: #64748b; font-weight: 600;">Grupos analizados individualmente</div>
           </div>
         </div>
 
         <!-- PRODUCTIVIDAD Y EQUIDAD DE GÉNERO -->
         <div class="gender-box avoid-break">
           <div class="section-title">Equidad y Rendimiento por Género</div>
-          <p style="font-size: 10px; color: #64748b; margin: 4px 0 10px 0;">Comparativo de promedios para garantizar igualdad de oportunidades y acompañamiento equilibrado.</p>
+          <p style="font-size: 9.5px; color: #64748b; margin: 3px 0 8px 0;">Comparativo de promedios para garantizar igualdad de oportunidades y acompañamiento equilibrado.</p>
           
           <div class="gender-row">
             <div class="gender-label">👧 Mujeres</div>
@@ -2512,7 +2544,7 @@ export function printAnalyticsReport(
         </div>
 
         <!-- CUADRO DE HONOR -->
-        <div class="avoid-break" style="margin-top: 25px;">
+        <div class="avoid-break" style="margin-top: 20px;">
           <div class="section-title" style="color: #b45309;">🏆 Cuadro de Honor y Excelencia Pedagógica</div>
           <table class="table-honor">
             <thead>
@@ -2526,19 +2558,19 @@ export function printAnalyticsReport(
             <tbody>
               ${honorRoll.map((h, i) => `
                 <tr>
-                  <td><strong style="color: ${i===0 ? '#eab308' : i===1 ? '#94a3b8' : i===2 ? '#b45309' : '#64748b'}; font-size: 11px;">#${i+1}</strong></td>
+                  <td><strong style="color: ${i===0 ? '#eab308' : i===1 ? '#94a3b8' : i===2 ? '#b45309' : '#64748b'}; font-size: 10px;">#${i+1}</strong></td>
                   <td class="text-left">${escapeHtml(h.st.primerApellido)} ${escapeHtml(h.st.segundoApellido || "")} ${escapeHtml(h.st.primerNombre)}</td>
                   <td>${h.st.grado}-${h.st.curso || '1'}</td>
-                  <td><strong style="color: #0d9488; font-size: 11px;">${h.avg.toFixed(2)}</strong></td>
+                  <td><strong style="color: #0d9488; font-size: 10px;">${h.avg.toFixed(2)}</strong></td>
                 </tr>
               `).join('') || '<tr><td colspan="4">No hay datos de honor disponibles</td></tr>'}
             </tbody>
           </table>
         </div>
 
-        <!-- COMPENDIO DETALLADO CURSO POR CURSO CON IA PEDAGÓGICA -->
-        <div style="margin-top: 30px;">
-          <div class="section-title" style="margin-bottom: 14px;">Compendio Analítico Desagregado por Grado y Asignatura</div>
+        <!-- COMPENDIO DETALLADO CURSO POR CURSO -->
+        <div style="margin-top: 25px;">
+          <div class="section-title" style="margin-bottom: 12px;">Compendio Analítico Desagregado por Grado y Asignatura</div>
 
           ${Object.keys(detailedCourseSubjectBI).sort().map(k => {
             const item = detailedCourseSubjectBI[k];
@@ -2557,16 +2589,15 @@ export function printAnalyticsReport(
                   <span class="course-subject">${item.subject}</span>
                 </div>
                 <div>
-                  <span style="font-size: 10px; font-weight: 700; color: #64748b; margin-right: 6px;">Promedio:</span>
+                  <span style="font-size: 9.5px; font-weight: 700; color: #64748b; margin-right: 4px;">Promedio:</span>
                   <span class="course-avg">${avg}</span>
                 </div>
               </div>
 
-              <div style="font-size: 9.5px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+              <div style="font-size: 9px; font-weight: 700; color: #475569; margin-bottom: 3px;">
                 Distribución de Desempeño (${item.total} Estudiantes):
               </div>
 
-              <!-- Barra de Distribución Vectorial -->
               <div class="dist-stacked-bar">
                 <div class="dist-segment" style="width: ${pSup}%; background: #059669;">${pSup > 5 ? pSup + '%' : ''}</div>
                 <div class="dist-segment" style="width: ${pAlt}%; background: #10b981;">${pAlt > 5 ? pAlt + '%' : ''}</div>
@@ -2581,12 +2612,10 @@ export function printAnalyticsReport(
                 <span><span class="dist-dot" style="background:#ef4444;"></span> Bajo: ${item.bajo} (${pBaj}%)</span>
               </div>
 
-              <!-- Diagnóstico de IA Humanizado y Dinámico por Asignatura -->
               <div class="ai-insight-box">
                 ${item.aiInsight}
               </div>
 
-              <!-- Plan de Acción Concreto -->
               <div class="ai-action-box">
                 ${item.pedagogicalAction}
               </div>
@@ -2597,11 +2626,11 @@ export function printAnalyticsReport(
 
         <div class="firma avoid-break">
           <div class="firma-line"></div>
-          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${escapeHtml(teacherProfile?.name || "DOCENTE")}</div>
-          <div style="font-size: 9.5px; color: #0d9488; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
+          <div style="font-weight: 800; font-size: 11px; text-transform: uppercase; color: #0f172a;">${escapeHtml(teacherProfile?.name || "DOCENTE")}</div>
+          <div style="font-size: 9px; color: #0d9488; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
         </div>
 
-        <div style="text-align: center; margin-top: 40px; font-size: 8.5px; color: #94a3b8; line-height: 1.4;">
+        <div style="text-align: center; margin-top: 30px; font-size: 8px; color: #94a3b8; line-height: 1.4;">
           <strong>Por la pervivencia e identidad del Pueblo Awá</strong><br>
           Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño<br>
           E-Mail: ietabaawa@yahoo.es
