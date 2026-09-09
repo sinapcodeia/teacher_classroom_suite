@@ -25,7 +25,7 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
   const [selectedRecoveryStudent, setSelectedRecoveryStudent] = useState<any>(null);
 
   const activePeriod = masterData.activePeriod || "p2";
-  const activeSubject = (subjectFilter && subjectFilter !== "TODOS") ? subjectFilter : (masterData.subjects?.[0]?.name || masterData.subjects?.[0] || "TECNOLOGÍA");
+  const activeSubject = (subjectFilter && subjectFilter !== "TODOS") ? subjectFilter : ((masterData.subjects?.[0] as any)?.name || masterData.subjects?.[0] || "TECNOLOGÍA");
 
   // Procesar notas por período (P1, P2, P3) y proyecciones pedagógicas
   const studentSummaries = useMemo(() => {

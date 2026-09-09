@@ -100,7 +100,8 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       const timer = setTimeout(checkScrollability, 600);
       return () => clearTimeout(timer);
     }
-  }, [profile.acceptedTerms, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.acceptedTerms, user]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
@@ -203,7 +204,14 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   if (!user) return null;
 
   // ── 2. MODAL DE TÉRMINOS (aparece primero para TODOS) ──────
-  if (!profile.acceptedTerms) {
+  // Guard: double-check localStorage before showing the modal, in case of Firestore onSnapshot
+  // race condition where acceptedTerms arrives as undefined even after the user already accepted.
+  const localTermsAccepted = user && typeof window !== "undefined" && (
+    localStorage.getItem(`edu_terms_accepted_${user.uid}`) === "true" ||
+    (() => { try { return JSON.parse(localStorage.getItem("offline_profile") || "{}").acceptedTerms === true; } catch { return false; } })()
+  );
+  
+  if (!profile.acceptedTerms && !localTermsAccepted) {
     return (
       <div style={{
         position: "fixed", inset: 0, zIndex: 9999,

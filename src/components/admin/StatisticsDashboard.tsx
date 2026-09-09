@@ -14,7 +14,7 @@ import {
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
 import AttendanceAnalytics from "@/components/admin/AttendanceAnalytics";
-import { calculateStudentAcademicSummary } from "@/context/AppContext";
+import { calculateStudentAcademicSummary } from "@/lib/gradeUtils";
 
 const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
@@ -195,8 +195,8 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
       coursesRankingMap.get(key).students.push(s);
     });
     const rankingByCourse = Array.from(coursesRankingMap.values()).map(c => {
-      const scores = c.students.map(st => st.avgGrade || 0).filter(v => v > 0);
-      c.totalAvg = scores.length > 0 ? scores.reduce((a,b) => a+b, 0) / scores.length : 0;
+      const scores = c.students.map((st: any) => st.avgGrade || 0).filter((v: any) => v > 0);
+      c.totalAvg = scores.length > 0 ? scores.reduce((a: any, b: any) => a+b, 0) / scores.length : 0;
       return c;
     }).sort((a,b) => b.totalAvg - a.totalAvg);
 

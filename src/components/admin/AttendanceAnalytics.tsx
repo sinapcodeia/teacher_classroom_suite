@@ -51,8 +51,8 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
         user.weeklySchedule.forEach((b: any) => {
           const key = `${normalizeGrade(b.grade)}-${b.course}`;
           if (!map[key]) map[key] = [];
-          if (!map[key].includes(u.name || u.email)) {
-            map[key].push(u.name || u.email);
+          if (!map[key].includes(u.displayName || u.email)) {
+            map[key].push(u.displayName || u.email);
           }
         });
       }

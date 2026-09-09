@@ -68,7 +68,7 @@ export default function Home() {
       for (const studentDoc of snap.docs) {
         const data = studentDoc.data();
         if (!data.detailedGrades) continue;
-        const updates = {};
+        const updates: Record<string, any> = {};
         let hasP3 = false;
         for (const subjectId of Object.keys(data.detailedGrades)) {
           if (data.detailedGrades[subjectId]?.["p3"] !== undefined) {
@@ -84,7 +84,7 @@ export default function Home() {
       if (typeof window !== "undefined") localStorage.removeItem("edu_students");
       alert("✅ Limpieza completada. Se corrigieron " + fixed + " estudiantes.\nPor favor, recarga la página (F5).");
     } catch (e) {
-      alert("❌ Error: " + e.message);
+      alert("❌ Error: " + (e as Error).message);
     }
     setCleaningP3(false);
   };
@@ -589,7 +589,7 @@ export default function Home() {
           <PredictiveTrends />
 
           {/* ── EDUAI SENTINEL (IA PROFESIONAL) ── */}
-          <EduAISentinel grado={gradoFilter} curso={cursoFilter} subject={subjectFilter} />
+          <EduAISentinel grado={gradoFilter} curso={cursoFilter} />
 
           {/* ── MAIN GRID ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

@@ -731,7 +731,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             photoURL: firebaseUser.photoURL || "",
             role: (savedData.role as Profile["role"]) || "DOCENTE",
             status: (savedData.status as Profile["status"]) || "ACTIVE",
-            acceptedTerms: savedData.acceptedTerms || (typeof window !== "undefined" && localStorage.getItem(`edu_terms_accepted_${firebaseUser.uid}`) === "true") || false,
+            // FIX: "once accepted, always accepted" — never downgrade from true to false.
+            // Scenario: Firestore write failed silently (offline/permissions), acceptedTerms stays undefined
+            // in Firestore but user already accepted. The onSnapshot re-fires and would reset to false.
+            // Solution: current in-memory profile.acceptedTerms is also checked as a fallback.
+            acceptedTerms: savedData.acceptedTerms === true
+              || (typeof window !== "undefined" && localStorage.getItem(`edu_terms_accepted_${firebaseUser.uid}`) === "true")
+              || (profile && profile.acceptedTerms === true)  // never override in-memory true with false
+              || false,
             isSuperAdmin,
             teachingGrades: currentGrades,
             teachingCourses: currentCourses,
@@ -998,11 +1005,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 2. Si no hay cache global, buscar por email específico
     const individualProfileRaw = typeof window !== "undefined" ? localStorage.getItem(`edu_profile_${targetEmail}`) : null;
     let profileData: Profile;
+    let offlineUid = "offline-uid-123";
     if (individualProfileRaw) {
       profileData = JSON.parse(individualProfileRaw);
     } else {
       profileData = {
-        uid: "offline-local-uid",
         email: targetEmail,
         name: "Docente (Modo Local)",
         institution: "I.E. TÉCNICA AGROPECUARIA BUENAVISTA - IETABA",
@@ -1010,12 +1017,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: "ACTIVE",
         acceptedTerms: true,
         isProfileComplete: true,
+        firstName: "",
+        lastName: "",
+        phone: "",
+        location: "",
+        teachingGrades: [],
+        teachingCourses: [],
+        teachingSubjectsList: [],
         weeklySchedule: DEFAULT_SCHEDULE_BLOCKS
-      };
+      } as Profile;
     }
 
     const offlineUser = {
-      uid: profileData.uid || "offline-uid-123",
+      uid: offlineUid,
       email: profileData.email,
       displayName: profileData.name,
       photoURL: profileData.photoURL || ""
@@ -1098,17 +1112,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const acceptTerms = async () => {
     if (!user) return;
-    // 1. Update local state immediately (no esperar Firestore) para evitar bucle
+    
+    // 1. Update local state immediately (optimistic UI — no wait for Firestore)
     setProfile(prev => ({ ...prev, acceptedTerms: true }));
-    // 2. Persistir localmente como fallback (sobrevive recargas cuando Firestore falla)
+    
+    // 2. Persist to ALL localStorage keys (multi-layer fallback)
     try {
-      localStorage.setItem(`edu_terms_accepted_${user.uid}`, "true");
-    } catch { /* ignore */ }
-    // 3. Intentar escribir en Firestore (puede fallar por reglas — no es bloqueante)
+      const uid = user.uid;
+      // Primary key: uid-based
+      localStorage.setItem(`edu_terms_accepted_${uid}`, "true");
+      // Secondary key: update the offline_profile cache so even a full cold reload works
+      const offlineRaw = localStorage.getItem("offline_profile");
+      if (offlineRaw) {
+        const offlineProfile = JSON.parse(offlineRaw);
+        offlineProfile.acceptedTerms = true;
+        localStorage.setItem("offline_profile", JSON.stringify(offlineProfile));
+      }
+      // Tertiary key: email-based profile cache
+      if (user.email) {
+        const emailKey = `edu_profile_${user.email.toLowerCase()}`;
+        const emailRaw = localStorage.getItem(emailKey);
+        if (emailRaw) {
+          const emailProfile = JSON.parse(emailRaw);
+          emailProfile.acceptedTerms = true;
+          localStorage.setItem(emailKey, JSON.stringify(emailProfile));
+        }
+      }
+    } catch { /* localStorage unavailable — skip */ }
+    
+    // 3. Persist to Firestore (non-blocking — try updateDoc first, fallback to setDoc merge)
     try {
       await updateDoc(doc(db, "users", user.uid), { acceptedTerms: true });
     } catch (err) {
-      console.warn("No se pudo persistir acceptedTerms en Firestore (reglas). Usando caché local.", err);
+      console.warn("[acceptTerms] updateDoc failed, retrying with setDoc merge:", err);
+      try {
+        const { setDoc } = await import("firebase/firestore");
+        await setDoc(doc(db, "users", user.uid), { acceptedTerms: true }, { merge: true });
+      } catch (err2) {
+        console.warn("[acceptTerms] setDoc merge also failed. Will rely on local cache.", err2);
+      }
     }
   };
 
@@ -1479,7 +1521,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importDetailedGrades = async (subjectId: string, periodId: string, data: { studentId: string, detailed: DetailedGrades }[]) => {
     try {
       const LIMITE_LOTE = 500;
-      const allUpdates: { studentId: string, updates: any }[] = [];
+      const allUpdates: { studentId: string; updates: any; firestoreUpdates: any; localUpdates: any }[] = [];
 
       for (const item of data) {
         const student = students.find(s => s.id === item.studentId);
@@ -1504,7 +1546,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           detailedGrades: newDetailedGrades,
           avgGrade: summary.periodAvg
         };
-        allUpdates.push({ studentId: item.studentId, firestoreUpdates, localUpdates });
+        allUpdates.push({ studentId: item.studentId, updates: firestoreUpdates, firestoreUpdates, localUpdates });
       }
 
       // Execute in batches
