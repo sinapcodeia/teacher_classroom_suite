@@ -1073,19 +1073,19 @@ export function printExecutiveReport(
   teacherProfile: any,
   masterData: any
 ) {
-  const activePeriod = masterData.activePeriod || "p2";
+  const activePeriod = (masterData.activePeriod || "p2").toLowerCase();
   const pName = activePeriod.toUpperCase();
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
-  // 1. DATA CRUNCHING MULTIDIMENSIONAL DISGREGADO POR MATERIA Y CURSO
+  // 1. DATA CRUNCHING MULTIDIMENSIONAL & PERIOD-AWARE PROJECTION
   let totalGrades = 0;
   let passedCount = 0;
   let failedCount = 0;
   let recoveredCount = 0;
   let totalScoreSum = 0;
 
-  // Métricas Globales de Sabidurías Awá
+  // Métricas de Sabidurías Awá
   const sabidurias = {
     sb: { name: "Saber (Conceptual)", weight: "30%", sum: 0, count: 0, color: "#2563eb" },
     sbh: { name: "Saber-Hacer (Práctico / Agroambiental)", weight: "40%", sum: 0, count: 0, color: "#059669" },
@@ -1094,7 +1094,7 @@ export function printExecutiveReport(
     aut: { name: "Autoevaluación", weight: "5%", sum: 0, count: 0, color: "#db2777" }
   };
 
-  // MATRIZ DESAGREGADA: Grado + Curso + Asignatura
+  // Matriz Desagregada por Grado-Curso y Asignatura
   const courseSubjectAnalytics: Record<string, {
     key: string;
     grado: string;
@@ -1107,8 +1107,22 @@ export function printExecutiveReport(
     scoreSum: number;
     totalAttendanceEvents: number;
     totalAbsences: number;
-    studentsList: any[];
   }> = {};
+
+  // Listado de Estudiantes en Alerta y Proyecciones
+  const projectionAlerts: {
+    st: any;
+    grado: string;
+    curso: string;
+    subject: string;
+    p1: number | null;
+    p2: number | null;
+    p3: number | null;
+    accumulated: number;
+    neededInP3: number;
+    status: "safe" | "normal" | "warning" | "critical" | "passed_final" | "failed_final";
+    statusLabel: string;
+  }[] = [];
 
   const groups: Record<string, Record<string, any[]>> = {};
 
@@ -1124,7 +1138,6 @@ export function printExecutiveReport(
     const c = (st.curso || "1").toString().trim();
     const gCourse = `${g}-${c}`;
 
-    // Calcular eventos de asistencia individuales del estudiante
     let studentAbsences = 0;
     let studentTotalDays = 0;
     if (st.attendanceRecord) {
@@ -1135,7 +1148,9 @@ export function printExecutiveReport(
 
     if (st.detailedGrades) {
       Object.keys(st.detailedGrades).forEach(subject => {
-        const d = st.detailedGrades[subject][activePeriod];
+        const subjectData = st.detailedGrades[subject];
+        const d = subjectData ? subjectData[activePeriod] : null;
+
         if (d) {
           const matrixKey = `${gCourse}__${subject}`;
 
@@ -1151,8 +1166,7 @@ export function printExecutiveReport(
               recovery: 0,
               scoreSum: 0,
               totalAttendanceEvents: 0,
-              totalAbsences: 0,
-              studentsList: []
+              totalAbsences: 0
             };
           }
 
@@ -1174,9 +1188,8 @@ export function printExecutiveReport(
             item.scoreSum += grades.definitiva;
             item.totalAttendanceEvents += (studentTotalDays || 1);
             item.totalAbsences += studentAbsences;
-            item.studentsList.push({ st, grades });
 
-            // Sabidurías Globales
+            // Sabidurías
             const sbA = getAvg(d.sb);
             if (sbA !== null) { sabidurias.sb.sum += sbA; sabidurias.sb.count++; }
             const sbhA = getAvg(d.sbh);
@@ -1200,6 +1213,56 @@ export function printExecutiveReport(
               recoveredCount++;
               item.recovery++;
             }
+
+            // ── CÁLCULO DE PROYECCIÓN ANUAL DINÁMICA (SOLO P2 Y P3) ──
+            if (activePeriod === "p2" || activePeriod === "p3") {
+              const p1Data = subjectData?.p1 ? calculatePeriodGrades(subjectData.p1).definitiva : null;
+              const p2Data = subjectData?.p2 ? calculatePeriodGrades(subjectData.p2).definitiva : null;
+              const p3Data = subjectData?.p3 ? calculatePeriodGrades(subjectData.p3).definitiva : null;
+
+              if (activePeriod === "p2" && p1Data !== null && p2Data !== null) {
+                const sumP1P2 = p1Data + p2Data;
+                const pointsNeededInP3 = Number((9.0 - sumP1P2).toFixed(2));
+                const neededInP3 = pointsNeededInP3 <= 1.0 ? 1.0 : pointsNeededInP3;
+
+                let status: "safe" | "normal" | "warning" | "critical" = "normal";
+                let statusLabel = "";
+
+                if (sumP1P2 >= 8.0) {
+                  status = "safe";
+                  statusLabel = "Año Asegurado (≥8.0 acumulado)";
+                } else if (neededInP3 <= 3.5) {
+                  status = "normal";
+                  statusLabel = `Requiere mín. ${neededInP3.toFixed(1)} en P3`;
+                } else if (neededInP3 <= 5.0) {
+                  status = "warning";
+                  statusLabel = `Alerta Preventiva (Requiere ${neededInP3.toFixed(1)} en P3)`;
+                } else {
+                  status = "critical";
+                  statusLabel = `Riesgo Crítico (Requiere ${neededInP3.toFixed(1)} > 5.0)`;
+                }
+
+                if (status === "warning" || status === "critical") {
+                  projectionAlerts.push({
+                    st, grado: g, curso: c, subject,
+                    p1: p1Data, p2: p2Data, p3: null,
+                    accumulated: Number((sumP1P2 / 2).toFixed(2)),
+                    neededInP3, status, statusLabel
+                  });
+                }
+              } else if (activePeriod === "p3" && p1Data !== null && p2Data !== null && p3Data !== null) {
+                const finalYearAvg = Number(((p1Data + p2Data + p3Data) / 3).toFixed(2));
+                const isPassed = finalYearAvg >= 3.0;
+                projectionAlerts.push({
+                  st, grado: g, curso: c, subject,
+                  p1: p1Data, p2: p2Data, p3: p3Data,
+                  accumulated: finalYearAvg,
+                  neededInP3: 0,
+                  status: isPassed ? "passed_final" : "failed_final",
+                  statusLabel: isPassed ? "Promovido / Aprobado" : "Reprobado (Habilitación Final)"
+                });
+              }
+            }
           }
         }
       });
@@ -1210,7 +1273,6 @@ export function printExecutiveReport(
   const failRate = totalGrades > 0 ? Math.round((failedCount / totalGrades) * 100) : 0;
   const globalAvg = totalGrades > 0 ? (totalScoreSum / totalGrades).toFixed(2) : "0.00";
 
-  // Función para determinar el Nivel Cualitativo de Ausentismo
   const getAusentismoBadge = (absences: number, totalEvents: number) => {
     if (totalEvents === 0 || absences === 0) {
       return { label: "Óptimo (0%)", bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
@@ -1266,7 +1328,6 @@ export function printExecutiveReport(
           padding-top: 10px;
         }
 
-        /* Membrete */
         .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
         .header-institucional h1 { font-weight: 900; font-size: 13px; margin: 0; color: #0f172a; letter-spacing: -0.01em; }
         .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #1e3a8a; }
@@ -1289,7 +1350,6 @@ export function printExecutiveReport(
         .fecha-dir { margin-top: 20px; font-size: 10.5px; color: #334155; }
         .saludo { margin-top: 14px; font-size: 11px; text-align: justify; color: #334155; line-height: 1.6; }
 
-        /* Bento KPI Grid */
         .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
         .bento-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: center; }
         .bento-card.highlight { background: linear-gradient(145deg, #f0fdf4, #dcfce7); border-color: #86efac; }
@@ -1297,7 +1357,6 @@ export function printExecutiveReport(
         .bento-val { font-size: 28px; font-weight: 900; color: #0f172a; line-height: 1.1; margin-bottom: 4px; }
         .bento-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
 
-        /* Sabidurías Section */
         .sabiduria-section {
           background: #ffffff;
           border: 1px solid #e2e8f0;
@@ -1341,7 +1400,6 @@ export function printExecutiveReport(
         .sab-name { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 2px; line-height: 1.2; }
         .sab-weight { font-size: 7.5px; font-weight: 800; color: #94a3b8; margin-top: 3px; display: inline-block; background: #fff; padding: 1px 4px; border-radius: 4px; border: 1px solid #e2e8f0; }
 
-        /* Matriz Desagregada */
         .matrix-table {
           width: 100%;
           border-collapse: separate;
@@ -1406,7 +1464,6 @@ export function printExecutiveReport(
           font-weight: 800;
         }
 
-        /* Detail Tables */
         .detail-table {
           width: 100%;
           border-collapse: separate;
@@ -1452,7 +1509,11 @@ export function printExecutiveReport(
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
           <p><i>Ambiente – Cultura – Ciencia</i></p>
-          <div class="report-badge">INFORME GERENCIAL ACADÉMICO · GESTIÓN DIRECTIVA & DOCENTE</div>
+          <div class="report-badge">
+            ${activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO INICIAL (PERIODO 1)" :
+              activePeriod === "p2" ? "INFORME GERENCIAL & ALERTA TEMPRANA DE PROYECCIÓN ANUAL (SIEEE)" :
+              "INFORME GERENCIAL · BALANCE FINAL Y CONSOLIDADO DE AÑO LECTIVO"}
+          </div>
         </div>
 
         <div class="fecha-dir">
@@ -1463,7 +1524,13 @@ export function printExecutiveReport(
 
         <div class="saludo">
           <p>Cordial saludo institucional,</p>
-          <p>Presento el <strong>Informe Gerencial Académico Desagregado</strong> correspondiente al <strong>periodo ${pName}</strong>. Este reporte ofrece una radiografía cuantitativa y cualitativa individualizada por cada <strong>Grado, Curso y Asignatura</strong>, analizando las tasas de aprobación, la ponderación de las <strong>Sabidurías Institucionales Awá</strong> y el <strong>Nivel de Ausentismo</strong> específico de cada área de enseñanza.</p>
+          <p>
+            ${activePeriod === "p1" ? 
+              "Presento el <strong>Informe Gerencial y Diagnóstico Académico Inicial del Periodo 1</strong>. Al ser el primer ciclo del año escolar, este informe establece la línea base de desempeño por asignaturas, nivel de ausentismo y apropiación de las <strong>Sabidurías Institucionales Awá</strong> para orientar la planificación pedagógica." :
+              activePeriod === "p2" ?
+              "Presento el <strong>Informe Gerencial y de Alerta Temprana del Periodo 2</strong>. Habiéndose completado dos tercios del año lectivo, este reporte incorpora la <strong>Proyección Predictiva Anual (SIEEE)</strong> para identificar a los estudiantes en zona de riesgo que requieren acompañamiento pedagógico inmediato para asegurar su promoción." :
+              "Presento el <strong>Informe Gerencial de Balance Final del Año Lectivo</strong>. Este documento consolida el rendimiento anual definitivo acumulado en los 3 periodos académicos, determinando la promoción institucional y los planes de habilitación final."}
+          </p>
         </div>
 
         <!-- BENTO DASHBOARD GLOBAL -->
@@ -1474,7 +1541,7 @@ export function printExecutiveReport(
           </div>
           <div class="bento-card highlight">
             <div class="bento-val" style="color: #16a34a;">${passRate}%</div>
-            <div class="bento-label">Aprobación Global</div>
+            <div class="bento-label">Aprobación Periodo</div>
           </div>
           <div class="bento-card" style="border-color: #fecaca; background: #fff5f5;">
             <div class="bento-val" style="color: #dc2626;">${failRate}%</div>
@@ -1520,7 +1587,7 @@ export function printExecutiveReport(
 
         <!-- MATRIZ COMPARATIVA DESAGREGADA POR GRADO Y MATERIA -->
         <div class="avoid-break" style="margin-top: 20px;">
-          <div class="section-title" style="margin-bottom: 6px;">Matriz Analítica por Asignatura y Grado (Sin Unificar)</div>
+          <div class="section-title" style="margin-bottom: 6px;">Matriz Analítica por Asignatura y Grado (Individualizada)</div>
           <table class="matrix-table">
             <thead>
               <tr>
@@ -1574,21 +1641,108 @@ export function printExecutiveReport(
           </table>
         </div>
 
-        <div class="saludo avoid-break" style="background: #f8fafc; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 10px;">
-          <p style="margin: 0; color: #0f172a; font-size: 10px;"><strong>Gobernanza Pedagógica y Observaciones:</strong></p>
+        ${activePeriod === "p2" ? `
+        <!-- MÓDULO EXCLUSIVO P2: ALERTA TEMPRANA & PROYECCIÓN ANUAL (SIEEE) -->
+        <div class="avoid-break" style="margin-top: 25px; background: #fff; border: 2px solid #fde047; border-radius: 18px; padding: 18px 22px;">
+          <div class="section-title" style="color: #854d0e;">
+            ⚠️ Semáforo de Alerta Temprana & Proyección de Cierre de Año (P2 → P3)
+          </div>
+          <p style="font-size: 9.5px; color: #64748b; margin: 4px 0 12px 0;">
+            Estudiantes identificados en zona de riesgo que requieren plan de acompañamiento y nivelación inmediata para salvar el año escolar (Meta acumulada anual: 9.0 puntos en 3 periodos).
+          </p>
+
+          ${projectionAlerts.length > 0 ? `
+          <table class="detail-table" style="margin-bottom: 0;">
+            <thead>
+              <tr>
+                <th style="width: 32%; text-align: left;">Estudiante</th>
+                <th style="width: 14%;">Curso / Materia</th>
+                <th style="width: 10%;">Nota P1</th>
+                <th style="width: 10%;">Nota P2</th>
+                <th style="width: 12%;">Acumulado</th>
+                <th style="width: 22%;">Requisito en Periodo 3</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${projectionAlerts.map(item => `
+                <tr>
+                  <td class="text-left">
+                    <strong>${item.st.primerApellido} ${item.st.segundoApellido || ''} ${item.st.primerNombre}</strong>
+                  </td>
+                  <td>${item.grado}-${item.curso} · ${item.subject}</td>
+                  <td>${item.p1?.toFixed(1) || '—'}</td>
+                  <td>${item.p2?.toFixed(1) || '—'}</td>
+                  <td><strong>${item.accumulated.toFixed(1)}</strong></td>
+                  <td>
+                    <span class="badge ${item.status === 'critical' ? 'bg-red' : 'bg-yellow'}">
+                      ${item.statusLabel}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          ` : `
+          <div style="text-align: center; padding: 15px; color: #166534; background: #f0fdf4; border-radius: 10px; font-weight: 700; font-size: 10.5px;">
+            ✅ Excelente noticia: Ningún estudiante se encuentra en riesgo crítico de perder el año en este grupo.
+          </div>
+          `}
+        </div>
+        ` : activePeriod === "p3" ? `
+        <!-- MÓDULO EXCLUSIVO P3: BALANCE DEFINITIVO DE PROMOCIÓN ANUAL -->
+        <div class="avoid-break" style="margin-top: 25px; background: #fff; border: 2px solid #93c5fd; border-radius: 18px; padding: 18px 22px;">
+          <div class="section-title" style="color: #1e40af;">
+            🎓 Consolidado Definitivo de Promoción y Habilitaciones (Año Lectivo)
+          </div>
+          <table class="detail-table" style="margin-top: 10px; margin-bottom: 0;">
+            <thead>
+              <tr>
+                <th style="width: 35%; text-align: left;">Estudiante</th>
+                <th style="width: 15%;">Curso / Materia</th>
+                <th style="width: 8%;">P1</th>
+                <th style="width: 8%;">P2</th>
+                <th style="width: 8%;">P3</th>
+                <th style="width: 12%;">Definitiva Año</th>
+                <th style="width: 14%;">Dictamen SIEEE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${projectionAlerts.map(item => `
+                <tr>
+                  <td class="text-left">
+                    <strong>${item.st.primerApellido} ${item.st.segundoApellido || ''} ${item.st.primerNombre}</strong>
+                  </td>
+                  <td>${item.grado}-${item.curso} · ${item.subject}</td>
+                  <td>${item.p1?.toFixed(1) || '—'}</td>
+                  <td>${item.p2?.toFixed(1) || '—'}</td>
+                  <td>${item.p3?.toFixed(1) || '—'}</td>
+                  <td><strong style="color: ${item.accumulated >= 3.0 ? '#16a34a' : '#dc2626'}; font-size: 11px;">${item.accumulated.toFixed(1)}</strong></td>
+                  <td>
+                    <span class="badge ${item.status === 'passed_final' ? 'bg-green' : 'bg-red'}">
+                      ${item.statusLabel}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <div class="saludo avoid-break" style="background: #f8fafc; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
+          <p style="margin: 0; color: #0f172a; font-size: 10px;"><strong>Observaciones y Compromisos Pedagógicos:</strong></p>
           <ul style="margin: 4px 0 0 0; font-size: 9px; color: #475569; padding-left: 16px; line-height: 1.5;">
-            <li>El desglose individualizado permite identificar materias con mayor dispersión académica dentro del mismo grado.</li>
-            <li>Los niveles de ausentismo <strong>Críticos</strong> impactan directamente en la necesidad de planes de nivelación.</li>
-            <li>Se prioriza el acompañamiento formativo en las asignaturas con promedios inferiores a 3.5.</li>
+            <li>El informe desagregado garantiza visibilidad exacta de cada curso sin sesgos por unificación de asignaturas.</li>
+            <li>En los casos de ausentismo moderado o crítico se activan los protocolos de acompañamiento etnoeducativo.</li>
+            <li>Las valoraciones reflejan el diálogo permanente entre el conocimiento teórico y el aprendizaje vivencial en el territorio Awá.</li>
           </ul>
         </div>
       </div>
 
-      <!-- PÁGINAS DE DETALLE POR ASIGNATURA Y CURSO -->
+      <!-- PÁGINAS DE DETALLE POR ASIGNATURA Y CURSO (TABLAS DE NIVELACIÓN) -->
       <div class="print-container borderless">
   `;
 
-  // --- TABLAS DE ESTUDIANTES EN NIVELACIÓN / DIFICULTAD ---
   Object.keys(groups).sort().forEach(grado => {
     Object.keys(groups[grado]).sort().forEach(subject => {
       const allSubjectStudents = groups[grado][subject];
