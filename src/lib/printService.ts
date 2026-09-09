@@ -1085,13 +1085,13 @@ export function printExecutiveReport(
   let recoveredCount = 0;
   let totalScoreSum = 0;
 
-  // Métricas de Sabidurías Awá
+  // Sabidurías Awá (Global)
   const sabidurias = {
-    sb: { name: "Saber (Conceptual)", weight: "30%", sum: 0, count: 0, color: "#2563eb" },
-    sbh: { name: "Saber-Hacer (Práctico / Agroambiental)", weight: "40%", sum: 0, count: 0, color: "#059669" },
-    sr: { name: "Ser (Identidad Awá / Actitudinal)", weight: "20%", sum: 0, count: 0, color: "#7c3aed" },
+    sb: { name: "Saber (Conocimiento)", weight: "30%", sum: 0, count: 0, color: "#2563eb" },
+    sbh: { name: "Saber-Hacer (Prácticas y Territorio)", weight: "40%", sum: 0, count: 0, color: "#059669" },
+    sr: { name: "Ser (Identidad Awá y Valores)", weight: "20%", sum: 0, count: 0, color: "#7c3aed" },
     cv: { name: "Convivencia Comunitaria", weight: "5%", sum: 0, count: 0, color: "#d97706" },
-    aut: { name: "Autoevaluación", weight: "5%", sum: 0, count: 0, color: "#db2777" }
+    aut: { name: "Autoevaluación Consciente", weight: "5%", sum: 0, count: 0, color: "#db2777" }
   };
 
   // Matriz Desagregada por Grado-Curso y Asignatura
@@ -1230,16 +1230,16 @@ export function printExecutiveReport(
 
                 if (sumP1P2 >= 8.0) {
                   status = "safe";
-                  statusLabel = "Año Asegurado (≥8.0 acumulado)";
+                  statusLabel = "Meta Anual Alcanzada";
                 } else if (neededInP3 <= 3.5) {
                   status = "normal";
-                  statusLabel = `Requiere mín. ${neededInP3.toFixed(1)} en P3`;
+                  statusLabel = `Meta P3: ${neededInP3.toFixed(1)}`;
                 } else if (neededInP3 <= 5.0) {
                   status = "warning";
-                  statusLabel = `Alerta Preventiva (Requiere ${neededInP3.toFixed(1)} en P3)`;
+                  statusLabel = `Acompañamiento Prioritario (P3: ${neededInP3.toFixed(1)})`;
                 } else {
                   status = "critical";
-                  statusLabel = `Riesgo Crítico (Requiere ${neededInP3.toFixed(1)} > 5.0)`;
+                  statusLabel = `Plan de Rescate Obligatorio (P3: ${neededInP3.toFixed(1)})`;
                 }
 
                 if (status === "warning" || status === "critical") {
@@ -1259,7 +1259,7 @@ export function printExecutiveReport(
                   accumulated: finalYearAvg,
                   neededInP3: 0,
                   status: isPassed ? "passed_final" : "failed_final",
-                  statusLabel: isPassed ? "Promovido / Aprobado" : "Reprobado (Habilitación Final)"
+                  statusLabel: isPassed ? "Promovido Satisfactoriamente" : "Requiere Plan de Nivelación Final"
                 });
               }
             }
@@ -1275,7 +1275,7 @@ export function printExecutiveReport(
 
   const getAusentismoBadge = (absences: number, totalEvents: number) => {
     if (totalEvents === 0 || absences === 0) {
-      return { label: "Óptimo (0%)", bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
+      return { label: "Asistencia Ejemplar", bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
     }
     const rate = Math.round((absences / totalEvents) * 100);
     if (rate <= 5) {
@@ -1283,7 +1283,7 @@ export function printExecutiveReport(
     } else if (rate <= 15) {
       return { label: `Moderado (${rate}%)`, bg: "#fefce8", color: "#854d0e", border: "#fef08a" };
     } else {
-      return { label: `Crítico (${rate}%)`, bg: "#fef2f2", color: "#991b1b", border: "#fecaca" };
+      return { label: `Atención Requerida (${rate}%)`, bg: "#fef2f2", color: "#991b1b", border: "#fecaca" };
     }
   };
 
@@ -1292,16 +1292,17 @@ export function printExecutiveReport(
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>INFORME GERENCIAL Y ANALÍTICO - ${teacherProfile.name}</title>
+      <title>INFORME GERENCIAL Y PEDAGÓGICO - ${teacherProfile.name}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
         @media print {
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; background: #fff !important; }
           .page-break-before { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
-          @page { margin: 0.8cm; size: letter; }
+          .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
+          @page { margin: 1.2cm; size: letter; }
         }
 
         body {
@@ -1309,27 +1310,61 @@ export function printExecutiveReport(
           color: #1e293b;
           line-height: 1.5;
           margin: 0;
-          padding: 15px 30px;
-          background: #f8fafc;
+          padding: 20px;
+          background: #f1f5f9;
         }
 
+        /* Barra flotante de acciones rápidas para imprimir */
+        .action-bar-top {
+          position: sticky;
+          top: 10px;
+          z-index: 9999;
+          max-width: 900px;
+          margin: 0 auto 20px auto;
+          background: #0f172a;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 10px 25px rgba(15,23,42,0.3);
+        }
+        .btn-print {
+          background: #2563eb;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 12px;
+          font-weight: 800;
+          font-size: 11px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          transition: transform 0.2s, background 0.2s;
+        }
+        .btn-print:hover { background: #1d4ed8; transform: scale(1.02); }
+
         .print-container {
-          max-width: 920px;
+          max-width: 900px;
           margin: 0 auto;
           background: white;
-          padding: 35px 50px;
+          padding: 40px 50px;
           border-radius: 24px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.04);
         }
 
         .print-container.borderless {
           border-radius: 0;
           box-shadow: none;
-          padding-top: 10px;
+          padding-top: 15px;
         }
 
         .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
-        .header-institucional h1 { font-weight: 900; font-size: 13px; margin: 0; color: #0f172a; letter-spacing: -0.01em; }
+        .header-institucional h1 { font-weight: 900; font-size: 13.5px; margin: 0; color: #0f172a; letter-spacing: -0.01em; }
         .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #1e3a8a; }
         .header-institucional p { font-size: 9.5px; margin: 1px 0; color: #64748b; }
         
@@ -1342,13 +1377,13 @@ export function printExecutiveReport(
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          padding: 3px 10px;
+          padding: 4px 12px;
           border-radius: 20px;
           margin-top: 8px;
         }
 
         .fecha-dir { margin-top: 20px; font-size: 10.5px; color: #334155; }
-        .saludo { margin-top: 14px; font-size: 11px; text-align: justify; color: #334155; line-height: 1.6; }
+        .saludo { margin-top: 14px; font-size: 11.5px; text-align: justify; color: #334155; line-height: 1.6; }
 
         .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
         .bento-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: center; }
@@ -1501,6 +1536,15 @@ export function printExecutiveReport(
       </style>
     </head>
     <body>
+      <div class="action-bar-top no-print">
+        <div style="font-weight: 800; font-size: 12px; letter-spacing: 0.05em;">
+          📄 Vista Previa de Impresión · IETABA Suite
+        </div>
+        <button onclick="window.print()" class="btn-print">
+          🖨️ Imprimir / Guardar en PDF
+        </button>
+      </div>
+
       <div class="print-container">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
@@ -1510,9 +1554,9 @@ export function printExecutiveReport(
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
           <p><i>Ambiente – Cultura – Ciencia</i></p>
           <div class="report-badge">
-            ${activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO INICIAL (PERIODO 1)" :
+            ${activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO PEDAGÓGICO INICIAL (PERIODO 1)" :
               activePeriod === "p2" ? "INFORME GERENCIAL & ALERTA TEMPRANA DE PROYECCIÓN ANUAL (SIEEE)" :
-              "INFORME GERENCIAL · BALANCE FINAL Y CONSOLIDADO DE AÑO LECTIVO"}
+              "INFORME GERENCIAL · BALANCE FINAL Y PROMOCIÓN DE AÑO LECTIVO"}
           </div>
         </div>
 
@@ -1523,13 +1567,13 @@ export function printExecutiveReport(
         </div>
 
         <div class="saludo">
-          <p>Cordial saludo institucional,</p>
+          <p>Apreciada comunidad directiva y pedagógica,</p>
           <p>
             ${activePeriod === "p1" ? 
-              "Presento el <strong>Informe Gerencial y Diagnóstico Académico Inicial del Periodo 1</strong>. Al ser el primer ciclo del año escolar, este informe establece la línea base de desempeño por asignaturas, nivel de ausentismo y apropiación de las <strong>Sabidurías Institucionales Awá</strong> para orientar la planificación pedagógica." :
+              "Comparto con ustedes el <strong>Diagnóstico Académico Inicial del Periodo 1</strong>. En este primer paso del año escolar, reconocemos los talentos y áreas de oportunidad de nuestros estudiantes, valorando sus saberes teóricos, vivenciales y comunitarios bajo el modelo propio Awá para trazar juntos las mejores rutas de aprendizaje." :
               activePeriod === "p2" ?
-              "Presento el <strong>Informe Gerencial y de Alerta Temprana del Periodo 2</strong>. Habiéndose completado dos tercios del año lectivo, este reporte incorpora la <strong>Proyección Predictiva Anual (SIEEE)</strong> para identificar a los estudiantes en zona de riesgo que requieren acompañamiento pedagógico inmediato para asegurar su promoción." :
-              "Presento el <strong>Informe Gerencial de Balance Final del Año Lectivo</strong>. Este documento consolida el rendimiento anual definitivo acumulado en los 3 periodos académicos, determinando la promoción institucional y los planes de habilitación final."}
+              "Presento el <strong>Consolidado de Acompañamiento y Alerta Temprana del Periodo 2</strong>. Habiendo recorrido dos etapas del año, nuestro propósito es tender puentes a tiempo: identificar con precisión y cariño pedagógico a los jóvenes que requieren apoyo adicional para que alcancen sus metas antes del cierre lectivo." :
+              "Presento el <strong>Balance de Cierre del Año Lectivo</strong>. Celebramos el esfuerzo, la perseverancia y el crecimiento de cada estudiante a lo largo de los tres periodos, reconociendo a quienes lograron su promoción y disponiendo los planes de nivelación necesarios para quienes aún están en camino."}
           </p>
         </div>
 
@@ -1545,7 +1589,7 @@ export function printExecutiveReport(
           </div>
           <div class="bento-card" style="border-color: #fecaca; background: #fff5f5;">
             <div class="bento-val" style="color: #dc2626;">${failRate}%</div>
-            <div class="bento-label">Tasa de Pérdida</div>
+            <div class="bento-label">En Nivelación / Apoyo</div>
           </div>
           <div class="bento-card">
             <div class="bento-val" style="color: #2563eb;">${globalAvg}</div>
@@ -1555,7 +1599,7 @@ export function printExecutiveReport(
 
         <!-- RENDIMIENTO POR SABIDURÍAS INSTITUCIONALES AWÁ -->
         <div class="sabiduria-section avoid-break">
-          <div class="section-title">Consolidado por Sabidurías (Dimensiones Etnoeducativas)</div>
+          <div class="section-title">Valoración de Sabidurías (Dimensiones del Ser y Aprender Awá)</div>
           <div class="sabiduria-grid">
             <div class="sab-item">
               <div class="sab-val" style="color: ${sabidurias.sb.color}">${sabidurias.sb.count > 0 ? (sabidurias.sb.sum / sabidurias.sb.count).toFixed(2) : "—"}</div>
@@ -1587,7 +1631,7 @@ export function printExecutiveReport(
 
         <!-- MATRIZ COMPARATIVA DESAGREGADA POR GRADO Y MATERIA -->
         <div class="avoid-break" style="margin-top: 20px;">
-          <div class="section-title" style="margin-bottom: 6px;">Matriz Analítica por Asignatura y Grado (Individualizada)</div>
+          <div class="section-title" style="margin-bottom: 6px;">Compendio Detallado por Asignatura y Curso</div>
           <table class="matrix-table">
             <thead>
               <tr>
@@ -1595,10 +1639,10 @@ export function printExecutiveReport(
                 <th style="width: 22%; text-align: left;">Materia / Asignatura</th>
                 <th style="width: 9%;">Evaluados</th>
                 <th style="width: 9%;">Aprobados</th>
-                <th style="width: 9%;">Reprobados</th>
+                <th style="width: 9%;">En Apoyo</th>
                 <th style="width: 13%;">% Aprobación</th>
                 <th style="width: 10%;">Promedio</th>
-                <th style="width: 14%;">Nivel Ausentismo</th>
+                <th style="width: 14%;">Asistencia</th>
               </tr>
             </thead>
             <tbody>
@@ -1645,10 +1689,10 @@ export function printExecutiveReport(
         <!-- MÓDULO EXCLUSIVO P2: ALERTA TEMPRANA & PROYECCIÓN ANUAL (SIEEE) -->
         <div class="avoid-break" style="margin-top: 25px; background: #fff; border: 2px solid #fde047; border-radius: 18px; padding: 18px 22px;">
           <div class="section-title" style="color: #854d0e;">
-            ⚠️ Semáforo de Alerta Temprana & Proyección de Cierre de Año (P2 → P3)
+            🌱 Plan de Acompañamiento Temprano & Proyección de Cierre de Año
           </div>
-          <p style="font-size: 9.5px; color: #64748b; margin: 4px 0 12px 0;">
-            Estudiantes identificados en zona de riesgo que requieren plan de acompañamiento y nivelación inmediata para salvar el año escolar (Meta acumulada anual: 9.0 puntos en 3 periodos).
+          <p style="font-size: 10px; color: #64748b; margin: 4px 0 12px 0;">
+            Estudiantes priorizados para refuerzo pedagógico oportuno. Con un esfuerzo conjunto entre docente, familia y estudiante, aseguraremos su éxito al culminar el tercer periodo.
           </p>
 
           ${projectionAlerts.length > 0 ? `
@@ -1660,7 +1704,7 @@ export function printExecutiveReport(
                 <th style="width: 10%;">Nota P1</th>
                 <th style="width: 10%;">Nota P2</th>
                 <th style="width: 12%;">Acumulado</th>
-                <th style="width: 22%;">Requisito en Periodo 3</th>
+                <th style="width: 22%;">Meta para Periodo 3</th>
               </tr>
             </thead>
             <tbody>
@@ -1684,7 +1728,7 @@ export function printExecutiveReport(
           </table>
           ` : `
           <div style="text-align: center; padding: 15px; color: #166534; background: #f0fdf4; border-radius: 10px; font-weight: 700; font-size: 10.5px;">
-            ✅ Excelente noticia: Ningún estudiante se encuentra en riesgo crítico de perder el año en este grupo.
+            🌟 ¡Excelente trabajo en comunidad! Todos los estudiantes se encuentran en proyección favorable para superar sus metas de año.
           </div>
           `}
         </div>
@@ -1703,7 +1747,7 @@ export function printExecutiveReport(
                 <th style="width: 8%;">P2</th>
                 <th style="width: 8%;">P3</th>
                 <th style="width: 12%;">Definitiva Año</th>
-                <th style="width: 14%;">Dictamen SIEEE</th>
+                <th style="width: 14%;">Estatus Final</th>
               </tr>
             </thead>
             <tbody>
@@ -1729,12 +1773,12 @@ export function printExecutiveReport(
         </div>
         ` : ''}
 
-        <div class="saludo avoid-break" style="background: #f8fafc; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
-          <p style="margin: 0; color: #0f172a; font-size: 10px;"><strong>Observaciones y Compromisos Pedagógicos:</strong></p>
-          <ul style="margin: 4px 0 0 0; font-size: 9px; color: #475569; padding-left: 16px; line-height: 1.5;">
-            <li>El informe desagregado garantiza visibilidad exacta de cada curso sin sesgos por unificación de asignaturas.</li>
-            <li>En los casos de ausentismo moderado o crítico se activan los protocolos de acompañamiento etnoeducativo.</li>
-            <li>Las valoraciones reflejan el diálogo permanente entre el conocimiento teórico y el aprendizaje vivencial en el territorio Awá.</li>
+        <div class="saludo avoid-break" style="background: #f8fafc; padding: 14px 18px; border-radius: 14px; border: 1px solid #e2e8f0; margin-top: 15px;">
+          <p style="margin: 0; color: #0f172a; font-size: 10.5px;"><strong>Reflexión y Compromisos para el Aprendizaje:</strong></p>
+          <ul style="margin: 6px 0 0 0; font-size: 9.5px; color: #475569; padding-left: 18px; line-height: 1.6;">
+            <li>Cada calificación es una oportunidad viva para reconocer el esfuerzo individual y guiar a cada estudiante con paciencia y constancia.</li>
+            <li>En los casos donde se requiere mayor acompañamiento, convocaremos a los padres y acudientes en minga de diálogo pedagógico.</li>
+            <li>Continuaremos entrelazando el saber teórico con la práctica agroambiental y el fortalecimiento de la identidad de nuestro pueblo Awá.</li>
           </ul>
         </div>
       </div>
@@ -1763,7 +1807,7 @@ export function printExecutiveReport(
                 <th style="width: 40%; text-align: left;">NOMBRES Y APELLIDOS</th>
                 <th style="width: 15%;">DEFINITIVA</th>
                 <th style="width: 15%;">NIVELACIÓN</th>
-                <th style="width: 25%;">ESTADO / OBSERVACIÓN</th>
+                <th style="width: 25%;">ESTADO PEDAGÓGICO</th>
               </tr>
             </thead>
             <tbody>
@@ -1779,12 +1823,12 @@ export function printExecutiveReport(
               obs = "Superó los objetivos";
               badgeClass = "bg-green";
             } else {
-              obs = "Asistió sin aprobar";
+              obs = "Asistió en proceso de nivelación";
               badgeClass = "bg-yellow";
             }
           } else {
             if (Number(g.parcial.toFixed(1)) < 3.0) {
-              obs = "Requiere acompañamiento";
+              obs = "Requiere plan de acompañamiento";
               badgeClass = "bg-red";
             }
           }
@@ -1832,34 +1876,64 @@ export function printExecutiveReport(
 }
 
 
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 2. SUITE DE ANALÍTICA BI & INTELIGENCIA PEDAGÓGICA AVANZADA (FULL VECTORIAL)
+// ═════════════════════════════════════════════════════════════════════════════
+
 export function printAnalyticsReport(
   students: any[],
   teacherProfile: any,
   masterData: any
 ) {
-  const activePeriod = masterData.activePeriod || "p2";
+  const activePeriod = (masterData.activePeriod || "p2").toLowerCase();
   const pName = activePeriod.toUpperCase();
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
-  const baseUrl = window.location.origin;
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
-  // -- DATA CRUNCHING --
+  // -- CRUNCHING DE BIG DATA PEDAGÓGICO --
   let totalGrades = 0;
   let sumGrades = 0;
   
   const genderStats = { M: { count: 0, sum: 0 }, F: { count: 0, sum: 0 } };
-  
-  // For Honor Roll
   const studentAverages = new Map<string, { st: any, totalDef: number, count: number }>();
   
-  // For Grade Distribution per Grade
-  // grade -> { high: 0, basic: 0, low: 0 }
-  const gradeDistribution: Record<string, { high: 0, basic: 0, low: 0 }> = {};
+  // Desglose Exhaustivo por Grado y Materia
+  const detailedCourseSubjectBI: Record<string, {
+    key: string;
+    grado: string;
+    curso: string;
+    subject: string;
+    total: number;
+    superior: number;  // 4.6 - 5.0
+    alto: number;      // 4.0 - 4.5
+    basico: number;    // 3.0 - 3.9
+    bajo: number;      // 1.0 - 2.9
+    scoreSum: number;
+    absences: number;
+    attendanceEvents: number;
+    femaleCount: number;
+    maleCount: number;
+    femaleSum: number;
+    maleSum: number;
+    aiInsight: string;
+  }> = {};
 
   students.forEach(st => {
     if (st.isActive === false) return;
-    const g = st.grado;
-    if (!gradeDistribution[g]) gradeDistribution[g] = { high: 0, basic: 0, low: 0 };
-    
+    const g = normalizeGrade(st.grado || "SIN GRADO");
+    const c = (st.curso || "1").toString().trim();
+    const gCourse = `${g}-${c}`;
+
+    let stAbsences = 0;
+    let stEvents = 0;
+    if (st.attendanceRecord) {
+      const records = Object.values(st.attendanceRecord);
+      stEvents = records.length;
+      stAbsences = records.filter(v => v === 'absent').length;
+    }
+
+    const gen = st.genero?.toUpperCase().startsWith('F') ? 'F' : 'M';
     let stDefSum = 0;
     let stDefCount = 0;
 
@@ -1867,28 +1941,58 @@ export function printAnalyticsReport(
       Object.keys(st.detailedGrades).forEach(subject => {
         const d = st.detailedGrades[subject][activePeriod];
         if (d) {
+          const matrixKey = `${gCourse} · ${subject}`;
+
+          if (!detailedCourseSubjectBI[matrixKey]) {
+            detailedCourseSubjectBI[matrixKey] = {
+              key: matrixKey,
+              grado: g,
+              curso: c,
+              subject: subject,
+              total: 0,
+              superior: 0,
+              alto: 0,
+              basico: 0,
+              bajo: 0,
+              scoreSum: 0,
+              absences: 0,
+              attendanceEvents: 0,
+              femaleCount: 0,
+              maleCount: 0,
+              femaleSum: 0,
+              maleSum: 0,
+              aiInsight: ""
+            };
+          }
+
           const grades = calculatePeriodGrades(d);
           const hasGrades = [d.sb, d.sbh, d.sr, d.cv, d.aut].some(arr => 
             Array.isArray(arr) ? arr.some(x => x !== null) : arr !== null
           );
-          
+
           if (hasGrades) {
             const def = Number(grades.definitiva.toFixed(1));
             totalGrades++;
             sumGrades += def;
-            
             stDefSum += def;
             stDefCount++;
 
-            // Gender mapping (assume 'M'/'F' or 'Masculino'/'Femenino')
-            const gen = st.genero?.toUpperCase().startsWith('F') ? 'F' : 'M';
             genderStats[gen].count++;
             genderStats[gen].sum += def;
-            
-            // Distribution
-            if (def >= 4.0) gradeDistribution[g].high++;
-            else if (def >= 3.0) gradeDistribution[g].basic++;
-            else gradeDistribution[g].low++;
+
+            const bItem = detailedCourseSubjectBI[matrixKey];
+            bItem.total++;
+            bItem.scoreSum += def;
+            bItem.absences += stAbsences;
+            bItem.attendanceEvents += (stEvents || 1);
+
+            if (gen === 'F') { bItem.femaleCount++; bItem.femaleSum += def; }
+            else { bItem.maleCount++; bItem.maleSum += def; }
+
+            if (def >= 4.6) bItem.superior++;
+            else if (def >= 4.0) bItem.alto++;
+            else if (def >= 3.0) bItem.basico++;
+            else bItem.bajo++;
           }
         }
       });
@@ -1903,13 +2007,32 @@ export function printAnalyticsReport(
   const avgM = genderStats.M.count > 0 ? (genderStats.M.sum / genderStats.M.count).toFixed(2) : "0.00";
   const avgF = genderStats.F.count > 0 ? (genderStats.F.sum / genderStats.F.count).toFixed(2) : "0.00";
 
-  // Top 10 Honor Roll
+  // Generación de Síntesis Pedagógica con IA (Humanizada para cada curso)
+  Object.keys(detailedCourseSubjectBI).forEach(k => {
+    const item = detailedCourseSubjectBI[k];
+    if (item.total === 0) return;
+    const avg = Number((item.scoreSum / item.total).toFixed(2));
+    const passPercent = Math.round(((item.superior + item.alto + item.basico) / item.total) * 100);
+    const absRate = item.attendanceEvents > 0 ? Math.round((item.absences / item.attendanceEvents) * 100) : 0;
+
+    let insight = "";
+    if (passPercent >= 85) {
+      insight = `🌟 Grupo con excelente apropiación conceptual y vivencial. El ${passPercent}% de los estudiantes avanza con solidez. Se recomienda incentivar proyectos de profundización.`;
+    } else if (passPercent >= 65) {
+      insight = `📘 Curso en evolución positiva con un promedio de ${avg}. Es oportuno fortalecer el acompañamiento grupal para impulsar al ${100 - passPercent}% que requiere apoyo.`;
+    } else {
+      insight = `🎯 Grupo prioritario para intervención pedagógica y diálogo con familias. El ${100 - passPercent}% presenta dificultades vinculadas a inasistencias (${absRate}%). Se sugiere activar talleres prácticos.`;
+    }
+    item.aiInsight = insight;
+  });
+
+  // Top 10 Cuadro de Honor
   const honorRoll = Array.from(studentAverages.values())
     .map(data => ({
       st: data.st,
       avg: Number((data.totalDef / data.count).toFixed(2))
     }))
-    .filter(item => item.avg >= 3.5) // Only decent grades make it to honor roll
+    .filter(item => item.avg >= 3.5)
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 10);
 
@@ -1918,168 +2041,391 @@ export function printAnalyticsReport(
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>ANALÍTICA SOCIODEMOGRÁFICA - ${teacherProfile.name}</title>
+      <title>SUITE DE INTELIGENCIA PEDAGÓGICA (BI) - ${teacherProfile.name}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
         @media print {
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; background: #fff !important; }
           .page-break-before { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
-          @page { margin: 1cm; size: letter; }
+          .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
+          @page { margin: 1.2cm; size: letter; }
         }
 
-        body { font-family: 'Inter', sans-serif; color: #334155; line-height: 1.6; margin: 0; padding: 20px 40px; background: #f8fafc; }
-        .print-container { max-width: 900px; margin: 0 auto; background: white; padding: 40px 60px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.03); }
-        .print-container.borderless { border-radius: 0; box-shadow: none; padding-top: 20px; }
+        body {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: #1e293b;
+          line-height: 1.5;
+          margin: 0;
+          padding: 20px;
+          background: #f8fafc;
+        }
 
-        .header-institucional { text-align: center; margin-bottom: 40px; position: relative; }
-        .header-institucional h1 { font-weight: 900; font-size: 14px; margin: 0; color: #0f172a; letter-spacing: -0.02em; }
-        .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 6px 0; color: #1e293b; }
-        .header-institucional p { font-size: 10px; margin: 2px 0; color: #64748b; }
-        
-        .saludo { margin-top: 24px; font-size: 12px; text-align: justify; color: #334155; font-weight: 400; }
-        
-        /* Modern BI Layout */
-        .bi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 30px 0; }
-        .bi-card { background: #ffffff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-        .bi-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-        .bi-title::before { content: ''; display: block; width: 4px; height: 14px; background: #8b5cf6; border-radius: 4px; }
-        
-        /* Gender Bar */
-        .gender-bar-container { display: flex; flex-direction: column; gap: 12px; }
-        .gender-row { display: flex; align-items: center; gap: 12px; }
-        .gender-label { width: 40px; font-size: 10px; font-weight: 800; color: #0f172a; }
-        .gender-track { flex: 1; height: 12px; background: #f1f5f9; border-radius: 6px; overflow: hidden; position: relative; }
-        .gender-fill.f { background: linear-gradient(90deg, #c084fc, #9333ea); }
-        .gender-fill.m { background: linear-gradient(90deg, #38bdf8, #0284c7); }
-        .gender-val { font-size: 11px; font-weight: 800; color: #0f172a; width: 30px; text-align: right; }
-        
-        /* Honor Roll Table */
-        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; margin-bottom: 20px; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
-        th, td { padding: 8px 12px; text-align: center; border-bottom: 1px solid #f1f5f9; }
-        th { background: #f8fafc; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0; }
-        td.text-left { text-align: left; font-weight: 500; color: #1e293b; }
-        
-        /* Distribution Grid */
-        .dist-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; border-bottom: 1px solid #f1f5f9; padding: 8px 0; font-size: 10px; }
-        .dist-header { font-weight: 800; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-        .dist-cell { text-align: center; font-weight: 600; }
-        .dist-label { text-align: left; font-weight: 800; color: #0f172a; }
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; color: #fff; }
+        .action-bar-top {
+          position: sticky;
+          top: 10px;
+          z-index: 9999;
+          max-width: 920px;
+          margin: 0 auto 20px auto;
+          background: #042f2e;
+          color: #ccfbf1;
+          padding: 12px 24px;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 10px 25px rgba(4,47,46,0.3);
+          border: 1px solid #14b8a6;
+        }
+        .btn-print-bi {
+          background: #0d9488;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 12px;
+          font-weight: 800;
+          font-size: 11px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          transition: transform 0.2s, background 0.2s;
+        }
+        .btn-print-bi:hover { background: #0f766e; transform: scale(1.02); }
 
-        .firma { margin-top: 80px; text-align: center; width: 300px; margin-left: auto; margin-right: auto; }
-        .firma-line { border-bottom: 1px solid #cbd5e1; margin-bottom: 8px; }
+        .print-container {
+          max-width: 920px;
+          margin: 0 auto;
+          background: white;
+          padding: 40px 50px;
+          border-radius: 24px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        }
+
+        .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
+        .header-institucional h1 { font-weight: 900; font-size: 13.5px; margin: 0; color: #0f172a; }
+        .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #0d9488; }
+        .header-institucional p { font-size: 9.5px; margin: 1px 0; color: #64748b; }
+        
+        .report-badge {
+          display: inline-block;
+          background: #f0fdfa;
+          color: #0d9488;
+          border: 1px solid #99f6e4;
+          font-size: 9px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          padding: 4px 12px;
+          border-radius: 20px;
+          margin-top: 8px;
+        }
+
+        .section-title {
+          font-size: 11.5px;
+          font-weight: 800;
+          color: #0f172a;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .section-title::before {
+          content: '';
+          display: inline-block;
+          width: 4px;
+          height: 14px;
+          background: #0d9488;
+          border-radius: 2px;
+        }
+
+        .bi-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0; }
+        .bi-kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 18px; padding: 18px; text-align: center; }
+        .bi-kpi-card.teal { background: linear-gradient(145deg, #f0fdfa, #ccfbf1); border-color: #5eead4; }
+        
+        /* Vector Gender Bars */
+        .gender-box {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          padding: 18px 22px;
+          margin: 20px 0;
+        }
+        .gender-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+        .gender-label { width: 75px; font-size: 10px; font-weight: 800; color: #0f172a; }
+        .gender-track { flex: 1; height: 14px; background: #f1f5f9; border-radius: 8px; overflow: hidden; display: flex; }
+        .gender-fill-f { background: linear-gradient(90deg, #ec4899, #db2777); }
+        .gender-fill-m { background: linear-gradient(90deg, #0ea5e9, #0284c7); }
+        .gender-val { font-size: 11px; font-weight: 900; color: #0f172a; width: 45px; text-align: right; }
+
+        /* Course Compendium Card */
+        .course-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 20px 24px;
+          margin-bottom: 20px;
+        }
+        .course-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 12px;
+          margin-bottom: 14px;
+        }
+        .course-tag {
+          background: #0f172a;
+          color: white;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-weight: 800;
+          font-size: 10px;
+        }
+        .course-subject {
+          font-size: 12px;
+          font-weight: 900;
+          color: #0f172a;
+          margin-left: 8px;
+        }
+        .course-avg {
+          font-size: 16px;
+          font-weight: 900;
+          color: #0d9488;
+        }
+
+        /* Distribution Vector Bar */
+        .dist-stacked-bar {
+          width: 100%;
+          height: 18px;
+          background: #f1f5f9;
+          border-radius: 999px;
+          display: flex;
+          overflow: hidden;
+          margin: 10px 0;
+        }
+        .dist-segment {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          font-weight: 900;
+          color: white;
+        }
+        .dist-legend {
+          display: flex;
+          gap: 16px;
+          font-size: 9px;
+          font-weight: 700;
+          color: #64748b;
+          margin-top: 6px;
+        }
+        .dist-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+        .ai-insight-box {
+          background: #f0fdfa;
+          border: 1px solid #ccfbf1;
+          border-radius: 12px;
+          padding: 10px 14px;
+          margin-top: 14px;
+          font-size: 10px;
+          color: #0f766e;
+          line-height: 1.5;
+        }
+
+        .table-honor {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 10px;
+          margin-top: 10px;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+        }
+        .table-honor th {
+          background: #f8fafc;
+          font-weight: 800;
+          color: #334155;
+          text-transform: uppercase;
+          font-size: 8.5px;
+          padding: 8px 10px;
+          border-bottom: 2px solid #e2e8f0;
+        }
+        .table-honor td {
+          padding: 8px 10px;
+          text-align: center;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .table-honor td.text-left { text-align: left; font-weight: 600; color: #1e293b; }
+
+        .firma { margin-top: 50px; text-align: center; width: 280px; margin-left: auto; margin-right: auto; }
+        .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 6px; }
       </style>
     </head>
     <body>
+      <div class="action-bar-top no-print">
+        <div style="font-weight: 800; font-size: 12px; letter-spacing: 0.05em;">
+          📊 Suite de Inteligencia Académica BI · IETABA
+        </div>
+        <button onclick="window.print()" class="btn-print-bi">
+          🖨️ Imprimir / Guardar en PDF
+        </button>
+      </div>
+
       <div class="print-container">
-        <!-- HEADER -->
+        <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 50px; height: auto; position: absolute; left: 0; top: 0;" onerror="this.style.display='none'">
+          <img src="${baseUrl}/logo.png" style="width: 48px; height: auto; position: absolute; left: 0; top: 0;" onerror="this.style.display='none'">
           <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
-          <p><strong>ANALÍTICA SOCIODEMOGRÁFICA Y PEDAGÓGICA (BI)</strong></p>
-          <p><i>Periodo Académico: ${pName} | Generado el ${dateStr}</i></p>
+          <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
+          <div class="report-badge">SUITE DE INTELIGENCIA ACADÉMICA & ANALÍTICA DE DESEMPEÑO (BI)</div>
         </div>
 
         <div class="saludo">
-          <p>El presente informe de <strong>Inteligencia de Datos (BI)</strong> ofrece un análisis multidimensional del desempeño académico cruzado con variables sociodemográficas. El objetivo de este reporte avanzado, diseñado con estándares de las principales plataformas educativas globales, es visualizar las brechas de rendimiento, identificar patrones de éxito y evaluar la distribución de competencias por grado.</p>
+          <p>Estimados directivos y equipo docente,</p>
+          <p>
+            Presentamos la <strong>Radiografía Integral de Inteligencia Pedagógica del Periodo ${pName}</strong>. Este compendio transforma los registros de evaluación en reflexiones cualitativas y cuantitativas profundas por cada grado y asignatura, identificando las fortalezas grupales y orientando con calidez las acciones de mejoramiento continuo.
+          </p>
         </div>
 
-        <div class="bi-grid">
-          <!-- METRIC 1: Promedio Global -->
-          <div class="bi-card" style="text-align: center; display: flex; flex-direction: column; justify-content: center; background: linear-gradient(145deg, #f0f9ff, #e0f2fe); border-color: #bae6fd;">
-            <div style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Promedio Académico Global</div>
-            <div style="font-size: 48px; font-weight: 900; color: #0f172a; line-height: 1;">${globalAvg}</div>
-            <div style="font-size: 10px; color: #475569; margin-top: 8px;">Basado en ${totalGrades} calificaciones consolidadas</div>
+        <!-- KPI BENTO -->
+        <div class="bi-kpi-grid">
+          <div class="bi-kpi-card teal">
+            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #0f766e; letter-spacing: 0.05em;">Promedio Institucional</div>
+            <div style="font-size: 36px; font-weight: 900; color: #0f172a; margin: 4px 0;">${globalAvg}</div>
+            <div style="font-size: 9.5px; color: #0d9488; font-weight: 600;">${totalGrades} evaluaciones consolidadas</div>
           </div>
+          <div class="bi-kpi-card">
+            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Población Estudiantil</div>
+            <div style="font-size: 36px; font-weight: 900; color: #0f172a; margin: 4px 0;">${studentAverages.size}</div>
+            <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Estudiantes activos en seguimiento</div>
+          </div>
+          <div class="bi-kpi-card">
+            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Materias / Cursos</div>
+            <div style="font-size: 36px; font-weight: 900; color: #0f172a; margin: 4px 0;">${Object.keys(detailedCourseSubjectBI).length}</div>
+            <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Grupos analizados individualmente</div>
+          </div>
+        </div>
 
-          <!-- METRIC 2: Productividad por Género -->
-          <div class="bi-card">
-            <div class="bi-title">Productividad por Género</div>
-            <p style="font-size: 9px; color: #64748b; margin-top: -10px; margin-bottom: 16px;">Análisis de equidad y rendimiento segmentado.</p>
-            <div class="gender-bar-container">
-              <div class="gender-row">
-                <div class="gender-label">Mujeres</div>
-                <div class="gender-track">
-                  <div class="gender-fill f" style="width: ${Math.min(100, (Number(avgF)/5)*100)}%; height: 100%;"></div>
-                </div>
-                <div class="gender-val">${avgF}</div>
-              </div>
-              <div class="gender-row">
-                <div class="gender-label">Hombres</div>
-                <div class="gender-track">
-                  <div class="gender-fill m" style="width: ${Math.min(100, (Number(avgM)/5)*100)}%; height: 100%;"></div>
-                </div>
-                <div class="gender-val">${avgM}</div>
-              </div>
+        <!-- PRODUCTIVIDAD Y EQUIDAD DE GÉNERO -->
+        <div class="gender-box avoid-break">
+          <div class="section-title">Equidad y Rendimiento por Género</div>
+          <p style="font-size: 10px; color: #64748b; margin: 4px 0 10px 0;">Comparativo de promedios para garantizar igualdad de oportunidades y acompañamiento equilibrado.</p>
+          
+          <div class="gender-row">
+            <div class="gender-label">👧 Mujeres</div>
+            <div class="gender-track">
+              <div class="gender-fill-f" style="width: ${Math.min(100, (Number(avgF)/5)*100)}%;"></div>
             </div>
+            <div class="gender-val" style="color: #db2777;">${avgF}</div>
           </div>
 
-          <!-- METRIC 3: Cuadro de Honor -->
-          <div class="bi-card" style="grid-column: span 2;">
-            <div class="bi-title" style="color: #059669;">Cuadro de Honor - Top Rendimiento</div>
-            <table>
-              <thead>
+          <div class="gender-row">
+            <div class="gender-label">👦 Hombres</div>
+            <div class="gender-track">
+              <div class="gender-fill-m" style="width: ${Math.min(100, (Number(avgM)/5)*100)}%;"></div>
+            </div>
+            <div class="gender-val" style="color: #0284c7;">${avgM}</div>
+          </div>
+        </div>
+
+        <!-- CUADRO DE HONOR -->
+        <div class="avoid-break" style="margin-top: 25px;">
+          <div class="section-title" style="color: #b45309;">🏆 Cuadro de Honor y Excelencia Pedagógica</div>
+          <table class="table-honor">
+            <thead>
+              <tr>
+                <th style="width: 8%;">Puesto</th>
+                <th style="width: 45%; text-align: left;">Estudiante</th>
+                <th style="width: 25%;">Grado / Curso</th>
+                <th style="width: 22%;">Promedio Periodo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${honorRoll.map((h, i) => `
                 <tr>
-                  <th style="width: 5%;">Rank</th>
-                  <th style="text-align: left;">Estudiante</th>
-                  <th>Grado</th>
-                  <th>Promedio Periodo</th>
+                  <td><strong style="color: ${i===0 ? '#eab308' : i===1 ? '#94a3b8' : i===2 ? '#b45309' : '#64748b'}; font-size: 11px;">#${i+1}</strong></td>
+                  <td class="text-left">${h.st.primerApellido} ${h.st.segundoApellido || ''} ${h.st.primerNombre}</td>
+                  <td>${h.st.grado}-${h.st.curso || '1'}</td>
+                  <td><strong style="color: #0d9488; font-size: 11px;">${h.avg.toFixed(2)}</strong></td>
                 </tr>
-              </thead>
-              <tbody>
-                ${honorRoll.map((h, i) => `
-                  <tr>
-                    <td><strong style="color: ${i===0 ? '#eab308' : '#64748b'}">#${i+1}</strong></td>
-                    <td class="text-left">${h.st.primerApellido} ${h.st.segundoApellido || ''} ${h.st.primerNombre}</td>
-                    <td>${h.st.grado}</td>
-                    <td><strong style="color: #0f172a;">${h.avg.toFixed(2)}</strong></td>
-                  </tr>
-                `).join('') || '<tr><td colspan="4">No hay datos suficientes</td></tr>'}
-              </tbody>
-            </table>
-          </div>
+              `).join('') || '<tr><td colspan="4">No hay datos de honor disponibles</td></tr>'}
+            </tbody>
+          </table>
+        </div>
 
-          <!-- METRIC 4: Distribución por Grado -->
-          <div class="bi-card avoid-break" style="grid-column: span 2;">
-            <div class="bi-title">Distribución de Competencias por Grado</div>
-            <p style="font-size: 10px; color: #64748b; margin-top: -10px; margin-bottom: 16px;">Volumen de notas en niveles de desempeño (Bajo, Básico, Alto/Superior).</p>
-            
-            <div class="dist-row dist-header">
-              <div class="dist-label">Grado</div>
-              <div class="dist-cell">Alto/Sup (4.0 - 5.0)</div>
-              <div class="dist-cell">Básico (3.0 - 3.9)</div>
-              <div class="dist-cell">Bajo (1.0 - 2.9)</div>
-            </div>
-            
-            ${Object.keys(gradeDistribution).sort().map(g => {
-              const d = gradeDistribution[g];
-              const total = d.high + d.basic + d.low;
-              if(total === 0) return '';
-              
-              const pHigh = Math.round((d.high/total)*100);
-              const pBasic = Math.round((d.basic/total)*100);
-              const pLow = Math.round((d.low/total)*100);
+        <!-- COMPENDIO DETALLADO CURSO POR CURSO CON IA PEDAGÓGICA -->
+        <div style="margin-top: 30px;">
+          <div class="section-title" style="margin-bottom: 14px;">Compendio Analítico Desagregado por Grado y Asignatura</div>
 
-              return `
-              <div class="dist-row">
-                <div class="dist-label">${g}</div>
-                <div class="dist-cell"><span style="color: #059669;">${d.high} (${pHigh}%)</span></div>
-                <div class="dist-cell"><span style="color: #ca8a04;">${d.basic} (${pBasic}%)</span></div>
-                <div class="dist-cell"><span style="color: #dc2626;">${d.low} (${pLow}%)</span></div>
+          ${Object.keys(detailedCourseSubjectBI).sort().map(k => {
+            const item = detailedCourseSubjectBI[k];
+            if (item.total === 0) return '';
+            const avg = (item.scoreSum / item.total).toFixed(2);
+            const pSup = Math.round((item.superior / item.total) * 100);
+            const pAlt = Math.round((item.alto / item.total) * 100);
+            const pBas = Math.round((item.basico / item.total) * 100);
+            const pBaj = Math.round((item.bajo / item.total) * 100);
+
+            return `
+            <div class="course-card avoid-break">
+              <div class="course-header">
+                <div style="display: flex; align-items: center;">
+                  <span class="course-tag">${item.grado}-${item.curso}</span>
+                  <span class="course-subject">${item.subject}</span>
+                </div>
+                <div>
+                  <span style="font-size: 10px; font-weight: 700; color: #64748b; margin-right: 6px;">Promedio:</span>
+                  <span class="course-avg">${avg}</span>
+                </div>
               </div>
-              `;
-            }).join('')}
-          </div>
+
+              <div style="font-size: 9.5px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+                Distribución de Desempeño (${item.total} Estudiantes):
+              </div>
+
+              <!-- Barra de Distribución Vectorial -->
+              <div class="dist-stacked-bar">
+                <div class="dist-segment" style="width: ${pSup}%; background: #059669;">${pSup > 5 ? pSup + '%' : ''}</div>
+                <div class="dist-segment" style="width: ${pAlt}%; background: #10b981;">${pAlt > 5 ? pAlt + '%' : ''}</div>
+                <div class="dist-segment" style="width: ${pBas}%; background: #f59e0b;">${pBas > 5 ? pBas + '%' : ''}</div>
+                <div class="dist-segment" style="width: ${pBaj}%; background: #ef4444;">${pBaj > 5 ? pBaj + '%' : ''}</div>
+              </div>
+
+              <div class="dist-legend">
+                <span><span class="dist-dot" style="background:#059669;"></span> Superior: ${item.superior} (${pSup}%)</span>
+                <span><span class="dist-dot" style="background:#10b981;"></span> Alto: ${item.alto} (${pAlt}%)</span>
+                <span><span class="dist-dot" style="background:#f59e0b;"></span> Básico: ${item.basico} (${pBas}%)</span>
+                <span><span class="dist-dot" style="background:#ef4444;"></span> Bajo: ${item.bajo} (${pBaj}%)</span>
+              </div>
+
+              <!-- Síntesis con IA Humanizada -->
+              <div class="ai-insight-box">
+                <strong>💡 Orientación Pedagógica del Curso:</strong> ${item.aiInsight}
+              </div>
+            </div>
+            `;
+          }).join('')}
         </div>
 
         <div class="firma avoid-break">
           <div class="firma-line"></div>
-          <div style="font-weight: 800; font-size: 12px; text-transform: uppercase; color: #0f172a;">${teacherProfile.name}</div>
-          <div style="font-size: 10px; color: #64748b; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
+          <div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #0f172a;">${teacherProfile.name}</div>
+          <div style="font-size: 9.5px; color: #0d9488; font-weight: 600;">DOCENTE DE ${masterData.subjects?.join(", ") || "ÁREA"}</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; font-size: 8.5px; color: #94a3b8; line-height: 1.4;">
+          <strong>Por la pervivencia e identidad del Pueblo Awá</strong><br>
+          Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño<br>
+          E-Mail: ietabaawa@yahoo.es
         </div>
       </div>
     </body>
