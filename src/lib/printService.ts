@@ -1872,7 +1872,7 @@ export function printExecutiveReport(
       
       if (targetStudents.length > 0) {
         reportHtml += `
-        <div class="avoid-break" style="margin-top: 16px;">
+        <div class="avoid-break" style="margin-top: 14px;">
           <h3 class="section-title" style="font-size: 10px; margin-bottom: 5px;">CURSO: ${grado} — ASIGNATURA: ${subject}</h3>
           <table class="detail-table">
             <thead>
@@ -1921,6 +1921,17 @@ export function printExecutiveReport(
         reportHtml += `
             </tbody>
           </table>
+        </div>
+        `;
+      } else {
+        reportHtml += `
+        <div class="avoid-break" style="margin-top: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="grade-badge">${grado}</span>
+            <span style="font-size: 9.5px; font-weight: 800; color: #166534;">${subject}</span>
+            <span style="font-size: 8px; color: #15803d;">(${allSubjectStudents.length} estudiantes evaluados)</span>
+          </div>
+          <span class="badge bg-green" style="font-size: 8px;">🌟 100% Aprobación · Sin casos de nivelación</span>
         </div>
         `;
       }
