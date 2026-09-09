@@ -1078,40 +1078,40 @@ export function printExecutiveReport(
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
-  // 1. DATA CRUNCHING MULTIDIMENSIONAL
+  // 1. DATA CRUNCHING MULTIDIMENSIONAL DISGREGADO POR MATERIA Y CURSO
   let totalGrades = 0;
   let passedCount = 0;
   let failedCount = 0;
   let recoveredCount = 0;
   let totalScoreSum = 0;
 
-  // Métricas de Sabidurías / Pilares Awá (Global)
+  // Métricas Globales de Sabidurías Awá
   const sabidurias = {
-    sb: { name: "Saber (Conceptual)", weight: "30%", sum: 0, count: 0, color: "#3b82f6" },
-    sbh: { name: "Saber-Hacer (Práctico / Agroambiental)", weight: "40%", sum: 0, count: 0, color: "#10b981" },
-    sr: { name: "Ser (Identidad Awá / Actitudinal)", weight: "20%", sum: 0, count: 0, color: "#8b5cf6" },
-    cv: { name: "Convivencia Comunitaria", weight: "5%", sum: 0, count: 0, color: "#f59e0b" },
-    aut: { name: "Autoevaluación", weight: "5%", sum: 0, count: 0, color: "#ec4899" }
+    sb: { name: "Saber (Conceptual)", weight: "30%", sum: 0, count: 0, color: "#2563eb" },
+    sbh: { name: "Saber-Hacer (Práctico / Agroambiental)", weight: "40%", sum: 0, count: 0, color: "#059669" },
+    sr: { name: "Ser (Identidad Awá / Actitudinal)", weight: "20%", sum: 0, count: 0, color: "#7c3aed" },
+    cv: { name: "Convivencia Comunitaria", weight: "5%", sum: 0, count: 0, color: "#d97706" },
+    aut: { name: "Autoevaluación", weight: "5%", sum: 0, count: 0, color: "#db2777" }
   };
 
-  // Métricas y Desempeño por Grado
-  const gradeAnalytics: Record<string, {
+  // MATRIZ DESAGREGADA: Grado + Curso + Asignatura
+  const courseSubjectAnalytics: Record<string, {
+    key: string;
     grado: string;
+    curso: string;
+    subject: string;
     totalEvaluated: number;
     passed: number;
     failed: number;
     recovery: number;
     scoreSum: number;
+    totalAttendanceEvents: number;
     totalAbsences: number;
-    studentCount: number;
-    sbSum: number; sbCount: number;
-    sbhSum: number; sbhCount: number;
-    srSum: number; srCount: number;
+    studentsList: any[];
   }> = {};
 
   const groups: Record<string, Record<string, any[]>> = {};
 
-  // Auxiliar para promediar arrays
   const getAvg = (vals: (number | null)[] | null | undefined): number | null => {
     if (!vals) return null;
     const valid = (vals as (number | null)[]).filter((v): v is number => v !== null && v !== undefined);
@@ -1121,35 +1121,41 @@ export function printExecutiveReport(
   students.forEach(st => {
     if (st.isActive === false) return;
     const g = normalizeGrade(st.grado || "SIN GRADO");
-    const gCourse = `${g}-${st.curso || '1'}`;
+    const c = (st.curso || "1").toString().trim();
+    const gCourse = `${g}-${c}`;
 
-    if (!gradeAnalytics[g]) {
-      gradeAnalytics[g] = {
-        grado: g,
-        totalEvaluated: 0,
-        passed: 0,
-        failed: 0,
-        recovery: 0,
-        scoreSum: 0,
-        totalAbsences: 0,
-        studentCount: 0,
-        sbSum: 0, sbCount: 0,
-        sbhSum: 0, sbhCount: 0,
-        srSum: 0, srCount: 0
-      };
-    }
-    gradeAnalytics[g].studentCount++;
-
-    // Contar ausencias registradas
+    // Calcular eventos de asistencia individuales del estudiante
+    let studentAbsences = 0;
+    let studentTotalDays = 0;
     if (st.attendanceRecord) {
-      const absences = Object.values(st.attendanceRecord).filter(v => v === 'absent').length;
-      gradeAnalytics[g].totalAbsences += absences;
+      const records = Object.values(st.attendanceRecord);
+      studentTotalDays = records.length;
+      studentAbsences = records.filter(v => v === 'absent').length;
     }
 
     if (st.detailedGrades) {
       Object.keys(st.detailedGrades).forEach(subject => {
         const d = st.detailedGrades[subject][activePeriod];
         if (d) {
+          const matrixKey = `${gCourse}__${subject}`;
+
+          if (!courseSubjectAnalytics[matrixKey]) {
+            courseSubjectAnalytics[matrixKey] = {
+              key: matrixKey,
+              grado: g,
+              curso: c,
+              subject: subject,
+              totalEvaluated: 0,
+              passed: 0,
+              failed: 0,
+              recovery: 0,
+              scoreSum: 0,
+              totalAttendanceEvents: 0,
+              totalAbsences: 0,
+              studentsList: []
+            };
+          }
+
           if (!groups[gCourse]) groups[gCourse] = {};
           if (!groups[gCourse][subject]) groups[gCourse][subject] = [];
 
@@ -1163,25 +1169,20 @@ export function printExecutiveReport(
             totalGrades++;
             totalScoreSum += grades.definitiva;
 
-            gradeAnalytics[g].totalEvaluated++;
-            gradeAnalytics[g].scoreSum += grades.definitiva;
+            const item = courseSubjectAnalytics[matrixKey];
+            item.totalEvaluated++;
+            item.scoreSum += grades.definitiva;
+            item.totalAttendanceEvents += (studentTotalDays || 1);
+            item.totalAbsences += studentAbsences;
+            item.studentsList.push({ st, grades });
 
-            // Registrar Sabidurías
+            // Sabidurías Globales
             const sbA = getAvg(d.sb);
-            if (sbA !== null) {
-              sabidurias.sb.sum += sbA; sabidurias.sb.count++;
-              gradeAnalytics[g].sbSum += sbA; gradeAnalytics[g].sbCount++;
-            }
+            if (sbA !== null) { sabidurias.sb.sum += sbA; sabidurias.sb.count++; }
             const sbhA = getAvg(d.sbh);
-            if (sbhA !== null) {
-              sabidurias.sbh.sum += sbhA; sabidurias.sbh.count++;
-              gradeAnalytics[g].sbhSum += sbhA; gradeAnalytics[g].sbhCount++;
-            }
+            if (sbhA !== null) { sabidurias.sbh.sum += sbhA; sabidurias.sbh.count++; }
             const srA = getAvg(d.sr);
-            if (srA !== null) {
-              sabidurias.sr.sum += srA; sabidurias.sr.count++;
-              gradeAnalytics[g].srSum += srA; gradeAnalytics[g].srCount++;
-            }
+            if (srA !== null) { sabidurias.sr.sum += srA; sabidurias.sr.count++; }
             const cvA = getAvg(d.cv);
             if (cvA !== null) { sabidurias.cv.sum += cvA; sabidurias.cv.count++; }
             if (d.aut !== null && d.aut !== undefined) { sabidurias.aut.sum += d.aut; sabidurias.aut.count++; }
@@ -1189,15 +1190,15 @@ export function printExecutiveReport(
             const pRound = Number(grades.definitiva.toFixed(1));
             if (pRound >= 3.0) {
               passedCount++;
-              gradeAnalytics[g].passed++;
+              item.passed++;
             } else {
               failedCount++;
-              gradeAnalytics[g].failed++;
+              item.failed++;
             }
 
             if (grades.rec !== null) {
               recoveredCount++;
-              gradeAnalytics[g].recovery++;
+              item.recovery++;
             }
           }
         }
@@ -1207,15 +1208,29 @@ export function printExecutiveReport(
 
   const passRate = totalGrades > 0 ? Math.round((passedCount / totalGrades) * 100) : 0;
   const failRate = totalGrades > 0 ? Math.round((failedCount / totalGrades) * 100) : 0;
-  const recRate = totalGrades > 0 ? Math.round((recoveredCount / totalGrades) * 100) : 0;
   const globalAvg = totalGrades > 0 ? (totalScoreSum / totalGrades).toFixed(2) : "0.00";
+
+  // Función para determinar el Nivel Cualitativo de Ausentismo
+  const getAusentismoBadge = (absences: number, totalEvents: number) => {
+    if (totalEvents === 0 || absences === 0) {
+      return { label: "Óptimo (0%)", bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
+    }
+    const rate = Math.round((absences / totalEvents) * 100);
+    if (rate <= 5) {
+      return { label: `Bajo (${rate}%)`, bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
+    } else if (rate <= 15) {
+      return { label: `Moderado (${rate}%)`, bg: "#fefce8", color: "#854d0e", border: "#fef08a" };
+    } else {
+      return { label: `Crítico (${rate}%)`, bg: "#fef2f2", color: "#991b1b", border: "#fecaca" };
+    }
+  };
 
   let reportHtml = `
     <!DOCTYPE html>
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>INFORME EJECUTIVO Y ACADÉMICO - ${teacherProfile.name}</title>
+      <title>INFORME GERENCIAL Y ANALÍTICO - ${teacherProfile.name}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
@@ -1251,7 +1266,7 @@ export function printExecutiveReport(
           padding-top: 10px;
         }
 
-        /* Membrete Oficial */
+        /* Membrete */
         .header-institucional { text-align: center; margin-bottom: 25px; position: relative; border-bottom: 2px solid #e2e8f0; padding-bottom: 18px; }
         .header-institucional h1 { font-weight: 900; font-size: 13px; margin: 0; color: #0f172a; letter-spacing: -0.01em; }
         .header-institucional h2 { font-weight: 700; font-size: 11px; margin: 4px 0; color: #1e3a8a; }
@@ -1287,17 +1302,11 @@ export function printExecutiveReport(
           background: #ffffff;
           border: 1px solid #e2e8f0;
           border-radius: 20px;
-          padding: 20px 24px;
+          padding: 18px 22px;
           margin: 20px 0;
         }
-        .section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 14px;
-        }
         .section-title {
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 800;
           color: #0f172a;
           text-transform: uppercase;
@@ -1319,25 +1328,26 @@ export function printExecutiveReport(
           display: grid;
           grid-template-columns: repeat(5, 1fr);
           gap: 10px;
+          margin-top: 12px;
         }
         .sab-item {
           background: #f8fafc;
           border: 1px solid #f1f5f9;
           border-radius: 12px;
-          padding: 12px 10px;
+          padding: 10px 8px;
           text-align: center;
         }
-        .sab-val { font-size: 18px; font-weight: 900; color: #0f172a; }
+        .sab-val { font-size: 17px; font-weight: 900; color: #0f172a; }
         .sab-name { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 2px; line-height: 1.2; }
-        .sab-weight { font-size: 7.5px; font-weight: 800; color: #94a3b8; margin-top: 4px; display: inline-block; background: #fff; padding: 1px 5px; border-radius: 4px; border: 1px solid #e2e8f0; }
+        .sab-weight { font-size: 7.5px; font-weight: 800; color: #94a3b8; margin-top: 3px; display: inline-block; background: #fff; padding: 1px 4px; border-radius: 4px; border: 1px solid #e2e8f0; }
 
-        /* Grade Matrix Table */
+        /* Matriz Desagregada */
         .matrix-table {
           width: 100%;
           border-collapse: separate;
           border-spacing: 0;
-          font-size: 10px;
-          margin: 15px 0 25px 0;
+          font-size: 9.5px;
+          margin: 12px 0 25px 0;
           border-radius: 14px;
           overflow: hidden;
           border: 1px solid #e2e8f0;
@@ -1347,48 +1357,62 @@ export function printExecutiveReport(
           font-weight: 800;
           color: #334155;
           text-transform: uppercase;
-          font-size: 8.5px;
+          font-size: 8px;
           letter-spacing: 0.05em;
-          padding: 10px 8px;
+          padding: 9px 8px;
           border-bottom: 2px solid #cbd5e1;
         }
         .matrix-table td {
-          padding: 9px 8px;
+          padding: 8px;
           text-align: center;
           border-bottom: 1px solid #f1f5f9;
           font-weight: 600;
         }
         .matrix-table tr:last-child td { border-bottom: none; }
+        
         .grade-badge {
           background: #1e293b;
           color: white;
           font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 6px;
-          font-size: 9.5px;
+          padding: 2px 6px;
+          border-radius: 5px;
+          font-size: 9px;
+        }
+        .subject-badge {
+          background: #eff6ff;
+          color: #1e40af;
+          font-weight: 800;
+          padding: 2px 7px;
+          border-radius: 5px;
+          font-size: 8.5px;
+          border: 1px solid #bfdbfe;
         }
 
-        /* Micro Progress Bar */
         .micro-bar {
           width: 100%;
-          height: 8px;
+          height: 7px;
           background: #fee2e2;
           border-radius: 4px;
           overflow: hidden;
           display: flex;
         }
-        .micro-fill {
-          height: 100%;
-          background: #22c55e;
+        .micro-fill { height: 100%; background: #22c55e; }
+
+        .aus-badge {
+          display: inline-block;
+          padding: 2px 7px;
+          border-radius: 5px;
+          font-size: 8.5px;
+          font-weight: 800;
         }
 
-        /* Tables de Dificultades */
+        /* Detail Tables */
         .detail-table {
           width: 100%;
           border-collapse: separate;
           border-spacing: 0;
           font-size: 10px;
-          margin-bottom: 25px;
+          margin-bottom: 22px;
           border-radius: 12px;
           overflow: hidden;
           border: 1px solid #e2e8f0;
@@ -1410,19 +1434,12 @@ export function printExecutiveReport(
         }
         .detail-table td.text-left { text-align: left; font-weight: 600; color: #1e293b; }
 
-        .badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 3px 8px;
-          border-radius: 6px;
-          font-size: 8.5px;
-          font-weight: 700;
-        }
+        .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 8.5px; font-weight: 700; }
         .bg-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .bg-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .bg-yellow { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
 
-        .firma { margin-top: 60px; text-align: center; width: 280px; margin-left: auto; margin-right: auto; }
+        .firma { margin-top: 50px; text-align: center; width: 280px; margin-left: auto; margin-right: auto; }
         .firma-line { border-bottom: 1px solid #94a3b8; margin-bottom: 6px; }
       </style>
     </head>
@@ -1435,7 +1452,7 @@ export function printExecutiveReport(
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
           <p><i>Ambiente – Cultura – Ciencia</i></p>
-          <div class="report-badge">INFORME GERENCIAL ACADÉMICO & ANALÍTICA DE SABIDURÍAS</div>
+          <div class="report-badge">INFORME GERENCIAL ACADÉMICO · GESTIÓN DIRECTIVA & DOCENTE</div>
         </div>
 
         <div class="fecha-dir">
@@ -1446,7 +1463,7 @@ export function printExecutiveReport(
 
         <div class="saludo">
           <p>Cordial saludo institucional,</p>
-          <p>Me dirijo a la comunidad directiva con el fin de presentar el <strong>Informe Gerencial y Académico Consolidado</strong> correspondiente al <strong>periodo ${pName}</strong>. Este reporte sintetiza de forma objetiva y analítica el rendimiento por grado, el índice de ausentismo y el comportamiento en las <strong>Sabidurías del Saber, Saber-Hacer, Ser, Convivencia y Autoevaluación</strong> bajo el enfoque de educación propia Awá.</p>
+          <p>Presento el <strong>Informe Gerencial Académico Desagregado</strong> correspondiente al <strong>periodo ${pName}</strong>. Este reporte ofrece una radiografía cuantitativa y cualitativa individualizada por cada <strong>Grado, Curso y Asignatura</strong>, analizando las tasas de aprobación, la ponderación de las <strong>Sabidurías Institucionales Awá</strong> y el <strong>Nivel de Ausentismo</strong> específico de cada área de enseñanza.</p>
         </div>
 
         <!-- BENTO DASHBOARD GLOBAL -->
@@ -1465,16 +1482,13 @@ export function printExecutiveReport(
           </div>
           <div class="bento-card">
             <div class="bento-val" style="color: #2563eb;">${globalAvg}</div>
-            <div class="bento-label">Promedio Institucional</div>
+            <div class="bento-label">Promedio General</div>
           </div>
         </div>
 
         <!-- RENDIMIENTO POR SABIDURÍAS INSTITUCIONALES AWÁ -->
         <div class="sabiduria-section avoid-break">
-          <div class="section-header">
-            <div class="section-title">Promedio Global por Sabidurías (Dimensiones Pedagógicas)</div>
-            <span style="font-size: 8.5px; font-weight: 700; color: #64748b;">Sistema Institucional de Evaluación Awá</span>
-          </div>
+          <div class="section-title">Consolidado por Sabidurías (Dimensiones Etnoeducativas)</div>
           <div class="sabiduria-grid">
             <div class="sab-item">
               <div class="sab-val" style="color: ${sabidurias.sb.color}">${sabidurias.sb.count > 0 ? (sabidurias.sb.sum / sabidurias.sb.count).toFixed(2) : "—"}</div>
@@ -1504,48 +1518,55 @@ export function printExecutiveReport(
           </div>
         </div>
 
-        <!-- TABLA GERENCIAL COMPARATIVA POR GRADO -->
-        <div class="avoid-break" style="margin-top: 25px;">
-          <div class="section-title" style="margin-bottom: 8px;">Matriz Comparativa de Rendimiento y Ausentismo por Grado</div>
+        <!-- MATRIZ COMPARATIVA DESAGREGADA POR GRADO Y MATERIA -->
+        <div class="avoid-break" style="margin-top: 20px;">
+          <div class="section-title" style="margin-bottom: 6px;">Matriz Analítica por Asignatura y Grado (Sin Unificar)</div>
           <table class="matrix-table">
             <thead>
               <tr>
-                <th style="width: 14%; text-align: left; padding-left: 14px;">Grado</th>
-                <th style="width: 12%;">Evaluados</th>
-                <th style="width: 12%;">Aprobados</th>
-                <th style="width: 12%;">Reprobados</th>
-                <th style="width: 14%;">% Aprobación</th>
-                <th style="width: 14%;">Promedio</th>
-                <th style="width: 10%;">Nivelación</th>
-                <th style="width: 12%;">Inasistencias</th>
+                <th style="width: 14%; text-align: left; padding-left: 10px;">Grado / Curso</th>
+                <th style="width: 22%; text-align: left;">Materia / Asignatura</th>
+                <th style="width: 9%;">Evaluados</th>
+                <th style="width: 9%;">Aprobados</th>
+                <th style="width: 9%;">Reprobados</th>
+                <th style="width: 13%;">% Aprobación</th>
+                <th style="width: 10%;">Promedio</th>
+                <th style="width: 14%;">Nivel Ausentismo</th>
               </tr>
             </thead>
             <tbody>
-              ${Object.keys(gradeAnalytics).sort().map(g => {
-                const data = gradeAnalytics[g];
+              ${Object.keys(courseSubjectAnalytics).sort().map(key => {
+                const data = courseSubjectAnalytics[key];
                 if (data.totalEvaluated === 0) return '';
                 const pRate = Math.round((data.passed / data.totalEvaluated) * 100);
                 const gAvg = (data.scoreSum / data.totalEvaluated).toFixed(2);
+                const ausBadge = getAusentismoBadge(data.totalAbsences, data.totalAttendanceEvents);
                 
                 return `
                   <tr>
-                    <td style="text-align: left; padding-left: 14px;">
-                      <span class="grade-badge">${data.grado}</span>
+                    <td style="text-align: left; padding-left: 10px;">
+                      <span class="grade-badge">${data.grado}-${data.curso}</span>
+                    </td>
+                    <td style="text-align: left;">
+                      <span class="subject-badge">${data.subject}</span>
                     </td>
                     <td>${data.totalEvaluated}</td>
                     <td><strong style="color: #16a34a;">${data.passed}</strong></td>
                     <td><strong style="color: #dc2626;">${data.failed}</strong></td>
                     <td>
-                      <div style="display: flex; align-items: center; gap: 6px;">
+                      <div style="display: flex; align-items: center; gap: 5px;">
                         <div class="micro-bar">
                           <div class="micro-fill" style="width: ${pRate}%;"></div>
                         </div>
-                        <span style="font-size: 8.5px; font-weight: 800;">${pRate}%</span>
+                        <span style="font-size: 8px; font-weight: 800;">${pRate}%</span>
                       </div>
                     </td>
-                    <td><strong style="color: #0f172a; font-size: 11px;">${gAvg}</strong></td>
-                    <td>${data.recovery > 0 ? `<span style="color: #d97706; font-weight: 800;">${data.recovery}</span>` : '<span style="color: #cbd5e1;">0</span>'}</td>
-                    <td><span style="color: ${data.totalAbsences > 5 ? '#dc2626' : '#64748b'}; font-weight: 700;">${data.totalAbsences} faltas</span></td>
+                    <td><strong style="color: #0f172a; font-size: 10.5px;">${gAvg}</strong></td>
+                    <td>
+                      <span class="aus-badge" style="background: ${ausBadge.bg}; color: ${ausBadge.color}; border: 1px solid ${ausBadge.border};">
+                        ${ausBadge.label}
+                      </span>
+                    </td>
                   </tr>
                 `;
               }).join('')}
@@ -1553,12 +1574,12 @@ export function printExecutiveReport(
           </table>
         </div>
 
-        <div class="saludo avoid-break" style="background: #f8fafc; padding: 14px 18px; border-radius: 14px; border: 1px solid #e2e8f0; margin-top: 15px;">
-          <p style="margin: 0; color: #0f172a; font-size: 10.5px;"><strong>Factores de Seguimiento Pedagógico Observados:</strong></p>
-          <ul style="margin: 6px 0 0 0; font-size: 9.5px; color: #475569; padding-left: 18px; line-height: 1.5;">
-            <li>El pilar de <strong>Saber-Hacer</strong> refleja alta destreza en talleres vivenciales y prácticas en el territorio.</li>
-            <li>El ausentismo es el factor directo de mayor correlación con los estudiantes que requieren nivelación.</li>
-            <li>Se recomienda fortalecer la retroalimentación continua y los compromisos pedagógicos con padres de familia.</li>
+        <div class="saludo avoid-break" style="background: #f8fafc; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 10px;">
+          <p style="margin: 0; color: #0f172a; font-size: 10px;"><strong>Gobernanza Pedagógica y Observaciones:</strong></p>
+          <ul style="margin: 4px 0 0 0; font-size: 9px; color: #475569; padding-left: 16px; line-height: 1.5;">
+            <li>El desglose individualizado permite identificar materias con mayor dispersión académica dentro del mismo grado.</li>
+            <li>Los niveles de ausentismo <strong>Críticos</strong> impactan directamente en la necesidad de planes de nivelación.</li>
+            <li>Se prioriza el acompañamiento formativo en las asignaturas con promedios inferiores a 3.5.</li>
           </ul>
         </div>
       </div>
@@ -1579,8 +1600,8 @@ export function printExecutiveReport(
       
       if (targetStudents.length > 0) {
         reportHtml += `
-        <div class="avoid-break" style="margin-top: 20px;">
-          <h3 class="section-title" style="font-size: 11px; margin-bottom: 8px;">CURSO: ${grado} — ASIGNATURA: ${subject}</h3>
+        <div class="avoid-break" style="margin-top: 18px;">
+          <h3 class="section-title" style="font-size: 10.5px; margin-bottom: 6px;">CURSO: ${grado} — ASIGNATURA: ${subject}</h3>
           <table class="detail-table">
             <thead>
               <tr>
