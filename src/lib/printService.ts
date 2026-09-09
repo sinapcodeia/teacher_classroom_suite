@@ -1289,6 +1289,10 @@ export function printExecutiveReport(
   const failRate = totalGrades > 0 ? Math.round((failedCount / totalGrades) * 100) : 0;
   const globalAvg = totalGrades > 0 ? (totalScoreSum / totalGrades).toFixed(2) : "0.00";
 
+  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
+  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
+  const normalizedFileName = `IETABA_INFORME_EJECUTIVO_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+
   const getAusentismoBadge = (absences: number, totalEvents: number) => {
     if (totalEvents === 0 || absences === 0) {
       return { label: "Asistencia Ejemplar", bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
@@ -1308,7 +1312,7 @@ export function printExecutiveReport(
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>IETABA_INFORME_EJECUTIVO_${pName}_${(teacherProfile?.name || "DOCENTE").replace(/\s+/g, "_")}</title>
+      <title>${normalizedFileName}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
@@ -1318,7 +1322,29 @@ export function printExecutiveReport(
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
           .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
-          @page { margin: 10mm 12mm; size: A4 portrait; }
+          @page {
+          margin: 0;
+          size: A4 portrait;
+        }
+        @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          .print-container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 14mm 16mm !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+          }
+          .page-break-before { page-break-before: always; }
+          .avoid-break { page-break-inside: avoid; }
+          .no-print { display: none !important; }
+        }
         @media screen and (max-width: 640px) {
           body { padding: 8px !important; }
           .print-container { padding: 20px 14px !important; border-radius: 14px !important; }
@@ -1572,15 +1598,15 @@ export function printExecutiveReport(
       <div class="print-container">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 58px; height: auto; position: absolute; left: 0; top: 0; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));" onerror="this.style.display='none'">
-          <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
+          <img src="${baseUrl}/logo.png" style="width: 76px; height: auto; position: absolute; left: 0; top: 2px; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
+          <div style="padding: 0 40px 0 85px;">
+            <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
           <p><i>Ambiente – Cultura – Ciencia</i></p>
-          <div class="report-badge">
-            ${activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO PEDAGÓGICO INICIAL (PERIODO 1)" :
+          <div class="report-badge">${activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO PEDAGÓGICO INICIAL (PERIODO 1)" :
               activePeriod === "p2" ? "INFORME GERENCIAL & ALERTA TEMPRANA DE PROYECCIÓN ANUAL (SIEEE)" :
-              "INFORME GERENCIAL · BALANCE FINAL Y PROMOCIÓN DE AÑO LECTIVO"}
+              "INFORME GERENCIAL · BALANCE FINAL Y PROMOCIÓN DE AÑO LECTIVO"}</div>
           </div>
         </div>
 
@@ -1894,10 +1920,6 @@ export function printExecutiveReport(
     </html>
   `;
 
-  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
-  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
-  const normalizedFileName = `IETABA_INFORME_EJECUTIVO_${pName}_${teacherClean}_${new Date().getFullYear()}`;
-
   const printWindow = window.open("", "_blank");
   if (printWindow) {
     printWindow.document.open();
@@ -2050,6 +2072,10 @@ export function printAnalyticsReport(
   const avgM = genderStats.M.count > 0 ? (genderStats.M.sum / genderStats.M.count).toFixed(2) : "0.00";
   const avgF = genderStats.F.count > 0 ? (genderStats.F.sum / genderStats.F.count).toFixed(2) : "0.00";
 
+  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
+  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
+  const normalizedFileName = `IETABA_ANALITICA_BI_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+
   // ═════════════════════════════════════════════════════════════════════════════
   // MOTOR DE INTELIGENCIA PEDAGÓGICA HIPER-DINÁMICA & HUMANIZADA
   // ═════════════════════════════════════════════════════════════════════════════
@@ -2145,7 +2171,7 @@ export function printAnalyticsReport(
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>IETABA_ANALITICA_BI_${pName}_${(teacherProfile?.name || "DOCENTE").replace(/\s+/g, "_")}</title>
+      <title>${normalizedFileName}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
         
@@ -2155,7 +2181,29 @@ export function printAnalyticsReport(
           .avoid-break { page-break-inside: avoid; }
           .no-print { display: none !important; }
           .print-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
-          @page { margin: 10mm 12mm; size: A4 portrait; }
+          @page {
+          margin: 0;
+          size: A4 portrait;
+        }
+        @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          .print-container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 14mm 16mm !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+          }
+          .page-break-before { page-break-before: always; }
+          .avoid-break { page-break-inside: avoid; }
+          .no-print { display: none !important; }
+        }
         @media screen and (max-width: 640px) {
           body { padding: 8px !important; }
           .print-container { padding: 20px 14px !important; border-radius: 14px !important; }
@@ -2406,11 +2454,13 @@ export function printAnalyticsReport(
       <div class="print-container">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
-          <img src="${baseUrl}/logo.png" style="width: 58px; height: auto; position: absolute; left: 0; top: 0; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));" onerror="this.style.display='none'">
-          <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
+          <img src="${baseUrl}/logo.png" style="width: 76px; height: auto; position: absolute; left: 0; top: 2px; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
+          <div style="padding: 0 40px 0 85px;">
+            <h1>UNIDAD INDIGENA DEL PUEBLO AWA "UNIPA"</h1>
           <h2>INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGÜE AWA "IETABA"</h2>
           <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
           <div class="report-badge">SUITE DE INTELIGENCIA ACADÉMICA & ANALÍTICA DE DESEMPEÑO (BI)</div>
+          </div>
         </div>
 
         <div class="saludo">
@@ -2560,10 +2610,6 @@ export function printAnalyticsReport(
     </body>
     </html>
   `;
-
-  const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
-  const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
-  const normalizedFileName = `IETABA_ANALITICA_BI_${pName}_${teacherClean}_${new Date().getFullYear()}`;
 
   const printWindow = window.open("", "_blank");
   if (printWindow) {
