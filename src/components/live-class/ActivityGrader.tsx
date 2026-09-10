@@ -369,6 +369,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     setSelectedActivityKey(key);
     if (key === "new") {
       setActivityTitle("");
+      setIsDraftRecovered(false);
+      try { localStorage.removeItem(draftKey); } catch (_) {}
       return;
     }
 
@@ -461,8 +463,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
           slotIndex: targetSlot } }));
       const savedStudentIds = await addGradesBatch(batchEntries);
 
-      // 🧹 Limpiar el backup al éxito
-      try { localStorage.removeItem(backupKey); } catch (_) {}
+      // 🧹 Limpiar el backup y el borrador local al éxito
+      try {
+        localStorage.removeItem(backupKey);
+        localStorage.removeItem(draftKey);
+      } catch (_) {}
+      setIsDraftRecovered(false);
 
       setSavedIds(prev => new Set([...prev, ...toGrade.map(e => e.id)]));
       setSavedCount(savedStudentIds.length || toGrade.length);
@@ -518,8 +524,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
           slotIndex: targetSlot })
       ]);
 
-      // 🧹 Limpiar backup al éxito
-      try { localStorage.removeItem(backupKey); } catch (_) {}
+      // 🧹 Limpiar backup y borrador local al éxito
+      try {
+        localStorage.removeItem(backupKey);
+        localStorage.removeItem(draftKey);
+      } catch (_) {}
+      setIsDraftRecovered(false);
 
       // Sincronizar con el mapa global de notas para coherencia al cambiar a Modo Lista
       setGrades(prev => ({ ...prev, [currentStudent.id]: score.toString() }));

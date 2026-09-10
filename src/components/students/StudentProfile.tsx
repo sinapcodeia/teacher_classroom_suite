@@ -10,6 +10,10 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { printStudentProfileReport, printStudentCommitmentAgreement } from "@/lib/printService";
+import GuardianModal from "@/components/students/GuardianModal";
+import StudentStatusModal from "@/components/students/StudentStatusModal";
+import { Mail, ShieldAlert } from "lucide-react";
+import { MessageSquare, PhoneCall } from "lucide-react";
 import Link from "next/link";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -82,6 +86,8 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
   }, []);
 
   const [dossierPeriod, setDossierPeriod] = useState<string>(masterData?.activePeriod || "2");
+  const [showGuardianModal, setShowGuardianModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -505,6 +511,19 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
               <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-sm text-[9px] font-black rounded-lg uppercase tracking-widest border border-white/20">
                 CURSO {student.curso}
               </span>
+              <button
+                type="button"
+                onClick={() => setShowStatusModal(true)}
+                className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all hover:scale-105 active:scale-95 flex items-center gap-1 ${
+                  student.isActive !== false
+                    ? "bg-emerald-950/40 text-emerald-200 border-emerald-400/40 hover:bg-emerald-900/50"
+                    : "bg-rose-950/40 text-rose-200 border-rose-400/40 hover:bg-rose-900/50"
+                }`}
+                title="Gestionar Estado de Matrícula (Activo / Retirado / etc.)"
+              >
+                <span>{student.isActive !== false ? "🟢" : "🟠"}</span>
+                <span>{student.estadoMatricula || (student.isActive !== false ? "MATRICULADO" : "INACTIVO")}</span>
+              </button>
               <span className={`px-2.5 py-0.5 bg-white/20 backdrop-blur-sm text-[9px] font-black rounded-lg uppercase tracking-widest border border-white/20`}>
                 {perf.label}
               </span>
@@ -541,21 +560,73 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
         ))}
       </div>
 
-      {/* ── Acudiente & Acciones Institucionales ─────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-200 gap-2">
-        <div>
-          <p className="text-[8px] font-black text-teal-800 uppercase tracking-widest">Acudiente</p>
-          <p className="text-[10px] font-bold text-slate-800 uppercase">{student.acudienteNombre || "No registrado"}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {student.acudienteTelefono && (
-            <a
-              href={`tel:${student.acudienteTelefono}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+      {/* ── Acudiente Estandarizado & Acciones Institucionales (Multi-Docente CRM) ── */}
+      <div className="p-4 bg-slate-50/90 border-b border-slate-200 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-teal-600/10 text-teal-700 flex items-center justify-center font-bold text-xs">
+              {student.acudienteParentesco === "MADRE" ? "👩" : student.acudienteParentesco === "PADRE" ? "👨" : "👥"}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] font-black text-teal-800 uppercase tracking-widest">Acudiente Principal:</span>
+                {student.acudienteParentesco && (
+                  <span className="px-1.5 py-0.2 bg-teal-100/70 text-teal-800 rounded font-black text-[8px] uppercase">
+                    {student.acudienteParentesco}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] font-black text-slate-900 uppercase">
+                {student.acudienteNombre || "No registrado"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowGuardianModal(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 text-teal-800 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs"
+              title="Cualquier docente puede actualizar los datos del acudiente"
             >
-              <Phone size={12} /> {student.acudienteTelefono}
-            </a>
-          )}
+              <Edit size={11} /> <span>Editar Acudiente</span>
+            </button>
+
+            {student.acudienteEmail && (
+              <a
+                href={`mailto:${student.acudienteEmail}?subject=${encodeURIComponent(`Seguimiento Pedagógico IETABA - ${student.primerNombre} ${student.primerApellido}`)}`}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs"
+                title={`Enviar correo a ${student.acudienteEmail}`}
+              >
+                <Mail size={11} /> <span>Email</span>
+              </a>
+            )}
+
+            {student.acudienteTelefono && (
+              <>
+                <a
+                  href={`https://wa.me/57${student.acudienteTelefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Cordial saludo ${student.acudienteNombre || 'Acudiente'}, nos comunicamos de la IETABA respecto al seguimiento escolar de ${student.primerNombre} ${student.primerApellido}.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs"
+                  title="Enviar WhatsApp al acudiente"
+                >
+                  <MessageSquare size={11} /> <span>WhatsApp</span>
+                </a>
+                <a
+                  href={`tel:${student.acudienteTelefono}`}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                  title="Llamar al celular principal"
+                >
+                  <Phone size={11} />
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Acciones de Impresión Institucional */}
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-200/60">
           <div className="flex items-center bg-teal-50 border border-teal-200 rounded-xl p-0.5 shadow-sm">
             <select
               value={dossierPeriod}

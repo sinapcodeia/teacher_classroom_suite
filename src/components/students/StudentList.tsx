@@ -99,6 +99,7 @@ export default function StudentList({
   const [searchTerm, setSearchTerm]     = useState("");
   const [sortField, setSortField]       = useState<SortField>("name");
   const [sortDir, setSortDir]           = useState<SortDir>("asc");
+  const [showInactive, setShowInactive] = useState(false);
 
   // ── Opciones de filtro ───────────────────────────────────────────────────────
   const gradoOptions = useMemo(
@@ -124,7 +125,7 @@ export default function StudentList({
     if (requiresFilter) return [];
 
     const list = myStudents.filter(s => {
-      if (s.isActive === false) return false;
+      if (!showInactive && s.isActive === false) return false;
       const fullName = `${s.primerApellido} ${s.segundoApellido} ${s.primerNombre} ${s.segundoNombre}`.toLowerCase();
       const matchSearch = fullName.includes(searchTerm.toLowerCase()) || s.nroDocumento.includes(searchTerm);
       const matchGrado  = gradoFilter === "TODOS" || normalizeGrade(s.grado) === gradoFilter;

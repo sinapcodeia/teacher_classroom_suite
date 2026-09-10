@@ -7,6 +7,7 @@ const StudentList = nextDynamic(() => import("@/components/students/StudentList"
 const StudentProfile = nextDynamic(() => import("@/components/students/StudentProfile"), { ssr: false });
 const PerformanceStats = nextDynamic(() => import("@/components/students/PerformanceStats"), { ssr: false });
 const ImportSummaryModal = nextDynamic(() => import("@/components/students/ImportSummaryModal"), { ssr: false });
+const DirectorGrupoCockpit = nextDynamic(() => import("@/components/students/DirectorGrupoCockpit"), { ssr: false });
 import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2, Users } from "lucide-react";
 import Papa from "papaparse";
 import { exportToCSV, exportToPDF } from "@/lib/reports";
@@ -23,8 +24,24 @@ export default function StudentsPage() {
     globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter
   } = useApp();
   
+  const [viewMode, setViewMode] = useState<"profile" | "cockpit">("profile");
   const [materiaFilter, setMateriaFilter] = useState("TODAS");
   const [selectedId, setSelectedId] = useState("");
+  // Verificación estricta de Rol: Solo Directores de Grupo, Rectores o Coordinadores tienen acceso al Cockpit Grupal
+  const isDirector = 
+    profile?.role === "DOCENTE_DIRECTOR" || 
+    profile?.isDirectorGrupo === true || 
+    Boolean(profile?.directorGrado && profile?.directorCurso) ||
+    profile?.isSuperAdmin === true ||
+    ["RECTOR", "COORDINADOR"].includes(profile?.role || "");
+
+  // Si el docente es Director de Grupo y tiene grado asignado, autoseleccionarlo por defecto
+  useEffect(() => {
+    if (isDirector && profile?.directorGrado && gradoFilter === "TODOS") {
+      setGradoFilter(profile.directorGrado);
+      if (profile.directorCurso) setCursoFilter(profile.directorCurso);
+    }
+  }, [isDirector, profile?.directorGrado, profile?.directorCurso]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -331,7 +348,66 @@ export default function StudentsPage() {
           onClose={() => setShowImportResults(false)} 
           stats={importStats} 
         />
+        {/* Selector de Vista: Visible exclusivamente para Directores de Grupo y Directivos */}
+        {isDirector ? (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white/90 backdrop-blur-md p-3 rounded-3xl border border-slate-200/80 shadow-sm">
+            <div className="flex items-center gap-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200">
+              <button
+                onClick={() => setViewMode("profile")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  viewMode === "profile" 
+                    ? "bg-white text-slate-900 shadow-md shadow-slate-200/60" 
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Users size={16} className={viewMode === "profile" ? "text-primary" : "text-slate-400"} />
+                <span>Ficha Estudiantil 360°</span>
+              </button>
+              <button
+                onClick={() => setViewMode("cockpit")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  viewMode === "cockpit" 
+                    ? "bg-slate-900 text-white shadow-md shadow-slate-900/20" 
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span className="text-amber-400">👑</span>
+                <span>Cockpit Director de Grupo</span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded-full font-black border border-emerald-500/30 ml-1">360°</span>
+              </button>
+            </div>
 
+            <div className="text-right hidden sm:block">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {viewMode === "profile" ? "Ficha Individual • Boletines • Saberes SIEEE" : "Matriz Multimateria • Sentinel de Riesgo • CRM Acudientes"}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 text-slate-700">
+              <Users size={18} className="text-primary" />
+              <span className="text-xs font-black uppercase tracking-wider">Ficha Estudiantil & Calificador de Saberes</span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200">
+              Docente de Asignatura
+            </span>
+          </div>
+        )}
+        {isDirector && viewMode === "cockpit" ? (
+          <DirectorGrupoCockpit 
+            selectedGrado={gradoFilter}
+            selectedCurso={cursoFilter}
+            onSelectStudent={(id) => {
+              setSelectedId(id);
+              setViewMode("profile");
+            }}
+            onPrintActa={(st) => {
+              printInstitutionalStudentReport([st], profile?.name || "Director de Grupo");
+            }}
+          />
+        ) : (
+          <>
         <PerformanceStats 
           grado={gradoFilter} 
           curso={cursoFilter} 
@@ -372,6 +448,8 @@ export default function StudentsPage() {
             </div>
           </div>
         </div>
+          </>
+        )}
       </main>
 
       {/* New Student Modal */}

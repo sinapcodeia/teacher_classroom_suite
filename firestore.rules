@@ -19,22 +19,19 @@ service cloud.firestore {
     }
 
     // ── USUARIOS (/users/{userId}) ─────────────────────────────────────────
-    // TODOS los usuarios autenticados pueden leer y actualizar su propio perfil.
-    // Esto incluye aceptar los términos (acceptedTerms) y actualizar su horario.
-    // Solo el SuperAdmin puede leer perfiles de otros usuarios.
+    // Todos los usuarios autenticados pueden leer el directorio institucional de docentes.
+    // Cada usuario solo puede crear o actualizar su propio perfil (o SuperAdmin).
     match /users/{userId} {
-      // Leer propio perfil — cualquier usuario autenticado
-      allow read: if isAuthenticated() && (isOwnDocument(userId) || isSuperAdmin());
-
-      // Crear propio documento en primer login
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isOwnDocument(userId);
-
-      // Actualizar propio perfil — TODOS los usuarios autenticados pueden
-      // actualizar su propio documento (incluyendo acceptedTerms, horario, etc.)
       allow update: if isAuthenticated() && (isOwnDocument(userId) || isSuperAdmin());
-
-      // Eliminar solo SuperAdmin
       allow delete: if isAuthenticated() && isSuperAdmin();
+    }
+
+    // ── DIRECTORIO INSTITUCIONAL (/directorio/{staffId}) ────────────────────
+    match /directorio/{staffId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     // ── ESTUDIANTES (/students/{studentId}) ───────────────────────────────

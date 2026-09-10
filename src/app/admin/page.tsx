@@ -535,7 +535,8 @@ export default function AdminPage() {
                             value={newUser.role}
                             onChange={(e) => setNewUser({...newUser, role: e.target.value as any})}
                           >
-                             <option value="DOCENTE">Docente</option>
+                             <option value="DOCENTE">Docente de Asignatura</option>
+                             <option value="DOCENTE_DIRECTOR">Docente Director de Grupo</option>
                              <option value="COORDINADOR">Coordinador</option>
                              <option value="RECTOR">Rector</option>
                              <option value="BIENESTAR">Bienestar</option>
@@ -603,7 +604,8 @@ export default function AdminPage() {
                               <option value="RECTOR">Rector</option>
                               <option value="COORDINADOR">Coordinador</option>
                               <option value="BIENESTAR">Bienestar</option>
-                              <option value="DOCENTE">Docente</option>
+                              <option value="DOCENTE">Docente de Asignatura</option>
+                              <option value="DOCENTE_DIRECTOR">Docente Director de Grupo</option>
                             </select>
                           </div>
                         )}

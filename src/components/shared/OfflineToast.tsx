@@ -41,6 +41,8 @@ export default function OfflineToast() {
 
   return (
     <div
+      className="print:hidden no-print"
+      data-no-print="true"
       style={{
         position: "fixed",
         bottom: 24,

@@ -105,23 +105,40 @@ function standardHeader(
 ): string {
   return `
     <style>
-      .doc-header-unified { border-bottom: 3px solid #1a56db; padding-bottom: 15px; margin-bottom: 20px; }
-      .inst-title { font-size: 16px; font-weight: 900; color: #1e3a8a; text-align: center; margin-bottom: 4px; }
-      .inst-sub { font-size: 10px; font-weight: 700; color: #64748b; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 15px; }
-      .doc-meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
-      .meta-item { font-size: 10px; color: #334155; }
-      .meta-item strong { color: #1e293b; text-transform: uppercase; }
-      .doc-title-main { font-size: 20px; font-weight: 900; color: #111; margin: 15px 0 5px; text-transform: uppercase; }
+      .doc-header-unified { border-bottom: 3px solid #1a56db; padding-bottom: 15px; margin-bottom: 20px; font-family: 'Inter', Arial, sans-serif; }
+      .inst-header-flex { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+      .inst-logo-box { width: 70px; height: 70px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+      .inst-logo-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+      .inst-text-box { flex: 1; text-align: center; }
+      .inst-title { font-size: 13.5px; font-weight: 900; color: #1e3a8a; text-transform: uppercase; margin-bottom: 3px; line-height: 1.25; }
+      .inst-sub { font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+      .inst-badge { display: inline-block; font-size: 8px; font-weight: 900; color: #047857; background: #ecfdf5; padding: 2px 8px; border-radius: 9999px; border: 1px solid #a7f3d0; margin-top: 4px; }
+      .doc-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px; }
+      .meta-item { font-size: 9.5px; color: #334155; }
+      .meta-item strong { color: #0f172a; text-transform: uppercase; font-weight: 800; }
+      .doc-title-main { font-size: 18px; font-weight: 900; color: #0f172a; margin: 14px 0 4px; text-transform: uppercase; text-align: left; }
     </style>
     <div class="doc-header-unified">
-      <div class="inst-title">${INSTITUTION}</div>
-      <div class="inst-sub">${APP_NAME} — Sistema de Gestión Docente ${APP_VERSION_LABEL}</div>
+      <div class="inst-header-flex">
+        <div class="inst-logo-box">
+          <img src="/logo.png" alt="Escudo IETABA" class="inst-logo-img" onerror="this.onerror=null; this.src='/favicon.png';" />
+        </div>
+        <div class="inst-text-box">
+          <div class="inst-title">${INSTITUTION}</div>
+          <div class="inst-sub">Territorio Ancestral Indígena Awá · Katsa Su · Barbacoas, Nariño · Res. MEN / UNIPA</div>
+          <div class="inst-badge">Documento Oficial de Gestión Académica SIEEE · ${APP_NAME} ${APP_VERSION_LABEL}</div>
+        </div>
+        <div class="inst-logo-box" style="opacity: 0.85;">
+          <img src="/logo.png" alt="Escudo IETABA" class="inst-logo-img" onerror="this.style.display='none';" />
+        </div>
+      </div>
       <div class="doc-meta-grid">
-        <div class="meta-item"><strong>Docente:</strong> ${meta.teacher.toUpperCase()}</div>
-        <div class="meta-item"><strong>Fecha/Hora:</strong> ${nowFullStr()}</div>
-        <div class="meta-item"><strong>Grado/Curso:</strong> ${meta.grade || ""}${meta.course ? ` — ${meta.course}` : ""}</div>
-        <div class="meta-item"><strong>Materia:</strong> ${meta.subject || "GENERAL"}</div>
-        <div class="meta-item"><strong>Periodo:</strong> ${meta.period || "N/A"}</div>
+        <div class="meta-item"><strong>Docente / Emisor:</strong> ${meta.teacher.toUpperCase()}</div>
+        <div class="meta-item"><strong>Grado / Curso:</strong> ${meta.grade || ""}${meta.course ? ` — ${meta.course}` : "TODOS"}</div>
+        <div class="meta-item"><strong>Asignatura:</strong> ${meta.subject || "TODAS / DIRECCIÓN DE GRUPO"}</div>
+        <div class="meta-item"><strong>Periodo Académico:</strong> ${meta.period || "AÑO LECTIVO"}</div>
+        <div class="meta-item"><strong>Fecha & Hora:</strong> ${nowFullStr()}</div>
+        <div class="meta-item"><strong>Autenticidad:</strong> REGISTRO OFICIAL IETABA</div>
       </div>
       <h1 class="doc-title-main">${title}</h1>
     </div>
@@ -560,14 +577,19 @@ export function printInstitutionalStudentReport(students: Student[], teacherName
     }).join("");
 
   open(`<!DOCTYPE html><html><head><title>REPORTE_INSTITUCIONAL_${new Date().getFullYear()}</title>${baseStyles()}</head><body>
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
-      <div>
-        <h1>Reporte Institucional <span class="brand-accent">de Estudiantes</span></h1>
-        <p style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em;">IETABA · Gestión de Matrícula y Rendimiento</p>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 3px solid #1a56db; padding-bottom: 15px; margin-bottom: 25px;">
+      <div style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+        <img src="/logo.png" alt="Escudo IETABA" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.onerror=null; this.src='/favicon.png';" />
       </div>
-      <div style="text-align: right;">
-        <div style="font-size: 12px; font-weight: 900; color: #0f172a;">IETABA PREMIUM SUITE</div>
-        <div style="font-size: 9px; color: #94a3b8; font-weight: 700;">${nowFullStr()}</div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 13.5px; font-weight: 900; color: #1e3a8a; text-transform: uppercase;">${INSTITUTION}</div>
+        <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px;">Territorio Ancestral Awá · Katsa Su · Barbacoas, Nariño · Res. MEN / UNIPA</div>
+        <h1 style="font-size: 18px; margin-top: 8px;">Reporte Institucional <span class="brand-accent">de Estudiantes</span></h1>
+      </div>
+      <div style="text-align: right; width: 140px;">
+        <div style="font-size: 11px; font-weight: 900; color: #0f172a;">IETABA SUITE</div>
+        <div style="font-size: 8.5px; color: #64748b; font-weight: 700; margin-top: 2px;">Docente: ${teacherName.toUpperCase()}</div>
+        <div style="font-size: 8px; color: #94a3b8; font-weight: 600; margin-top: 2px;">${nowFullStr()}</div>
       </div>
     </div>
 

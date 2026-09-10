@@ -146,6 +146,23 @@ export interface BehavioralRecord {
   createdAt?: string;
 }
 
+export type ParentescoAcudiente = 
+  | "MADRE" 
+  | "PADRE" 
+  | "ABUELO(A)" 
+  | "TÍO(A)" 
+  | "HERMANO(A)" 
+  | "TUTOR LEGAL" 
+  | "OTRO";
+
+export type EstadoMatricula = 
+  | "MATRICULADO"
+  | "RETIRADO"
+  | "DESERTOR"
+  | "TRASLADADO"
+  | "FALLECIDO"
+  | "SUSPENDIDO";
+
 export interface Student {
   id: string;
   nroDocumento: string;
@@ -162,13 +179,28 @@ export interface Student {
   attendance: string;
   attendanceRecord?: Record<string, string>;
   present?: boolean;
+  acudienteNombres?: string;
+  acudienteApellidos?: string;
+  acudienteParentesco?: ParentescoAcudiente;
   acudienteNombre?: string;
   acudienteTelefono?: string;
+  acudienteTelefonoSec?: string;
+  acudienteEmail?: string;
+  acudienteVereda?: string;
+  acudienteObservaciones?: string;
+  acudienteUltimaActualizacion?: {
+    fecha: string;
+    docente: string;
+  };
   isActive: boolean;
   grades?: Grade[];
   detailedGrades?: Record<string, Record<string, DetailedGrades>>; // subjectId -> periodId -> grades
   observations?: string;
   behavioralRecords?: BehavioralRecord[];
+  estadoMatricula?: EstadoMatricula;
+  motivoNovedad?: string;
+  fechaNovedad?: string;
+  docenteNovedad?: string;
   audit?: {
     createdBy: string;
     createdAt: string;
@@ -210,7 +242,10 @@ export interface TeacherProfile {
   location: string;
 
   // Role & Status
-  role: "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE";
+  role: "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE" | "DOCENTE_DIRECTOR";
+  isDirectorGrupo?: boolean;
+  directorGrado?: string;
+  directorCurso?: string;
   status: "ACTIVE" | "PENDING";
   isSuperAdmin?: boolean;
   acceptedTerms?: boolean;
@@ -447,7 +482,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.addEventListener("online", handleOnline);
       window.addEventListener("offline", handleOffline);
 
-      // Carga inmediata de sesión cacheada para acceso instantáneo
+      // Carga inmediata de sesión cacheada para acceso instantáneo (0ms lag)
       const cachedUserRaw = localStorage.getItem("offline_user");
       const cachedProfileRaw = localStorage.getItem("offline_profile");
       if (cachedUserRaw && cachedProfileRaw) {
@@ -457,6 +492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setUser(cachedUser);
           setProfile(cachedProfile);
           setSchedule(blocksToEntries(cachedProfile.weeklySchedule || []));
+          setAuthLoading(false);
         } catch (e) {
           console.warn("Error parsing offline session on mount:", e);
         }
@@ -1050,9 +1086,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Sincronizar teachingCourses y teachingGrades automáticamente desde el horario
       if (hasSchedule) {
-        const scheduleCourses = [...new Set(merged.weeklySchedule.map(b => b.course))];
-        const scheduleGrades  = [...new Set(merged.weeklySchedule.map(b => b.grade))];
-        const scheduleSubjects = [...new Set(merged.weeklySchedule.map(b => b.subject))];
+        const scheduleCourses = [...new Set(merged.weeklySchedule.map(b => {
+          if (!b.course) return normalizeGrade(b.grade || "");
+          if (b.course.includes("-")) return b.course;
+          const cleanG = normalizeGrade(b.grade || "").replace("°", "").trim();
+          return cleanG ? `${cleanG}-${b.course}` : b.course;
+        }))].filter(Boolean);
+        const scheduleGrades  = [...new Set(merged.weeklySchedule.map(b => normalizeGrade(b.grade)))];
+        const scheduleSubjects = [...new Set(merged.weeklySchedule.map(b => (b.subject || "").toUpperCase()))];
         if (!hasManualGrades || (merged.teachingCourses || []).length === 0) {
           merged.teachingCourses = scheduleCourses;
           merged.teachingGrades = scheduleGrades;

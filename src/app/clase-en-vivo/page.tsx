@@ -41,13 +41,27 @@ function LiveClassPageContent() {
           if (key && (key.startsWith('draft_attendance_') || key.startsWith('draft_activity_'))) {
             const parts = key.split('_');
             if (parts.length >= 5) {
-              newDrafts.push({
-                key,
-                type: key.includes('attendance') ? 'attendance' : 'activity',
-                grade: parts[2],
-                course: parts[3],
-                subject: parts.slice(4).join('_')
-              });
+              try {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  const hasItems = parsed && (
+                    (parsed.grades && Object.values(parsed.grades).some((v: any) => v && v.toString().trim() !== "")) ||
+                    (parsed.attendance && Object.values(parsed.attendance).some((v: any) => v && v.toString().trim() !== ""))
+                  );
+                  if (hasItems) {
+                    newDrafts.push({
+                      key,
+                      type: key.includes('attendance') ? 'attendance' : 'activity',
+                      grade: parts[2],
+                      course: parts[3],
+                      subject: parts.slice(4).join('_')
+                    });
+                  } else {
+                    localStorage.removeItem(key);
+                  }
+                }
+              } catch (_) {}
             }
           }
         }

@@ -135,3 +135,61 @@ export function matchStudentCourse(
   return false;
 }
 
+
+
+/**
+ * normalizeUpperCaseName — Limpia espacios múltiples y estandariza nombres a MAYÚSCULAS.
+ */
+export function normalizeUpperCaseName(str: string | undefined | null): string {
+  if (!str) return "";
+  return String(str)
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+/**
+ * normalizeEmail — Normaliza correos electrónicos a minúsculas sin espacios.
+ */
+export function normalizeEmail(email: string | undefined | null): string {
+  if (!email) return "";
+  return String(email).trim().toLowerCase();
+}
+
+/**
+ * isValidEmail — Valida sintaxis estándar de correo electrónico.
+ */
+export function isValidEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(String(email).trim());
+}
+
+/**
+ * normalizePhone — Extrae únicamente los dígitos numéricos del teléfono.
+ */
+export function normalizePhone(phone: string | undefined | null): string {
+  if (!phone) return "";
+  return String(phone).replace(/\D/g, "");
+}
+
+/**
+ * isValidPhone — Valida si un teléfono móvil en Colombia tiene 10 dígitos válidos.
+ */
+export function isValidPhone(phone: string | undefined | null): boolean {
+  if (!phone) return false;
+  const digits = normalizePhone(phone);
+  return digits.length === 10 || (digits.length >= 7 && digits.length <= 12);
+}
+
+/**
+ * formatPhoneDisplay — Formatea un número de 10 dígitos a "300 000 0000".
+ */
+export function formatPhoneDisplay(phone: string | undefined | null): string {
+  if (!phone) return "";
+  const digits = normalizePhone(phone);
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+  }
+  return phone;
+}

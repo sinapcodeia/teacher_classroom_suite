@@ -1,25 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import OfflineToast from "@/components/shared/OfflineToast";
+import HelpChatbot from "@/components/help/HelpChatbot";
 
 // ── Versión e institución — importadas, nunca quemadas ──────────────────────
 import pkg from "../../package.json";
 const APP_NAME_STATIC = "EduManager";
 const INSTITUTION_STATIC = "IETABA";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: `${APP_NAME_STATIC} v${pkg.version} | ${INSTITUTION_STATIC}`,
   description: `Sistema de gestión escolar institucional — ${INSTITUTION_STATIC}`,
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" }
+    ],
+    shortcut: "/favicon.ico",
     apple: "/logo.png",
   },
   appleWebApp: {
@@ -41,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="es" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-background text-on-background font-inter">
 
         <script
@@ -61,6 +60,7 @@ export default function RootLayout({
         <AppProvider>
           {children}
           <OfflineToast />
+          <HelpChatbot />
         </AppProvider>
       </body>
     </html>

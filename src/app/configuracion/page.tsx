@@ -12,6 +12,7 @@ import { User, Calendar, Printer, Save, Plus, Trash2, ChevronRight, AlertTriangl
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import DatabaseBackup from "@/components/shared/DatabaseBackup";
+import { normalizeGrade } from "@/lib/constants";
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────────
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] as const;
@@ -323,6 +324,11 @@ export default function ConfiguracionPage() {
   const [firstName, setFirstName] = useState(profile.firstName || "");
   const [lastName, setLastName] = useState(profile.lastName || "");
   const [phone, setPhone] = useState(profile.phone || "");
+  const [isDirectorGrupo, setIsDirectorGrupo] = useState(
+    profile.isDirectorGrupo === true || profile.role === "DOCENTE_DIRECTOR" || Boolean(profile.directorGrado && profile.directorCurso)
+  );
+  const [directorGrado, setDirectorGrado] = useState(profile.directorGrado || masterData.grades[0] || "5°");
+  const [directorCurso, setDirectorCurso] = useState(profile.directorCurso || masterData.courses[0] || "1");
 
   // Horario
   const [blocks, setBlocks] = useState<ScheduleBlock[]>(profile.weeklySchedule || []);
@@ -399,9 +405,14 @@ export default function ConfiguracionPage() {
 
   async function save() {
     setSaving(true);
-    const teachingGrades    = [...new Set(blocks.map(b => b.grade))];
-    const teachingCourses   = [...new Set(blocks.map(b => b.course))];
-    const teachingSubjectsList = [...new Set(blocks.map(b => b.subject))];
+    const teachingGrades    = [...new Set(blocks.map(b => normalizeGrade(b.grade)))];
+    const teachingCourses   = [...new Set(blocks.map(b => {
+      if (!b.course) return normalizeGrade(b.grade || "");
+      if (b.course.includes("-")) return b.course;
+      const cleanG = normalizeGrade(b.grade || "").replace("°", "").trim();
+      return cleanG ? (cleanG + "-" + b.course) : b.course;
+    }))].filter(Boolean);
+    const teachingSubjectsList = [...new Set(blocks.map(b => (b.subject || "").toUpperCase()))];
     await updateProfile({
       firstName, lastName, phone,
       teachingGrades, teachingCourses, teachingSubjectsList,
@@ -412,7 +423,6 @@ export default function ConfiguracionPage() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
-
 
   const handleClearStorage = () => {
     if (confirm("¿Estás seguro de que deseas vaciar la caché local? Esto cerrará tu sesión temporalmente para recargar los datos frescos.")) {

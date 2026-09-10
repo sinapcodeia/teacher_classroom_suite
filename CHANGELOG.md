@@ -1,20 +1,33 @@
-## [2.8.0] - 2026-08-19
-
-### A�adido
-- Sincronizaci�n 360� global: los filtros de grado y curso ahora se comparten entre Inicio, Estudiantes y Anal�ticas mediante \AppContext\.
-- Nueva pesta�a "Sistema" en la p�gina de Configuraci�n con integraci�n de m�dulo de Backup de Base de Datos y opci�n de Vaciar Cach� Local de forma segura.
-
-### Arreglado
-- Correcci�n Cr�tica Offline (PWA): Parche en la inicializaci�n de sesi�n cuando el equipo no tiene conexi�n a internet. Ahora los arreglos de estudiantes, agenda, curr�culo y materias se cargan correctamente desde \localStorage\, evitando que las vistas se muestren vac�as sin red.
-- Recuperaci�n de Borradores en Clase en Vivo: El banner de advertencia de borrador sin guardar ahora es interactivo (clicable) y autoredirige al docente al grado, curso y materia correctos, activando el modo de planilla (Gradebook) para restaurar el progreso instant�neamente.
-
-### Optimizado
-- Limpieza de c�digo y consolidaci�n de estados compartidos en el provider principal (\AppContext.tsx\).
-
 # CHANGELOG — Teacher Classroom Suite
 
 Todos los cambios notables están documentados aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemVer](https://semver.org/)
+
+---
+
+## [2.12.0] — 2026-09-10 · Directorio Docente Ejecutivo, Estandarización de Datos, Optimización de Logo y Aislamiento de Impresión
+
+### 🚀 Agregado
+- **Módulo de Directorio Docente y Directivo (`/directorio`)**:
+  - Plataforma CRM institucional para consulta de personal directivo y planta docente.
+  - Carga académica estructurada y clasificada por áreas de conocimiento temáticas (Tecnología, Matemáticas, Ética, Ciencias, Humanidades, Sociales, Educación Física/Artes).
+  - Desglose explícito e intuitivo de salones asociados a cada asignatura (ej. `TECNOLOGÍA ➔ 8-2, 9-1`).
+  - Herramientas de contacto rápido: copiado de correo institucional en 1-clic con confirmación visual interactiva y enlace directo a WhatsApp.
+  - Soporte de roles directivos (Rector, Coordinador, Orientador) y directores de grupo.
+  - Búsqueda en tiempo real con resaltado visual dinámico de coincidencias por nombre, cédula, materia o salón.
+
+### 🛡️ Optimizado & Estandarizado
+- **Estandarización y Normalización de Datos (`src/lib/normalization.ts`)**:
+  - Normalización estricta de nombres y apellidos (Title Case limpio, eliminación de espacios superfluos).
+  - Validación y formateo canónico de correos electrónicos en minúsculas.
+  - Formateo internacional de números de teléfono y enlaces de WhatsApp.
+  - Modales de gestión de estado de matrícula y acudientes integrados en el perfil del estudiante.
+- **Optimización de Identidad Visual Institucional**:
+  - Depuración de canal alfa en `public/logo.png`, `favicon.png`, `favicon.ico` e `icon.png`, eliminando completamente fondos/recuadros oscuros exteriores.
+- **Aislamiento Total de Impresión**:
+  - Supresión completa de elementos flotantes (*EduAwá Bot*, toasts y barras de navegación) en modo impresión (`@media print` y `print:hidden`).
+- **Resiliencia en Permisos de Firestore**:
+  - Carga tolerante a fallos de permisos con fallback automático a almacenamiento local seguro (`offline_profile`).
 
 ---
 
