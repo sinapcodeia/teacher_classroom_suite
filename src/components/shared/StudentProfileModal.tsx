@@ -35,6 +35,7 @@ export default function StudentProfileModal({ student, onClose }: { student: any
   // Modal for custom notes on commitment agreement
   const [showCommitmentModal, setShowCommitmentModal] = useState(false);
   const [customCommitmentNotes, setCustomCommitmentNotes] = useState("");
+  const [dossierPeriod, setDossierPeriod] = useState<string>(masterData?.activePeriod || "2");
 
   useEffect(() => {
     setMounted(true);
@@ -174,12 +175,25 @@ export default function StudentProfileModal({ student, onClose }: { student: any
 
           {/* Institutional Actions in Sidebar */}
           <div className="w-full space-y-2 mt-4 pt-4 border-t border-slate-800">
-            <button
-              onClick={() => printStudentProfileReport(currentStudent, profile, masterData, undefined, students)}
-              className="w-full py-2.5 px-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-[9.5px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md"
-            >
-              <FileText size={13} /> Dossier 360° (PDF)
-            </button>
+            <div className="flex items-center bg-slate-800/90 border border-teal-500/30 rounded-xl p-1 gap-1">
+              <select
+                value={dossierPeriod}
+                onChange={(e) => setDossierPeriod(e.target.value)}
+                className="bg-slate-900 text-teal-300 border border-slate-700 text-[9px] font-bold rounded-lg px-2 py-1.5 focus:ring-0 cursor-pointer flex-1"
+                title="Seleccionar Periodo del Dossier"
+              >
+                <option value="1">Periodo 1</option>
+                <option value="2">Periodo 2</option>
+                <option value="3">Periodo 3</option>
+              </select>
+              <button
+                onClick={() => printStudentProfileReport(currentStudent, profile, masterData, dossierPeriod, students)}
+                className="py-1.5 px-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-black text-[9px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 shadow-md"
+                title={`Generar Dossier para el Periodo ${dossierPeriod}`}
+              >
+                <FileText size={12} /> Dossier
+              </button>
+            </div>
             <button
               onClick={() => setShowCommitmentModal(true)}
               className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl font-black text-[9.5px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border border-amber-500/30"
@@ -634,10 +648,10 @@ export default function StudentProfileModal({ student, onClose }: { student: any
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => printStudentProfileReport(currentStudent, profile, masterData, undefined, students)}
+                onClick={() => printStudentProfileReport(currentStudent, profile, masterData, dossierPeriod, students)}
                 className="py-2 px-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-[9.5px] uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm"
               >
-                <FileText size={13} /> Imprimir Dossier 360° (PDF)
+                <FileText size={13} /> Imprimir Dossier P{dossierPeriod} (PDF)
               </button>
               <button
                 onClick={() => setShowCommitmentModal(true)}

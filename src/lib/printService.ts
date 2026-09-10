@@ -2729,24 +2729,29 @@ export function printStudentProfileReport(
     (String(s.curso || '').trim() === String(student.curso || '').trim())
   );
 
-  let classAverage = currentPeriodAvg;
-  let studentRank = 1;
+  let classAverage = 0;
+  let studentRank: number | null = null;
   const totalClassmates = Math.max(1, classmates.length);
 
-  if (classmates.length > 0) {
-    const classScores = classmates.map((c: any) => ({
-      id: c.id,
-      avg: calculatePeriodAvg(c, period) || c.avgGrade || 0
-    })).sort((a, b) => b.avg - a.avg);
+  // Solo consideramos estudiantes evaluados con notas reales en este periodo (sin inventar con avgGrade)
+  const evaluatedClassScores = classmates
+    .map((c: any) => ({ id: c.id, avg: calculatePeriodAvg(c, period) }))
+    .filter(c => c.avg > 0);
 
-    const sumClass = classScores.reduce((acc, curr) => acc + curr.avg, 0);
-    classAverage = Number((sumClass / classScores.length).toFixed(2));
+  if (evaluatedClassScores.length > 0) {
+    const sumClass = evaluatedClassScores.reduce((acc, curr) => acc + curr.avg, 0);
+    classAverage = Number((sumClass / evaluatedClassScores.length).toFixed(2));
     
-    const rankIndex = classScores.findIndex(c => c.id === student.id);
-    studentRank = rankIndex >= 0 ? rankIndex + 1 : 1;
+    if (currentPeriodAvg > 0) {
+      evaluatedClassScores.sort((a, b) => b.avg - a.avg);
+      const rankIndex = evaluatedClassScores.findIndex(c => c.id === student.id);
+      studentRank = rankIndex >= 0 ? rankIndex + 1 : null;
+    }
   }
 
-  const deltaVsClass = Number((currentPeriodAvg - classAverage).toFixed(2));
+  const deltaVsClass = (currentPeriodAvg > 0 && classAverage > 0) 
+    ? Number((currentPeriodAvg - classAverage).toFixed(2)) 
+    : null;
 
   // Análisis de Tendencia Temporal (P1 -> P2 -> P3)
   let trendType: "UP" | "STABLE" | "DOWN" = "STABLE";
@@ -2755,18 +2760,48 @@ export function printStudentProfileReport(
   let trendColor = "#0284c7";
 
   if (p2Avg > 0 && p1Avg > 0) {
-    const diff = Number((currentPeriodAvg - p1Avg).toFixed(2));
-    if (diff >= 0.25) {
-      trendType = "UP";
-      trendLabel = `TENDENCIA ASCENDENTE (+${diff.toFixed(1)})`;
-      trendDeltaText = `+${diff.toFixed(1)}`;
-      trendColor = "#059669";
-    } else if (diff <= -0.25) {
-      trendType = "DOWN";
-      trendLabel = `TENDENCIA EN RIESGO (${diff.toFixed(1)})`;
-      trendDeltaText = `${diff.toFixed(1)}`;
-      trendColor = "#dc2626";
+    if (p3Avg > 0) {
+      const diff = Number((p3Avg - p2Avg).toFixed(2));
+      if (diff >= 0.25) {
+        trendType = "UP";
+        trendLabel = `TENDENCIA ASCENDENTE (+${diff.toFixed(1)})`;
+        trendDeltaText = `+${diff.toFixed(1)}`;
+        trendColor = "#059669";
+      } else if (diff <= -0.25) {
+        trendType = "DOWN";
+        trendLabel = `TENDENCIA EN RIESGO (${diff.toFixed(1)})`;
+        trendDeltaText = `${diff.toFixed(1)}`;
+        trendColor = "#dc2626";
+      } else {
+        trendLabel = `TENDENCIA ESTABLE (${diff >= 0 ? '+' : ''}${diff.toFixed(1)})`;
+        trendDeltaText = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`;
+        trendColor = "#0284c7";
+      }
+    } else {
+      // Periodo 3 aún no evaluado: evaluar tendencia real de los periodos consolidados P1 -> P2
+      const diff = Number((p2Avg - p1Avg).toFixed(2));
+      if (diff >= 0.25) {
+        trendType = "UP";
+        trendLabel = `P1 → P2: +${diff.toFixed(1)} (P3 En Curso)`;
+        trendDeltaText = `+${diff.toFixed(1)}`;
+        trendColor = "#059669";
+      } else if (diff <= -0.25) {
+        trendType = "DOWN";
+        trendLabel = `P1 → P2: ${diff.toFixed(1)} (P3 En Curso)`;
+        trendDeltaText = `${diff.toFixed(1)}`;
+        trendColor = "#dc2626";
+      } else {
+        trendLabel = `P1 → P2: ESTABLE (${diff >= 0 ? '+' : ''}${diff.toFixed(1)})`;
+        trendDeltaText = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`;
+        trendColor = "#0284c7";
+      }
     }
+  } else if (p1Avg > 0) {
+    trendLabel = `P1: ${p1Avg.toFixed(1)} (INICIAL)`;
+    trendColor = "#0284c7";
+  } else {
+    trendLabel = "SIN EVALUACIONES PREVIAS";
+    trendColor = "#64748b";
   }
 
   // Generador de Curva SVG Vectorial de Tendencia
@@ -2776,13 +2811,19 @@ export function printStudentProfileReport(
     return 100 - (safe / 5.0) * 80; // y=100 es 0.0, y=20 es 5.0
   };
 
-  const pt1 = { x: 70,  y: p1Avg > 0 ? scaleY(p1Avg) : scaleY(currentPeriodAvg), val: p1Avg > 0 ? p1Avg : currentPeriodAvg };
-  const pt2 = { x: 200, y: p2Avg > 0 ? scaleY(p2Avg) : scaleY(currentPeriodAvg), val: p2Avg > 0 ? p2Avg : currentPeriodAvg };
-  const pt3 = { x: 330, y: p3Avg > 0 ? scaleY(p3Avg) : scaleY(currentPeriodAvg), val: p3Avg > 0 ? p3Avg : currentPeriodAvg };
-  const ptProj = { x: 440, y: scaleY(Math.min(5.0, Math.max(1.0, currentPeriodAvg + (trendType === "UP" ? 0.2 : trendType === "DOWN" ? -0.2 : 0)))), val: currentPeriodAvg };
+  const defaultY = scaleY(3.0);
+  const pt1 = { x: 70,  y: p1Avg > 0 ? scaleY(p1Avg) : defaultY, val: p1Avg };
+  const pt2 = { x: 200, y: p2Avg > 0 ? scaleY(p2Avg) : (p1Avg > 0 ? scaleY(p1Avg) : defaultY), val: p2Avg };
+  const baseAvg = (p2Avg > 0 && p1Avg > 0) ? Number(((p1Avg + p2Avg) / 2).toFixed(2)) : (p2Avg || p1Avg || 3.0);
+  const pt3 = { x: 330, y: p3Avg > 0 ? scaleY(p3Avg) : scaleY(baseAvg), val: p3Avg };
+  const ptProj = { 
+    x: 440, 
+    y: scaleY(Math.min(5.0, Math.max(1.0, (p3Avg > 0 ? p3Avg : baseAvg) + (trendType === "UP" ? 0.2 : trendType === "DOWN" ? -0.2 : 0)))), 
+    val: p3Avg > 0 ? p3Avg : baseAvg 
+  };
 
   const thresholdY = scaleY(3.0); // Línea roja de corte aprobatorio (3.0)
-  const classAvgY = scaleY(classAverage); // Línea azul de promedio del salón
+  const classAvgY = classAverage > 0 ? scaleY(classAverage) : thresholdY;
 
   // Diagnóstico y semáforo SIEEE
   let statusBadge = "DESEMPEÑO BÁSICO";
@@ -3267,27 +3308,29 @@ export function printStudentProfileReport(
           <div class="bento-card highlight">
             <div class="bento-label" style="color: #0f766e;">Promedio ${pName}</div>
             <div class="bento-val" style="color: #0f766e;">${currentPeriodAvg > 0 ? currentPeriodAvg.toFixed(2) : '—'}</div>
-            <div class="bento-sub" style="color: ${statusColor}; font-weight: 800;">${statusBadge.split(' ')[1] || 'ACTIVO'}</div>
+            <div class="bento-sub" style="color: ${statusColor}; font-weight: 800;">${currentPeriodAvg > 0 ? (statusBadge.split(' ')[1] || 'ACTIVO') : 'EN CURSO'}</div>
           </div>
 
           <div class="bento-card">
             <div class="bento-label">Puesto en Salón</div>
-            <div class="bento-val" style="color: #0284c7;">#${studentRank} <span style="font-size: 10px; color: #64748b; font-weight: 600;">/ ${totalClassmates}</span></div>
-            <div class="bento-sub">${studentRank <= 3 ? '🏆 Cuadro de Honor' : 'Grupo Académico'}</div>
+            <div class="bento-val" style="color: #0284c7;">
+              ${studentRank !== null ? `#${studentRank} <span style="font-size: 10px; color: #64748b; font-weight: 600;">/ ${totalClassmates}</span>` : '—'}
+            </div>
+            <div class="bento-sub">${studentRank !== null ? (studentRank <= 3 ? '🏆 Cuadro de Honor' : 'Grupo Académico') : 'Periodo en Curso'}</div>
           </div>
 
           <div class="bento-card">
             <div class="bento-label">Media del Salón</div>
-            <div class="bento-val" style="color: #334155;">${classAverage.toFixed(2)}</div>
-            <div class="bento-sub" style="color: ${deltaVsClass >= 0 ? '#059669' : '#dc2626'}; font-weight: 800;">
-              ${deltaVsClass >= 0 ? `+${deltaVsClass.toFixed(2)} vs grupo` : `${deltaVsClass.toFixed(2)} vs grupo`}
+            <div class="bento-val" style="color: #334155;">${classAverage > 0 ? classAverage.toFixed(2) : '—'}</div>
+            <div class="bento-sub" style="color: ${deltaVsClass !== null ? (deltaVsClass >= 0 ? '#059669' : '#dc2626') : '#64748b'}; font-weight: 800;">
+              ${deltaVsClass !== null ? (deltaVsClass >= 0 ? `+${deltaVsClass.toFixed(2)} vs grupo` : `${deltaVsClass.toFixed(2)} vs grupo`) : 'Sin calificar'}
             </div>
           </div>
 
           <div class="bento-card">
             <div class="bento-label">Asistencia</div>
             <div class="bento-val" style="color: ${isAttendanceRisk ? '#dc2626' : '#059669'};">${attendancePct}%</div>
-            <div class="bento-sub">${isAttendanceRisk ? '⚠️ En Riesgo (>15%)' : `${asistencias} días asistidos`}</div>
+            <div class="bento-sub">${totalDaysTracked === 0 ? 'Sin registros' : isAttendanceRisk ? '⚠️ En Riesgo (>15%)' : `${asistencias} días asistidos`}</div>
           </div>
 
           <div class="bento-card">
@@ -3331,18 +3374,25 @@ export function printStudentProfileReport(
               <text x="32" y="${thresholdY + 3}" font-size="7" fill="#ef4444" font-weight="bold" text-anchor="end">3.0</text>
               <text x="462" y="${thresholdY + 3}" font-size="6.5" fill="#ef4444" font-weight="bold">Umbral Aprobatorio</text>
 
+              ${classAverage > 0 ? `
               <!-- Línea del Promedio del Salón -->
               <line x1="40" y1="${classAvgY}" x2="460" y2="${classAvgY}" stroke="#93c5fd" stroke-width="1" stroke-dasharray="2,2" />
               <text x="462" y="${classAvgY + 3}" font-size="6.5" fill="#3b82f6">Media Salón (${classAverage.toFixed(1)})</text>
+              ` : ''}
 
-              <!-- Área bajo la curva -->
-              <polygon points="${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt3.x},${pt3.y} ${ptProj.x},${ptProj.y} ${ptProj.x},100 ${pt1.x},100" fill="url(#trendGrad)" />
+              <!-- Área bajo la curva (solo tramo evaluado) -->
+              <polygon points="${p3Avg > 0 ? `${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt3.x},${pt3.y} ${pt3.x},100 ${pt1.x},100` : (p2Avg > 0 ? `${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt2.x},100 ${pt1.x},100` : `${pt1.x},${pt1.y} ${pt1.x},100`)}" fill="url(#trendGrad)" />
 
-              <!-- Línea de Curva -->
-              <polyline points="${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt3.x},${pt3.y}" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              <!-- Línea de Curva Evaluada -->
+              <polyline points="${p3Avg > 0 ? `${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt3.x},${pt3.y}` : (p2Avg > 0 ? `${pt1.x},${pt1.y} ${pt2.x},${pt2.y}` : `${pt1.x},${pt1.y}`)}" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
               
-              <!-- Línea proyectada -->
-              <line x1="${pt3.x}" y1="${pt3.y}" x2="${ptProj.x}" y2="${ptProj.y}" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="3,3" />
+              <!-- Línea proyectada P3 y Cierre -->
+              ${p3Avg > 0 ? `
+                <line x1="${pt3.x}" y1="${pt3.y}" x2="${ptProj.x}" y2="${ptProj.y}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3" />
+              ` : `
+                <line x1="${pt2.x}" y1="${pt2.y}" x2="${pt3.x}" y2="${pt3.y}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3" />
+                <line x1="${pt3.x}" y1="${pt3.y}" x2="${ptProj.x}" y2="${ptProj.y}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3" />
+              `}
 
               <!-- Puntos de datos -->
               <circle cx="${pt1.x}" cy="${pt1.y}" r="4" fill="#0d9488" stroke="#ffffff" stroke-width="1.5" />
@@ -3420,7 +3470,11 @@ export function printStudentProfileReport(
             <p style="font-size: 8px; color: #14532d; line-height: 1.35;">
               ${currentPeriodAvg >= 4.0 
                 ? 'Alto compromiso con la entrega oportuna de tareas, excelente participación y convivencia armónica en el aula.' 
-                : 'Muestra interés en las actividades prácticas y talleres vivenciales cuando se le brinda acompañamiento guiado.'}
+                : currentPeriodAvg >= 3.0
+                ? 'Muestra interés en las actividades prácticas y talleres vivenciales cuando se le brinda acompañamiento guiado.'
+                : (p2Avg >= 3.0 
+                    ? `Desempeño consolidado en Periodo 2 (${p2Avg.toFixed(1)}). El periodo actual se encuentra en proceso formativo.`
+                    : 'Seguimiento pedagógico y formativo en desarrollo continuo.')}
             </p>
           </div>
 
@@ -3429,9 +3483,13 @@ export function printStudentProfileReport(
               ⚠️ Alertas Tempranas
             </div>
             <p style="font-size: 8px; color: #7f1d1d; line-height: 1.35;">
-              ${currentPeriodAvg < 3.0 
+              ${currentPeriodAvg > 0 && currentPeriodAvg < 3.0 
                 ? 'Riesgo académico en pruebas teóricas y talleres de profundización. Requiere plan de nivelación inmediato.' 
-                : isAttendanceRisk 
+                : currentPeriodAvg === 0
+                ? (isAttendanceRisk && totalDaysTracked >= 3
+                    ? 'Periodo en curso. Atención: se registran inasistencias que pueden comprometer la continuidad pedagógica.' 
+                    : 'Periodo en curso. No se registran alertas tempranas de rendimiento por el momento.')
+                : isAttendanceRisk && totalDaysTracked >= 3
                 ? 'Se registran inasistencias que pueden comprometer la continuidad pedagógica si no se justifican.' 
                 : 'Mantener la constancia en el repaso para asegurar el dominio pleno al cierre del año lectivo.'}
             </p>
@@ -3477,8 +3535,10 @@ export function printStudentProfileReport(
                   <td>${s.aut !== null ? s.aut : '-'}</td>
                   <td><strong style="color: ${(s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626'}; font-size: 9.5px;">${s.definitiva !== null ? s.definitiva.toFixed(2) : '-'}</strong></td>
                   <td>
-                    <span style="font-size: 7.5px; font-weight: 800; color: ${(s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626'};">
-                      ${(s.definitiva || 0) >= 4.6 ? 'Superior' : (s.definitiva || 0) >= 4.0 ? 'Alto' : (s.definitiva || 0) >= 3.0 ? 'Básico' : 'Bajo'}
+                    <span style="font-size: 7.5px; font-weight: 800; color: ${s.definitiva !== null ? ((s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626') : '#64748b'};">
+                      ${s.definitiva !== null 
+                        ? ((s.definitiva || 0) >= 4.6 ? 'Superior' : (s.definitiva || 0) >= 4.0 ? 'Alto' : (s.definitiva || 0) >= 3.0 ? 'Básico' : 'Bajo') 
+                        : 'En Curso'}
                     </span>
                   </td>
                 </tr>

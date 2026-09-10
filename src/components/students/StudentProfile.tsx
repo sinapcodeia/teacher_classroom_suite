@@ -81,7 +81,7 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
     return () => clearTimeout(timer);
   }, []);
 
-  // States for full student editing
+  const [dossierPeriod, setDossierPeriod] = useState<string>(masterData?.activePeriod || "2");
   const [showEditModal, setShowEditModal] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -556,13 +556,26 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
               <Phone size={12} /> {student.acudienteTelefono}
             </a>
           )}
-          <button
-            type="button"
-            onClick={() => printStudentProfileReport(student, profile, masterData, undefined, students)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
-          >
-            <FileText size={12} /> Dossier 360° (PDF)
-          </button>
+          <div className="flex items-center bg-teal-50 border border-teal-200 rounded-xl p-0.5 shadow-sm">
+            <select
+              value={dossierPeriod}
+              onChange={(e) => setDossierPeriod(e.target.value)}
+              className="bg-transparent border-none text-[9px] font-black text-teal-900 uppercase tracking-wider pl-2 pr-1 py-1 focus:ring-0 cursor-pointer"
+              title="Seleccionar Periodo del Dossier"
+            >
+              <option value="1">Periodo 1</option>
+              <option value="2">Periodo 2</option>
+              <option value="3">Periodo 3</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => printStudentProfileReport(student, profile, masterData, dossierPeriod, students)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+              title={`Generar Dossier 360° para el Periodo ${dossierPeriod}`}
+            >
+              <FileText size={12} /> Dossier 360° (PDF)
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => printStudentCommitmentAgreement(student, profile, masterData)}
