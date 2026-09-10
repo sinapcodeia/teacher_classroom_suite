@@ -6,9 +6,10 @@ import {
   User, Calendar, Hash, GraduationCap, MapPin, Star, BookOpen,
   Plus, ClipboardList, Phone, RefreshCw, TrendingUp, AlertTriangle,
   ChevronRight, Activity, Edit, X, Loader2, CheckCircle,
-  Sparkles, Target, Brain, ArrowUpRight
+  Sparkles, Target, Brain, ArrowUpRight, FileText, Scale
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { printStudentProfileReport, printStudentCommitmentAgreement } from "@/lib/printService";
 import Link from "next/link";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -540,23 +541,37 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
         ))}
       </div>
 
-      {/* ── Acudiente (si existe) ─────────────────────────────────────────────── */}
-      {(student.acudienteNombre || student.acudienteTelefono) && (
-        <div className="flex items-center justify-between px-6 py-3 bg-primary/5 border-b border-primary/10">
-          <div>
-            <p className="text-[8px] font-black text-primary uppercase tracking-widest">Acudiente</p>
-            <p className="text-[10px] font-bold text-on-surface uppercase">{student.acudienteNombre || "No registrado"}</p>
-          </div>
+      {/* ── Acudiente & Acciones Institucionales ─────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-200 gap-2">
+        <div>
+          <p className="text-[8px] font-black text-teal-800 uppercase tracking-widest">Acudiente</p>
+          <p className="text-[10px] font-bold text-slate-800 uppercase">{student.acudienteNombre || "No registrado"}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           {student.acudienteTelefono && (
             <a
               href={`tel:${student.acudienteTelefono}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-md shadow-primary/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
             >
               <Phone size={12} /> {student.acudienteTelefono}
             </a>
           )}
+          <button
+            type="button"
+            onClick={() => printStudentProfileReport(student, profile, masterData, undefined, students)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+          >
+            <FileText size={12} /> Dossier 360° (PDF)
+          </button>
+          <button
+            type="button"
+            onClick={() => printStudentCommitmentAgreement(student, profile, masterData)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm border border-amber-400/30"
+          >
+            <Scale size={12} /> Acta Compromiso (PDF)
+          </button>
         </div>
-      )}
+      </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
       <div className="flex border-b border-outline-variant bg-white">
@@ -624,7 +639,7 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
           // SVG Line coordinates
           const p1Score = p1 !== null ? p1 : 0;
           const p2Score = p2 !== null ? p2 : (p1 !== null ? p1 : 0);
-          const p3ScoreForPlot = p3 !== null ? p3 : (completedPeriodsCount > 0 ? currentYearAverage : 3.5);
+          const p3ScoreForPlot = p3 !== null ? p3 : (completedPeriodsCount > 0 ? currentYearAverage : 3.0);
           
           const getY = (score: number) => 100 - ((score / 5) * 80);
           const y1 = getY(p1Score);

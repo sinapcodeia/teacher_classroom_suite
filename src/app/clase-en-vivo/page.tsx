@@ -220,11 +220,11 @@ function LiveClassPageContent() {
             <button 
               onClick={() => {
                 const first = drafts[0];
-                setSelectedGrado(first.grade);
-                setSelectedCurso(first.course);
-                setSelectedSubject(first.subject);
-                if (first.type === "activity") setViewMode("gradebook");
-                else setViewMode("live");
+                if (first.grade) setSelectedGrado(normalizeGrade(first.grade));
+                if (first.course) setSelectedCurso(first.course);
+                const matchedSub = subjects.find(s => s.name.toUpperCase() === first.subject.toUpperCase() || s.id === first.subject);
+                if (matchedSub) setSelectedSubject(matchedSub.id);
+                setViewMode("live");
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               className="w-full text-left mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all animate-in fade-in cursor-pointer group"
@@ -295,8 +295,8 @@ function LiveClassPageContent() {
             </div>
 
             <aside className="lg:col-span-4 flex flex-col gap-8">
-              <SessionReminders course={selectedCurso} subject={currentSubjectName} />
-              <ClassInsights course={selectedCurso} subject={currentSubjectName} />
+              <SessionReminders course={selectedCurso} subject={currentSubjectName} grade={selectedGrado} />
+              <ClassInsights course={selectedCurso} subject={currentSubjectName} grade={selectedGrado} />
               <TopicSelector subjectId={currentSubjectName} grade={normalizedGradeForCurriculum} />
               <SessionNotes subject={currentSubjectName} course={selectedCurso} />
               

@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { APP_VERSION_LABEL } from "@/lib/version";
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, LogOut, ChevronDown, Search, Bell, Command, CalendarDays } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { ShieldCheck, LogOut, ChevronDown, Search, Bell, Command, CalendarDays, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { DeveloperEasterEggModal } from "@/components/shared/DeveloperEasterEggModal";
 
 
 
@@ -17,6 +18,44 @@ export default function TopAppBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Easter Egg State
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [lastClickTime, setLastClickTime] = useState(0);
+  const [countdownToast, setCountdownToast] = useState<string | null>(null);
+
+  const handleLogoClick = useCallback(() => {
+    const now = Date.now();
+    const timeDiff = now - lastClickTime;
+    
+    let newCount = 1;
+    if (timeDiff < 1800) {
+      newCount = logoClicks + 1;
+    }
+    
+    setLastClickTime(now);
+    setLogoClicks(newCount);
+
+    if (newCount >= 7) {
+      setLogoClicks(0);
+      setCountdownToast(null);
+      setShowEasterEgg(true);
+    } else if (newCount >= 3) {
+      const remaining = 7 - newCount;
+      setCountdownToast(`¡A ${remaining} toques del Modo Creador!`);
+    }
+  }, [lastClickTime, logoClicks]);
+
+  // Auto-clear countdown toast after 2s
+  useEffect(() => {
+    if (!countdownToast) return;
+    const timer = setTimeout(() => {
+      setCountdownToast(null);
+      setLogoClicks(0);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [countdownToast, logoClicks]);
 
   // Efecto de scroll para el header
   useEffect(() => {
@@ -70,34 +109,47 @@ export default function TopAppBar() {
     masterData?.activePeriod === "p3" ? "PERIODO 3" : "PERIODO";
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-500 border-b ${
-        scrolled
-          ? "bg-white/80 backdrop-blur-xl border-outline-variant/30 shadow-lg"
-          : "bg-white border-transparent"
-      } flex items-center px-4 md:px-8 gap-4`}
-    >
-      {/* Branding */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg overflow-hidden border border-outline-variant/10 relative">
-          <Image
-            src="/logo.png"
-            alt="Logo IETABA"
-            fill
-            sizes="40px"
-            className="object-contain p-1"
-          />
-        </div>
-        <div className="hidden lg:flex flex-col leading-none">
-          <span className="text-[11px] font-black tracking-tighter uppercase italic text-on-surface">
-            EduManager
-          </span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-            <span className="text-[7px] font-black text-on-surface-variant uppercase tracking-[0.4em]">IETABA · Premium Suite</span>
+    <>
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-500 border-b ${
+          scrolled
+            ? "bg-white/80 backdrop-blur-xl border-outline-variant/30 shadow-lg"
+            : "bg-white border-transparent"
+        } flex items-center px-4 md:px-8 gap-4`}
+      >
+        {/* Branding with Easter Egg Trigger */}
+        <div
+          className="relative flex items-center gap-3 shrink-0 cursor-pointer group select-none active:scale-95 transition-transform"
+          onClick={handleLogoClick}
+          title="IETABA EduManager Suite"
+        >
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg overflow-hidden border border-outline-variant/10 relative group-hover:shadow-amber-500/20 group-hover:border-amber-400/50 transition-all">
+            <Image
+              src="/logo.png"
+              alt="Logo IETABA"
+              fill
+              sizes="40px"
+              className="object-contain p-1 group-hover:scale-105 transition-transform"
+            />
           </div>
+          <div className="hidden lg:flex flex-col leading-none">
+            <span className="text-[11px] font-black tracking-tighter uppercase italic text-on-surface group-hover:text-amber-600 transition-colors">
+              EduManager
+            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+              <span className="text-[7px] font-black text-on-surface-variant uppercase tracking-[0.4em]">IETABA · Premium Suite</span>
+            </div>
+          </div>
+
+          {/* Easter Egg Floating Hint Pill */}
+          {countdownToast && (
+            <div className="absolute top-12 left-0 z-50 px-3 py-1 bg-slate-900 text-amber-400 rounded-full border border-amber-400/50 shadow-xl text-[10px] font-black tracking-wider whitespace-nowrap flex items-center gap-1.5 animate-bounce">
+              <Sparkles size={12} className="text-amber-400 animate-spin" />
+              {countdownToast}
+            </div>
+          )}
         </div>
-      </div>
 
       {/* Startup Divider */}
       <div className="hidden md:block w-px h-6 bg-outline-variant/30" />
@@ -265,5 +317,12 @@ export default function TopAppBar() {
         </div>
       </div>
     </header>
-  );
+
+    {/* Developer Tribute & Arcade Easter Egg Modal */}
+    <DeveloperEasterEggModal
+      isOpen={showEasterEgg}
+      onClose={() => setShowEasterEgg(false)}
+    />
+  </>
+);
 }

@@ -97,3 +97,41 @@ export function sanitizeText(str: string | undefined | null): string {
     .replace(/[<>]/g, "")
     .trim();
 }
+
+/**
+ * matchStudentCourse — Compara y empareja cursos considerando múltiples formatos:
+ * "4", "7-4", "7.4", "7°-4", "TODOS".
+ */
+export function matchStudentCourse(
+  studentCourse: string | number | undefined | null,
+  targetCourse: string | number | undefined | null,
+  studentGrade?: string | number | undefined | null,
+  targetGrade?: string | number | undefined | null
+): boolean {
+  if (!targetCourse || targetCourse === "TODOS") return true;
+  if (studentCourse === undefined || studentCourse === null || studentCourse === "") return false;
+
+  const sC = String(studentCourse).trim().toUpperCase();
+  const tC = String(targetCourse).trim().toUpperCase();
+
+  // 1. Coincidencia exacta ("4" === "4", "7-4" === "7-4")
+  if (sC === tC) return true;
+
+  // 2. Extracción de sufijo limpio ("7-4" -> "4", "7.4" -> "4", "7_4" -> "4")
+  const sSuffix = sC.replace(/^.*[.\-_]/, "").trim();
+  const tSuffix = tC.replace(/^.*[.\-_]/, "").trim();
+  if (sSuffix && tSuffix && sSuffix === tSuffix) return true;
+
+  // 3. Prefijado con Grado (ej: Grado 7 con curso 4 vs "7-4" o "7°-4")
+  if (targetGrade || studentGrade) {
+    const rawG = targetGrade || studentGrade;
+    const normG = normalizeGrade(String(rawG));
+    const numG = normG.replace(/\D/g, "");
+    if (sC === `${normG}-${tSuffix}` || sC === `${numG}-${tSuffix}` || sC === `${numG}.${tSuffix}`) {
+      return true;
+    }
+  }
+
+  return false;
+}
+

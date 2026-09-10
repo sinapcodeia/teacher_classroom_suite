@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useApp, Student } from "@/context/AppContext";
@@ -36,6 +36,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
   const [isTransientOpen, setIsTransientOpen] = useState(false);
   const [showTransientWarningModal, setShowTransientWarningModal] = useState(false);
   const [showAdvancePeriodModal, setShowAdvancePeriodModal] = useState(false);
+  const [advanceConfirmed, setAdvanceConfirmed] = useState(false);
   
   const [importProgress, setImportProgress] = useState(0);
   const [importStats, setImportStats] = useState({
@@ -63,7 +64,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
       .filter(s => {
         if (s.isActive === false) return false;
         const matchGrado = grade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(grade);
-        const matchCurso = course === "TODOS" || s.curso === course;
+        const matchCurso = matchStudentCourse(s.curso, course, s.grado, grade);
         return matchGrado && matchCurso;
       })
       .sort((a, b) => {
@@ -265,7 +266,35 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
           </div>
         </div>
 
-        {/* Period Selection Tabs & Control */}
+        {/* Banner de Advertencia de Periodo Reabierto */}
+      {isTransientOpen && (
+        <div className="mx-6 mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+              <AlertCircle size={22} />
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                Periodo {PERIODS.find(p => p.id === selectedPeriod)?.label || selectedPeriod} Reabierto para Modificaciones
+              </h4>
+              <p className="text-[10px] font-bold text-amber-800 leading-tight">
+                Recuerda que una vez termines de actualizar las notas debes cerrar el periodo para evitar contratiempos con los consolidados y boletines de secretaría.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              togglePeriodStatus(selectedPeriod, "closed");
+              setIsTransientOpen(false);
+            }}
+            className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center justify-center gap-2 whitespace-nowrap active:scale-95"
+          >
+            <Lock size={14} /> Cerrar Periodo Ahora
+          </button>
+        </div>
+      )}
+
+      {/* Period Selection Tabs & Control */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-2xl border border-outline-variant/30 overflow-x-auto no-scrollbar">
             {PERIODS.map(p => {
@@ -574,55 +603,204 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
       )}
 
       
-      {/* Transient Warning Modal */}
+      {/* Transient Warning Modal — Ultra-Premium Design */}
       {showTransientWarningModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-slate-900/40 animate-fade-in">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 border border-amber-100">
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-6 text-amber-500">
-              <AlertCircle size={32} />
+        <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 md:p-6 backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-amber-100 animate-in zoom-in-95 duration-300 flex flex-col">
+            <div className="bg-gradient-to-r from-amber-600 to-orange-600 p-6 md:p-8 text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner">
+                  <Unlock size={26} className="text-white" />
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-200 bg-white/10 px-2.5 py-1 rounded-md">
+                    Autorización Extraordinaria
+                  </span>
+                  <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white mt-1">
+                    Reabrir Periodo Cerrado
+                  </h3>
+                </div>
+              </div>
             </div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter mb-4">Modificar Periodo Cerrado</h3>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed mb-8">
-              Vas a habilitar temporalmente la edición de un periodo que ya estaba cerrado. 
-              <strong> Importante:</strong> al cargar la nueva planilla o guardar, el periodo se volverá a bloquear automáticamente para proteger las notas y evitar cruces con el periodo activo.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowTransientWarningModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
-              <button onClick={() => { setIsTransientOpen(true); setShowTransientWarningModal(false); }} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">Entendido, Abrir</button>
+
+            <div className="p-6 md:p-8 space-y-5">
+              <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200/80 space-y-2">
+                <p className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-2">
+                  <AlertCircle size={16} className="text-amber-600" /> Periodo Seleccionado: {PERIODS.find(p => p.id === selectedPeriod)?.label || selectedPeriod}
+                </p>
+                <p className="text-[11px] font-medium text-amber-800 leading-relaxed">
+                  Vas a habilitar la corrección o adición de notas en este periodo.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-2">
+                <p className="font-black text-[10px] uppercase tracking-widest text-slate-800">
+                  ⚠️ Directriz Institucional Obligatoria:
+                </p>
+                <p className="text-[11px] leading-relaxed text-slate-600">
+                  Al terminar de realizar los ajustes requeridos, <strong>debes volver a presionar &quot;Cerrar Periodo Ahora&quot;</strong> en el banner superior para garantizar que secretaría académica y coordinación puedan emitir los boletines definitivos sin inconsistencias.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setShowTransientWarningModal(false)} 
+                  className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all"
+                >
+                  ✕ Cancelar
+                </button>
+                <button 
+                  onClick={() => { 
+                    setIsTransientOpen(true); 
+                    setShowTransientWarningModal(false); 
+                  }} 
+                  className="flex-1 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Unlock size={14} /> Entendido, Habilitar Edición
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Advance Period Modal */}
-      {showAdvancePeriodModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-slate-900/40 animate-fade-in">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 border border-blue-100">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 text-blue-500">
-              <CheckCircle size={32} />
-            </div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter mb-4">Finalizar y Avanzar Periodo</h3>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed mb-8">
-              Estás a punto de cerrar definitivamente el <strong>{PERIODS.find(p => p.id === selectedPeriod)?.label}</strong>. 
-              Esto bloqueará la modificación de notas para este periodo a nivel institucional.
-              {PERIODS.findIndex(p => p.id === selectedPeriod) < PERIODS.length - 1 && (
-                <span> Se habilitará oficialmente el <strong>{PERIODS[PERIODS.findIndex(p => p.id === selectedPeriod) + 1].label}</strong> como el periodo activo.</span>
-              )}
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowAdvancePeriodModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
-              <button onClick={() => {
-                togglePeriodStatus(selectedPeriod, "closed");
-                const currIdx = PERIODS.findIndex(p => p.id === selectedPeriod);
-                if (currIdx < PERIODS.length - 1) {
-                  const nextAppPeriod = PERIODS[currIdx + 1].id;
-                  setActivePeriod(nextAppPeriod);}
-                setShowAdvancePeriodModal(false);
-              }} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">Confirmar Cierre</button>
+      {/* Advance Period Modal — Ultra-Premium Executive Design */}
+      {showAdvancePeriodModal && (() => {
+        const currentPeriodObj = PERIODS.find(p => p.id === selectedPeriod);
+        const currIdx = PERIODS.findIndex(p => p.id === selectedPeriod);
+        const nextPeriodObj = currIdx < PERIODS.length - 1 ? PERIODS[currIdx + 1] : null;
+
+        return (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 md:p-6 backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[2.5rem] shadow-[0_30px_90px_rgba(0,0,0,0.35)] max-w-lg w-full overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300 flex flex-col">
+              
+              {/* Top Banner Gradient */}
+              <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-6 md:p-8 text-white relative">
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 border border-white/20">
+                      <Lock size={26} className="text-white" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-300 bg-white/10 px-2.5 py-1 rounded-md border border-white/10">
+                        Seguridad Académica · IETABA
+                      </span>
+                      <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white mt-1">
+                        Finalizar y Avanzar Periodo
+                      </h3>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowAdvancePeriodModal(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 md:p-8 space-y-6">
+                
+                {/* Period Progression Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-rose-50/80 rounded-2xl border border-rose-200/80 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-rose-500" />
+                      <span className="text-[9px] font-black uppercase tracking-wider text-rose-700">Periodo a Bloquear</span>
+                    </div>
+                    <p className="text-sm font-black text-rose-950 uppercase">{currentPeriodObj?.label || selectedPeriod}</p>
+                    <span className="text-[8px] font-bold text-rose-600 block">Quedará cerrado oficialmente</span>
+                  </div>
+
+                  <div className="p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200/80 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Nuevo Periodo Activo</span>
+                    </div>
+                    <p className="text-sm font-black text-emerald-950 uppercase">{nextPeriodObj?.label || "Cierre de Año"}</p>
+                    <span className="text-[8px] font-bold text-emerald-600 block">Habilitado para nuevas notas</span>
+                  </div>
+                </div>
+
+                {/* Scope & Impacts Checklist */}
+                <div className="space-y-3 bg-slate-50 p-5 rounded-2xl border border-slate-200/70">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Consecuencias del Cierre Oficial:</p>
+                  
+                  <div className="space-y-2.5 text-xs text-slate-700">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">
+                        ✓
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        <strong>Protección de Notas:</strong> Se bloqueará la edición accidental para resguardar las definitivas del periodo.
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">
+                        ✓
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        <strong>Consolidación para Secretaría:</strong> Quedan fijados los promedios oficiales requeridos para emisión de boletines.
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">
+                        ✓
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        <strong>Sincronización Multi-dispositivo:</strong> El cierre se aplica inmediatamente en todos los computadores y modo offline.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Safety Confirmation Checkbox */}
+                <label className="flex items-center gap-3 p-3.5 bg-blue-50/50 rounded-xl border border-blue-200/60 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={advanceConfirmed}
+                    onChange={e => setAdvanceConfirmed(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 select-none">
+                    Confirmo que revisé las notas y deseo proceder con el cierre
+                  </span>
+                </label>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => {
+                      setShowAdvancePeriodModal(false);
+                      setAdvanceConfirmed(false);
+                    }} 
+                    className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all"
+                  >
+                    ✕ Cancelar
+                  </button>
+                  <button 
+                    disabled={!advanceConfirmed}
+                    onClick={() => {
+                      togglePeriodStatus(selectedPeriod, "closed");
+                      if (nextPeriodObj) {
+                        setActivePeriod(nextPeriodObj.id);
+                      }
+                      setShowAdvancePeriodModal(false);
+                      setAdvanceConfirmed(false);
+                    }} 
+                    className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    <Lock size={14} /> Confirmar Cierre Oficial
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Summary Modal */}
       <GradeImportSummaryModal 

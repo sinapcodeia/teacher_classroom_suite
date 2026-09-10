@@ -2663,3 +2663,1229 @@ export function printAnalyticsReport(
     window.open(url, "_blank");
   }
 }
+
+/**
+ * ── DOSSIER EJECUTIVO 360° DEL ESTUDIANTE CON KPIS BI Y GRÁFICAS DE TENDENCIA (PDF) ──
+ * Diseñado bajo estándares de plataformas mundiales (PowerSchool, Toddle, Canvas Parent)
+ * para entrega formal de informes y reuniones de atención a padres de familia y acudientes.
+ */
+export function printStudentProfileReport(
+  student: any,
+  teacherProfile: any,
+  masterData: any,
+  selectedPeriod?: string,
+  allStudents?: any[]
+) {
+  if (!student) {
+    if (typeof window !== "undefined") alert("Aviso: No se encontraron datos del estudiante.");
+    return;
+  }
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const period = selectedPeriod || masterData?.activePeriod || "1";
+  const pName = period === "1" ? "Primer Periodo" : period === "2" ? "Segundo Periodo" : "Tercer Periodo";
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+  const horaStr = now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+
+  // Cálculo de promedios multi-periodo del estudiante (estricto: si no hay notas retorna 0)
+  const calculatePeriodAvg = (st: any, pId: string): number => {
+    if (!st || !st.detailedGrades) return 0;
+    const cleanPid = pId.replace('p', '');
+    const altPid = 'p' + cleanPid;
+    const scores: number[] = [];
+    
+    Object.values(st.detailedGrades).forEach((subPeriods: any) => {
+      if (!subPeriods) return;
+      const periodObj = subPeriods[pId] || subPeriods[cleanPid] || subPeriods[altPid];
+      if (periodObj) {
+        // Verificar si realmente tiene alguna calificación registrada
+        const hasSb = Array.isArray(periodObj.sb) && periodObj.sb.some((x: any) => x !== null && x !== undefined);
+        const hasSbh = Array.isArray(periodObj.sbh) && periodObj.sbh.some((x: any) => x !== null && x !== undefined);
+        const hasSr = Array.isArray(periodObj.sr) && periodObj.sr.some((x: any) => x !== null && x !== undefined);
+        const hasCv = Array.isArray(periodObj.cv) && periodObj.cv.some((x: any) => x !== null && x !== undefined);
+        const hasAut = periodObj.aut !== null && periodObj.aut !== undefined;
+        
+        if (hasSb || hasSbh || hasSr || hasCv || hasAut) {
+          const res = calculatePeriodGrades(periodObj);
+          if (res && res.definitiva !== null && res.definitiva !== undefined && res.definitiva > 0) {
+            scores.push(res.definitiva);
+          }
+        }
+      }
+    });
+    return scores.length > 0 ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : 0;
+  };
+
+  const p1Avg = calculatePeriodAvg(student, "1");
+  const p2Avg = calculatePeriodAvg(student, "2");
+  const p3Avg = calculatePeriodAvg(student, "3");
+  const currentPeriodAvg = calculatePeriodAvg(student, period); // Removed fallback to student.avgGrade
+
+  // Cálculo de ranking y promedios grupales
+  const classmates = (allStudents || []).filter((s: any) => 
+    s.isActive !== false &&
+    normalizeGrade(s.grado) === normalizeGrade(student.grado) && 
+    (String(s.curso || '').trim() === String(student.curso || '').trim())
+  );
+
+  let classAverage = currentPeriodAvg;
+  let studentRank = 1;
+  const totalClassmates = Math.max(1, classmates.length);
+
+  if (classmates.length > 0) {
+    const classScores = classmates.map((c: any) => ({
+      id: c.id,
+      avg: calculatePeriodAvg(c, period) || c.avgGrade || 0
+    })).sort((a, b) => b.avg - a.avg);
+
+    const sumClass = classScores.reduce((acc, curr) => acc + curr.avg, 0);
+    classAverage = Number((sumClass / classScores.length).toFixed(2));
+    
+    const rankIndex = classScores.findIndex(c => c.id === student.id);
+    studentRank = rankIndex >= 0 ? rankIndex + 1 : 1;
+  }
+
+  const deltaVsClass = Number((currentPeriodAvg - classAverage).toFixed(2));
+
+  // Análisis de Tendencia Temporal (P1 -> P2 -> P3)
+  let trendType: "UP" | "STABLE" | "DOWN" = "STABLE";
+  let trendLabel = "TENDENCIA ESTABLE";
+  let trendDeltaText = "0.0";
+  let trendColor = "#0284c7";
+
+  if (p2Avg > 0 && p1Avg > 0) {
+    const diff = Number((currentPeriodAvg - p1Avg).toFixed(2));
+    if (diff >= 0.25) {
+      trendType = "UP";
+      trendLabel = `TENDENCIA ASCENDENTE (+${diff.toFixed(1)})`;
+      trendDeltaText = `+${diff.toFixed(1)}`;
+      trendColor = "#059669";
+    } else if (diff <= -0.25) {
+      trendType = "DOWN";
+      trendLabel = `TENDENCIA EN RIESGO (${diff.toFixed(1)})`;
+      trendDeltaText = `${diff.toFixed(1)}`;
+      trendColor = "#dc2626";
+    }
+  }
+
+  // Generador de Curva SVG Vectorial de Tendencia
+  // Mapear notas (0 a 5.0) a coordenadas SVG (x: 40 a 460, y: 100 a 20)
+  const scaleY = (val: number) => {
+    const safe = Math.max(0, Math.min(5, val));
+    return 100 - (safe / 5.0) * 80; // y=100 es 0.0, y=20 es 5.0
+  };
+
+  const pt1 = { x: 70,  y: p1Avg > 0 ? scaleY(p1Avg) : scaleY(currentPeriodAvg), val: p1Avg > 0 ? p1Avg : currentPeriodAvg };
+  const pt2 = { x: 200, y: p2Avg > 0 ? scaleY(p2Avg) : scaleY(currentPeriodAvg), val: p2Avg > 0 ? p2Avg : currentPeriodAvg };
+  const pt3 = { x: 330, y: p3Avg > 0 ? scaleY(p3Avg) : scaleY(currentPeriodAvg), val: p3Avg > 0 ? p3Avg : currentPeriodAvg };
+  const ptProj = { x: 440, y: scaleY(Math.min(5.0, Math.max(1.0, currentPeriodAvg + (trendType === "UP" ? 0.2 : trendType === "DOWN" ? -0.2 : 0)))), val: currentPeriodAvg };
+
+  const thresholdY = scaleY(3.0); // Línea roja de corte aprobatorio (3.0)
+  const classAvgY = scaleY(classAverage); // Línea azul de promedio del salón
+
+  // Diagnóstico y semáforo SIEEE
+  let statusBadge = "DESEMPEÑO BÁSICO";
+  let statusText = "El estudiante alcanza los desempeños requeridos pero debe fortalecer sus hábitos de estudio.";
+  let statusColor = "#d97706";
+  let bgGradient = "linear-gradient(135deg, #fffbeb, #fef3c7)";
+  let borderColor = "#fcd34d";
+
+  if (currentPeriodAvg === 0) {
+      statusBadge = "EN CURSO / SIN CALIFICAR";
+      statusText = "El periodo aún no tiene calificaciones registradas.";
+      statusColor = "#64748b";
+      bgGradient = "linear-gradient(135deg, #f8fafc, #f1f5f9)";
+      borderColor = "#cbd5e1";
+    } else if (currentPeriodAvg >= 4.6) {
+    statusBadge = "DESEMPEÑO SUPERIOR (EXCELENCIA)";
+    statusText = "El estudiante demuestra un dominio excepcional de las competencias, autonomía, liderazgo constructivo y alto compromiso formativo.";
+    statusColor = "#059669";
+    bgGradient = "linear-gradient(135deg, #f0fdf4, #dcfce7)";
+    borderColor = "#86efac";
+  } else if (currentPeriodAvg >= 4.0) {
+    statusBadge = "DESEMPEÑO ALTO (PROMOVIDO)";
+    statusText = "El estudiante alcanza satisfactoriamente los objetivos del área con buena disciplina, participación activa y cumplimiento regular.";
+    statusColor = "#0284c7";
+    bgGradient = "linear-gradient(135deg, #f0f9ff, #e0f2fe)";
+    borderColor = "#7dd3fc";
+  } else if (currentPeriodAvg >= 3.0) {
+    statusBadge = "DESEMPEÑO BÁSICO (APROBADO CON REFUERZO)";
+    statusText = "El estudiante cumple con el umbral mínimo institucional. Se requiere consolidar el tiempo de estudio diario en el hogar para evitar riesgos.";
+    statusColor = "#d97706";
+    bgGradient = "linear-gradient(135deg, #fffbeb, #fef3c7)";
+    borderColor = "#fcd34d";
+  } else {
+    statusBadge = "DESEMPEÑO BAJO (EN RIESGO ACADÉMICO PRIORITARIO)";
+    statusText = "El estudiante presenta deficiencias significativas en las competencias clave. Requiere plan de apoyo urgente y acompañamiento diario en casa.";
+    statusColor = "#dc2626";
+    bgGradient = "linear-gradient(135deg, #fef2f2, #fee2e2)";
+    borderColor = "#fca5a5";
+  }
+
+  // Análisis de Asistencia y Ausentismo
+  const attendanceRecords = student.attendanceRecord || {};
+  const totalDaysTracked = Object.keys(attendanceRecords).length;
+  let inasistencias = 0;
+  let tardanzas = 0;
+  let excusas = 0;
+  let asistencias = 0;
+
+  Object.values(attendanceRecords).forEach((val: any) => {
+    if (val === "absent" || val === "A") inasistencias++;
+    else if (val === "late" || val === "T") tardanzas++;
+    else if (val === "excused" || val === "E") excusas++;
+    else asistencias++;
+  });
+
+  const attendancePct = totalDaysTracked > 0 ? Math.round(((asistencias + excusas) / totalDaysTracked) * 100) : 100;
+  const isAttendanceRisk = attendancePct < 85;
+
+  // Desglose de Sabidurías Awá por Asignatura
+  const subjectsBreakdown: any[] = [];
+  let totalSb = 0, totalSbh = 0, totalSr = 0, totalCv = 0, totalAut = 0, subCount = 0;
+
+  if (student.detailedGrades) {
+    Object.entries(student.detailedGrades).forEach(([subjName, pData]: [string, any]) => {
+      const getDef = (pKey1: string, pKey2: string) => {
+        const obj = pData?.[pKey1] || pData?.[pKey2];
+        if (!obj) return null;
+        const hasAny = (Array.isArray(obj.sb) && obj.sb.some((v: any) => v != null)) ||
+                       (Array.isArray(obj.sbh) && obj.sbh.some((v: any) => v != null)) ||
+                       (Array.isArray(obj.sr) && obj.sr.some((v: any) => v != null)) ||
+                       (Array.isArray(obj.cv) && obj.cv.some((v: any) => v != null)) ||
+                       obj.aut != null;
+        if (!hasAny) return null;
+        return calculatePeriodGrades(obj).definitiva;
+      };
+      const p1 = getDef("p1", "1");
+      const p2 = getDef("p2", "2");
+      const p3 = getDef("p3", "3");
+      
+      const currentDetailed = pData?.[period];
+      let sbAvg: number | null = null;
+      let sbhAvg: number | null = null;
+      let srAvg: number | null = null;
+      let cvAvg: number | null = null;
+      let autVal: number | null = null;
+      let definitiva: number | null = null;
+
+      if (currentDetailed) {
+        const getAvgArr = (arr: any[]) => {
+          if (!arr) return null;
+          const v = arr.filter((x: any) => x !== null && x !== undefined);
+          return v.length > 0 ? Number((v.reduce((a: number, b: number) => a + b, 0) / v.length).toFixed(1)) : null;
+        };
+        sbAvg = getAvgArr(currentDetailed.sb);
+        sbhAvg = getAvgArr(currentDetailed.sbh);
+        srAvg = getAvgArr(currentDetailed.sr);
+        cvAvg = getAvgArr(currentDetailed.cv);
+        autVal = currentDetailed.aut ?? null;
+
+        // Solo calcular definitiva si al menos un saber tiene valor real
+        const hasAnySaber = sbAvg !== null || sbhAvg !== null || srAvg !== null || cvAvg !== null || autVal !== null;
+        if (hasAnySaber) {
+          const res = calculatePeriodGrades(currentDetailed);
+          definitiva = res.definitiva;
+          if (sbAvg !== null) { totalSb += sbAvg; }
+          if (sbhAvg !== null) { totalSbh += sbhAvg; }
+          if (srAvg !== null) { totalSr += srAvg; }
+          if (cvAvg !== null) { totalCv += cvAvg; }
+          if (autVal !== null) { totalAut += autVal; }
+          subCount++;
+        }
+      }
+
+      subjectsBreakdown.push({
+        subject: subjName,
+        p1, p2, p3,
+        definitiva: definitiva,
+        sb: sbAvg,
+        sbh: sbhAvg,
+        sr: srAvg,
+        cv: cvAvg,
+        aut: autVal
+      });
+    });
+  }
+
+  const avgSb = subCount > 0 ? Number((totalSb / subCount).toFixed(1)) : null;
+  const avgSbh = subCount > 0 ? Number((totalSbh / subCount).toFixed(1)) : null;
+  const avgSr = subCount > 0 ? Number((totalSr / subCount).toFixed(1)) : null;
+  const avgCv = subCount > 0 ? Number((totalCv / subCount).toFixed(1)) : null;
+  const avgAut = subCount > 0 ? Number((totalAut / subCount).toFixed(1)) : null;
+
+  // Observador de Convivencia (Ley 1620)
+  const behavioralList: any[] = student.behavioralRecords || [];
+  const leveisCount = behavioralList.filter(b => b.type === "LEVE").length;
+  const gravesCount = behavioralList.filter(b => b.type === "GRAVE").length;
+  const gravisimasCount = behavioralList.filter(b => b.type === "GRAVISIMA").length;
+  const positivasCount = behavioralList.filter(b => b.type === "POSITIVA").length;
+
+  const cleanName = `${student.primerApellido || ''}_${student.segundoApellido || ''}_${student.primerNombre || ''}`.trim().replace(/\s+/g, '_');
+  const normalizedFileName = `IETABA_Dossier_Acudiente_${cleanName}_P${period}`;
+
+  const reportHtml = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <title>${normalizedFileName}</title>
+      <style>
+        @page {
+          margin: 8mm 10mm;
+          size: A4 portrait;
+        }
+        @media print {
+          .no-print { display: none !important; }
+          body { 
+            background: #ffffff !important; 
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+          font-size: 9.5px;
+          line-height: 1.35;
+          color: #0f172a;
+          background: #f8fafc;
+          padding: 20px;
+        }
+        .print-container {
+          max-width: 820px;
+          margin: 0 auto;
+          background: #ffffff;
+        }
+        .btn-print {
+          background: #0d9488;
+          color: white;
+          border: none;
+          padding: 9px 18px;
+          border-radius: 9999px;
+          font-weight: 800;
+          font-size: 11px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .btn-print:hover { background: #0f766e; }
+        
+        .header-institucional {
+          border-bottom: 2px solid #0d9488;
+          padding-bottom: 10px;
+          margin-bottom: 12px;
+        }
+        .header-flex {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 14px;
+        }
+        .header-logo {
+          width: 68px;
+          height: 68px;
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+        .header-text { flex: 1; }
+        .header-text h1 {
+          font-size: 12px;
+          font-weight: 900;
+          color: #042f2e;
+          letter-spacing: -0.01em;
+          margin-bottom: 1px;
+          line-height: 1.2;
+        }
+        .header-text h2 {
+          font-size: 10px;
+          font-weight: 800;
+          color: #0f766e;
+          margin-bottom: 2px;
+        }
+        .header-text p {
+          font-size: 8px;
+          color: #475569;
+          line-height: 1.2;
+        }
+        .report-badge {
+          display: inline-block;
+          background: #0f766e;
+          color: #ffffff;
+          font-size: 8.5px;
+          font-weight: 900;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 5px;
+          margin-top: 4px;
+        }
+
+        .student-hero {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 10px 14px;
+          margin-bottom: 12px;
+          display: grid;
+          grid-template-columns: 2.2fr 1fr 1fr;
+          gap: 10px;
+          align-items: center;
+        }
+        .student-name {
+          font-size: 13px;
+          font-weight: 900;
+          color: #0f172a;
+          text-transform: uppercase;
+          line-height: 1.2;
+        }
+        .student-sub {
+          font-size: 8.5px;
+          color: #64748b;
+          font-weight: 600;
+          margin-top: 2px;
+        }
+
+        /* Bento Grid KPIs */
+        .bento-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .bento-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 8px 10px;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+        .bento-card.highlight {
+          background: #f0fdfa;
+          border-color: #5eead4;
+        }
+        .bento-label {
+          font-size: 7.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #64748b;
+          letter-spacing: 0.03em;
+        }
+        .bento-val {
+          font-size: 17px;
+          font-weight: 900;
+          color: #0f172a;
+          margin: 2px 0;
+        }
+        .bento-sub {
+          font-size: 7.5px;
+          font-weight: 700;
+          color: #94a3b8;
+        }
+
+        .section-title {
+          font-size: 10px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: #0f766e;
+          margin-bottom: 6px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          border-left: 3px solid #0d9488;
+          padding-left: 6px;
+        }
+
+        /* Trend & Benchmark Container */
+        .analytics-container {
+          display: grid;
+          grid-template-columns: 1.4fr 1fr;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .trend-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 10px 12px;
+        }
+
+        .wisdom-bar-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+        .wisdom-label {
+          width: 80px;
+          font-size: 8px;
+          font-weight: 800;
+          color: #334155;
+          text-transform: uppercase;
+        }
+        .wisdom-track {
+          flex: 1;
+          height: 9px;
+          background: #f1f5f9;
+          border-radius: 4px;
+          overflow: hidden;
+          position: relative;
+        }
+        .wisdom-fill {
+          height: 100%;
+          border-radius: 4px;
+        }
+        .wisdom-score {
+          width: 25px;
+          text-align: right;
+          font-size: 8.5px;
+          font-weight: 900;
+          color: #0f172a;
+        }
+
+        table.custom-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 8.5px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          overflow: hidden;
+          margin-bottom: 12px;
+        }
+        table.custom-table th {
+          background: #f1f5f9;
+          color: #334155;
+          font-weight: 800;
+          text-transform: uppercase;
+          font-size: 7.5px;
+          padding: 6px 8px;
+          border-bottom: 1px solid #e2e8f0;
+          text-align: center;
+        }
+        table.custom-table td {
+          padding: 5px 8px;
+          border-bottom: 1px solid #f1f5f9;
+          text-align: center;
+          color: #1e293b;
+        }
+        table.custom-table tr:last-child td { border-bottom: none; }
+        table.custom-table tr:nth-child(even) td { background: #fafafa; }
+
+        .insights-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .insight-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 8px 10px;
+        }
+        .insight-title {
+          font-size: 8px;
+          font-weight: 900;
+          text-transform: uppercase;
+          margin-bottom: 3px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .firmas-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 16px;
+          margin-top: 20px;
+        }
+        .firma-box { text-align: center; }
+        .firma-linea {
+          border-top: 1.5px solid #0f172a;
+          margin-bottom: 3px;
+          margin-top: 28px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="no-print" style="margin-bottom: 12px; text-align: right;">
+        <button onclick="window.print()" class="btn-print">
+          🖨️ Imprimir Dossier Ejecutivo / Guardar en PDF
+        </button>
+      </div>
+
+      <div class="print-container">
+        <!-- HEADER INSTITUCIONAL -->
+        <div class="header-institucional">
+          <div class="header-flex">
+            <img src="${baseUrl}/logo.png" class="header-logo" onerror="this.style.display='none'">
+            <div class="header-text">
+              <h1>UNIDAD INDÍGENA DEL PUEBLO AWÁ &quot;UNIPA&quot;</h1>
+              <h2>INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ &quot;IETABA&quot;</h2>
+              <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
+              <p style="color: #0d9488; font-style: italic; margin-top: 1px;">Ambiente – Cultura – Ciencia</p>
+            </div>
+          </div>
+          <div class="report-badge">DOSSIER EJECUTIVO DE INTELIGENCIA PEDAGÓGICA Y RENDIMIENTO 360°</div>
+        </div>
+
+        <!-- HERO ESTUDIANTE -->
+        <div class="student-hero">
+          <div>
+            <div class="student-name">
+              ${escapeHtml(student.primerApellido || '')} ${escapeHtml(student.segundoApellido || '')} ${escapeHtml(student.primerNombre || '')} ${escapeHtml(student.segundoNombre || '')}
+            </div>
+            <div class="student-sub">
+              Documento: <strong>${escapeHtml(student.tipoDocumento || 'TI')} ${escapeHtml(student.nroDocumento || 'Sin número')}</strong> · Grado: <strong>${escapeHtml(normalizeGrade(student.grado || ''))}</strong> · Curso: <strong>${escapeHtml(student.curso || '1')}</strong>
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 7.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">Acudiente Registrado</div>
+            <div style="font-size: 9.5px; font-weight: 800; color: #0f172a;">${escapeHtml(student.acudienteNombre || 'NO REGISTRADO')}</div>
+            <div style="font-size: 8px; color: #0d9488; font-weight: 700;">Tel: ${escapeHtml(student.acudienteTelefono || 'N/A')}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 7.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">Fecha de Emisión</div>
+            <div style="font-size: 9px; font-weight: 800; color: #0f172a;">${fechaStr}</div>
+            <div style="font-size: 7.5px; color: #94a3b8;">${horaStr}</div>
+          </div>
+        </div>
+
+        <!-- BENTO KPIS EJECUTIVOS (ESTÁNDAR EDTECH) -->
+        <div class="bento-grid avoid-break">
+          <div class="bento-card highlight">
+            <div class="bento-label" style="color: #0f766e;">Promedio ${pName}</div>
+            <div class="bento-val" style="color: #0f766e;">${currentPeriodAvg > 0 ? currentPeriodAvg.toFixed(2) : '—'}</div>
+            <div class="bento-sub" style="color: ${statusColor}; font-weight: 800;">${statusBadge.split(' ')[1] || 'ACTIVO'}</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="bento-label">Puesto en Salón</div>
+            <div class="bento-val" style="color: #0284c7;">#${studentRank} <span style="font-size: 10px; color: #64748b; font-weight: 600;">/ ${totalClassmates}</span></div>
+            <div class="bento-sub">${studentRank <= 3 ? '🏆 Cuadro de Honor' : 'Grupo Académico'}</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="bento-label">Media del Salón</div>
+            <div class="bento-val" style="color: #334155;">${classAverage.toFixed(2)}</div>
+            <div class="bento-sub" style="color: ${deltaVsClass >= 0 ? '#059669' : '#dc2626'}; font-weight: 800;">
+              ${deltaVsClass >= 0 ? `+${deltaVsClass.toFixed(2)} vs grupo` : `${deltaVsClass.toFixed(2)} vs grupo`}
+            </div>
+          </div>
+
+          <div class="bento-card">
+            <div class="bento-label">Asistencia</div>
+            <div class="bento-val" style="color: ${isAttendanceRisk ? '#dc2626' : '#059669'};">${attendancePct}%</div>
+            <div class="bento-sub">${isAttendanceRisk ? '⚠️ En Riesgo (>15%)' : `${asistencias} días asistidos`}</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="bento-label">Clima Convivencial</div>
+            <div class="bento-val" style="color: ${gravesCount + gravisimasCount > 0 ? '#dc2626' : '#059669'};">
+              ${positivasCount > 0 ? `+${positivasCount}` : `${leveisCount + gravesCount + gravisimasCount} Faltas`}
+            </div>
+            <div class="bento-sub">${gravisimasCount > 0 ? 'Falta Tipo III' : gravesCount > 0 ? 'Falta Tipo II' : leveisCount > 0 ? 'Falta Tipo I' : 'Convivencia Ejemplar'}</div>
+          </div>
+        </div>
+
+        <!-- GRÁFICAS DE TENDENCIA Y BENCHMARK AWÁ (SVG PURO NATIVO) -->
+        <div class="analytics-container avoid-break">
+          
+          <!-- 1. Curva de Evolución Temporal -->
+          <div class="trend-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span class="section-title" style="margin-bottom: 0;">📈 Curva de Tendencia y Evolución</span>
+              <span style="font-size: 7.5px; font-weight: 900; color: ${trendColor}; background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px;">
+                ${trendLabel}
+              </span>
+            </div>
+
+            <svg viewBox="0 0 480 110" style="width: 100%; height: 95px; overflow: visible;">
+              <defs>
+                <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#0d9488" stop-opacity="0.35" />
+                  <stop offset="100%" stop-color="#0d9488" stop-opacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              <!-- Grid Lines -->
+              <line x1="40" y1="20" x2="460" y2="20" stroke="#f1f5f9" stroke-width="1" />
+              <text x="32" y="23" font-size="7" fill="#94a3b8" text-anchor="end">5.0</text>
+
+              <line x1="40" y1="52" x2="460" y2="52" stroke="#f1f5f9" stroke-width="1" />
+              <text x="32" y="55" font-size="7" fill="#94a3b8" text-anchor="end">4.0</text>
+
+              <!-- Línea de Aprobación Mínima (3.0) -->
+              <line x1="40" y1="${thresholdY}" x2="460" y2="${thresholdY}" stroke="#fca5a5" stroke-width="1" stroke-dasharray="3,3" />
+              <text x="32" y="${thresholdY + 3}" font-size="7" fill="#ef4444" font-weight="bold" text-anchor="end">3.0</text>
+              <text x="462" y="${thresholdY + 3}" font-size="6.5" fill="#ef4444" font-weight="bold">Umbral Aprobatorio</text>
+
+              <!-- Línea del Promedio del Salón -->
+              <line x1="40" y1="${classAvgY}" x2="460" y2="${classAvgY}" stroke="#93c5fd" stroke-width="1" stroke-dasharray="2,2" />
+              <text x="462" y="${classAvgY + 3}" font-size="6.5" fill="#3b82f6">Media Salón (${classAverage.toFixed(1)})</text>
+
+              <!-- Área bajo la curva -->
+              <polygon points="${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt3.x},${pt3.y} ${ptProj.x},${ptProj.y} ${ptProj.x},100 ${pt1.x},100" fill="url(#trendGrad)" />
+
+              <!-- Línea de Curva -->
+              <polyline points="${pt1.x},${pt1.y} ${pt2.x},${pt2.y} ${pt3.x},${pt3.y}" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              
+              <!-- Línea proyectada -->
+              <line x1="${pt3.x}" y1="${pt3.y}" x2="${ptProj.x}" y2="${ptProj.y}" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="3,3" />
+
+              <!-- Puntos de datos -->
+              <circle cx="${pt1.x}" cy="${pt1.y}" r="4" fill="#0d9488" stroke="#ffffff" stroke-width="1.5" />
+              <text x="${pt1.x}" y="${pt1.y - 7}" font-size="7.5" font-weight="900" fill="#0f172a" text-anchor="middle">${pt1.val.toFixed(1)}</text>
+              <text x="${pt1.x}" y="108" font-size="7" font-weight="700" fill="#64748b" text-anchor="middle">Periodo 1</text>
+
+              <circle cx="${pt2.x}" cy="${pt2.y}" r="4" fill="#0d9488" stroke="#ffffff" stroke-width="1.5" />
+              <text x="${pt2.x}" y="${pt2.y - 7}" font-size="7.5" font-weight="900" fill="#0f172a" text-anchor="middle">${pt2.val.toFixed(1)}</text>
+              <text x="${pt2.x}" y="108" font-size="7" font-weight="700" fill="#64748b" text-anchor="middle">Periodo 2</text>
+
+              <circle cx="${pt3.x}" cy="${pt3.y}" r="4" fill="${p3Avg > 0 ? '#0d9488' : '#94a3b8'}" stroke="#ffffff" stroke-width="1.5" />
+              <text x="${pt3.x}" y="${pt3.y - 7}" font-size="7.5" font-weight="900" fill="${p3Avg > 0 ? '#0f172a' : '#94a3b8'}" text-anchor="middle">${p3Avg > 0 ? p3Avg.toFixed(1) : '—'}</text>
+              <text x="${pt3.x}" y="108" font-size="7" font-weight="700" fill="#64748b" text-anchor="middle">${p3Avg > 0 ? 'Periodo 3' : 'P3 (En Curso)'}</text>
+
+              <circle cx="${ptProj.x}" cy="${ptProj.y}" r="3.5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
+              <text x="${ptProj.x}" y="${ptProj.y - 7}" font-size="7" font-weight="800" fill="#d97706" text-anchor="middle">Proy.</text>
+              <text x="${ptProj.x}" y="108" font-size="7" font-weight="700" fill="#d97706" text-anchor="middle">Cierre</text>
+            </svg>
+          </div>
+
+          <!-- 2. Comparativa por Sabidurías Awá -->
+          <div class="trend-card">
+            <span class="section-title">🌿 Sabidurías Awá vs Meta</span>
+            <p style="font-size: 7.5px; color: #64748b; margin-bottom: 6px;">Ponderación por dimensiones formativas institucionales:</p>
+            
+            <div class="wisdom-bar-row">
+              <span class="wisdom-label">Saber (30%)</span>
+              <div class="wisdom-track">
+                <div class="wisdom-fill" style="width: ${((avgSb||0) / 5) * 100}%; background: ${(avgSb||0) >= 3.0 ? '#0d9488' : '#ef4444'};"></div>
+              </div>
+              <span class="wisdom-score">${avgSb !== null ? avgSb.toFixed(1) : "-"}</span>
+            </div>
+
+            <div class="wisdom-bar-row">
+              <span class="wisdom-label">Saber-Hacer (40%)</span>
+              <div class="wisdom-track">
+                <div class="wisdom-fill" style="width: ${((avgSbh||0) / 5) * 100}%; background: ${(avgSbh||0) >= 3.0 ? '#0284c7' : '#ef4444'};"></div>
+              </div>
+              <span class="wisdom-score">${avgSbh !== null ? avgSbh.toFixed(1) : "-"}</span>
+            </div>
+
+            <div class="wisdom-bar-row">
+              <span class="wisdom-label">Ser (20%)</span>
+              <div class="wisdom-track">
+                <div class="wisdom-fill" style="width: ${((avgSr||0) / 5) * 100}%; background: ${(avgSr||0) >= 3.0 ? '#8b5cf6' : '#ef4444'};"></div>
+              </div>
+              <span class="wisdom-score">${avgSr !== null ? avgSr.toFixed(1) : "-"}</span>
+            </div>
+
+            <div class="wisdom-bar-row">
+              <span class="wisdom-label">Convivencia (5%)</span>
+              <div class="wisdom-track">
+                <div class="wisdom-fill" style="width: ${((avgCv||0) / 5) * 100}%; background: ${(avgCv||0) >= 3.0 ? '#10b981' : '#ef4444'};"></div>
+              </div>
+              <span class="wisdom-score">${avgCv !== null ? avgCv.toFixed(1) : "-"}</span>
+            </div>
+
+            <div class="wisdom-bar-row">
+              <span class="wisdom-label">Autoeval. (5%)</span>
+              <div class="wisdom-track">
+                <div class="wisdom-fill" style="width: ${((avgAut||0) / 5) * 100}%; background: ${(avgAut||0) >= 3.0 ? '#f59e0b' : '#ef4444'};"></div>
+              </div>
+              <span class="wisdom-score">${avgAut !== null ? avgAut.toFixed(1) : "-"}</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- DIAGNÓSTICO E INSIGHTS PARA LA REUNIÓN CON EL ACUDIENTE -->
+        <div class="insights-grid avoid-break">
+          <div class="insight-card" style="background: #f0fdf4; border-color: #bbf7d0;">
+            <div class="insight-title" style="color: #166534;">
+              🌟 Fortalezas Destacadas
+            </div>
+            <p style="font-size: 8px; color: #14532d; line-height: 1.35;">
+              ${currentPeriodAvg >= 4.0 
+                ? 'Alto compromiso con la entrega oportuna de tareas, excelente participación y convivencia armónica en el aula.' 
+                : 'Muestra interés en las actividades prácticas y talleres vivenciales cuando se le brinda acompañamiento guiado.'}
+            </p>
+          </div>
+
+          <div class="insight-card" style="background: #fef2f2; border-color: #fecaca;">
+            <div class="insight-title" style="color: #991b1b;">
+              ⚠️ Alertas Tempranas
+            </div>
+            <p style="font-size: 8px; color: #7f1d1d; line-height: 1.35;">
+              ${currentPeriodAvg < 3.0 
+                ? 'Riesgo académico en pruebas teóricas y talleres de profundización. Requiere plan de nivelación inmediato.' 
+                : isAttendanceRisk 
+                ? 'Se registran inasistencias que pueden comprometer la continuidad pedagógica si no se justifican.' 
+                : 'Mantener la constancia en el repaso para asegurar el dominio pleno al cierre del año lectivo.'}
+            </p>
+          </div>
+
+          <div class="insight-card" style="background: #eff6ff; border-color: #bfdbfe;">
+            <div class="insight-title" style="color: #1e40af;">
+              🎯 Plan de Acción en el Hogar
+            </div>
+            <p style="font-size: 8px; color: #1e3a8a; line-height: 1.35;">
+              1. Establecer horario de estudio diario (60-90 min).<br>
+              2. Revisar cuadernos y plataforma EduManager semanalmente.<br>
+              3. Asegurar puntualidad y asistencia diaria.
+            </p>
+          </div>
+        </div>
+
+        <!-- MATRIZ DESAGREGADA DE ASIGNATURAS -->
+        <div class="avoid-break" style="margin-top: 10px;">
+          <div class="section-title">📊 Matriz Desagregada de Asignaturas y Calificaciones (${pName})</div>
+          
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th style="text-align: left; width: 28%;">Área / Asignatura</th>
+                <th style="width: 10%;">Saber (30%)</th>
+                <th style="width: 12%;">Saber-Hacer (40%)</th>
+                <th style="width: 10%;">Ser (20%)</th>
+                <th style="width: 10%;">Conviv. (5%)</th>
+                <th style="width: 10%;">Auto. (5%)</th>
+                <th style="width: 10%;">Def. ${pName}</th>
+                <th style="width: 10%;">Estado SIEEE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${subjectsBreakdown.length > 0 ? subjectsBreakdown.map(s => `
+                <tr>
+                  <td style="text-align: left; font-weight: 800;">${escapeHtml(s.subject)}</td>
+                  <td>${s.sb !== null ? s.sb : '-'}</td>
+                  <td>${s.sbh !== null ? s.sbh : '-'}</td>
+                  <td>${s.sr !== null ? s.sr : '-'}</td>
+                  <td>${s.cv !== null ? s.cv : '-'}</td>
+                  <td>${s.aut !== null ? s.aut : '-'}</td>
+                  <td><strong style="color: ${(s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626'}; font-size: 9.5px;">${s.definitiva !== null ? s.definitiva.toFixed(2) : '-'}</strong></td>
+                  <td>
+                    <span style="font-size: 7.5px; font-weight: 800; color: ${(s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626'};">
+                      ${(s.definitiva || 0) >= 4.6 ? 'Superior' : (s.definitiva || 0) >= 4.0 ? 'Alto' : (s.definitiva || 0) >= 3.0 ? 'Básico' : 'Bajo'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td style="text-align: left; font-weight: 800;">Evaluación Integrada</td>
+                  <td colspan="5">Ponderación General</td>
+                  <td><strong style="color: ${currentPeriodAvg >= 3.0 ? '#059669' : '#dc2626'}; font-size: 9.5px;">${currentPeriodAvg.toFixed(2)}</strong></td>
+                  <td><strong>${currentPeriodAvg >= 3.0 ? 'Aprobado' : 'Bajo'}</strong></td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- OBSERVADOR DE CONVIVENCIA Y DEBIDO PROCESO -->
+        <div class="avoid-break" style="margin-top: 8px;">
+          <div class="section-title">⚖️ Observador de Convivencia Escolar (Ley 1620)</div>
+          
+          ${behavioralList.length > 0 ? behavioralList.slice(0, 2).map(obs => `
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                <div>
+                  <span style="font-size: 7.5px; font-weight: 900; padding: 1px 5px; border-radius: 3px; background: ${obs.type === 'POSITIVA' ? '#dcfce7; color: #166534;' : obs.type === 'LEVE' ? '#fef3c7; color: #92400e;' : '#fee2e2; color: #991b1b;'}">
+                    ${obs.type === 'POSITIVA' ? '✨ Felicitación' : obs.type === 'LEVE' ? '🟡 Falta Leve (I)' : '🔴 Falta ' + obs.type}
+                  </span>
+                  <strong style="margin-left: 5px; font-size: 8.5px; color: #0f172a;">${escapeHtml(obs.title)}</strong>
+                </div>
+                <span style="font-size: 7.5px; color: #64748b;">${escapeHtml(obs.date)}</span>
+              </div>
+              <p style="font-size: 8px; color: #334155; margin: 2px 0;">${escapeHtml(obs.description)}</p>
+              ${obs.studentDefense ? `<div style="font-size: 7.5px; color: #0f766e; background: #f0fdfa; padding: 3px 6px; border-radius: 4px;"><strong>Descargos del Estudiante:</strong> ${escapeHtml(obs.studentDefense)}</div>` : ''}
+            </div>
+          `).join('') : `
+            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 6px 10px; text-align: center; color: #64748b; font-size: 8px;">
+              ✨ El estudiante mantiene una conducta ejemplar acorde a los principios de convivencia de la comunidad Awá.
+            </div>
+          `}
+        </div>
+
+        <!-- 3 BLOQUES DE FIRMA INSTITUCIONAL -->
+        <div class="firmas-grid avoid-break">
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9px; text-transform: uppercase;">${escapeHtml(student.acudienteNombre || 'PADRE / MADRE / ACUDIENTE')}</div>
+            <div style="font-size: 7.5px; color: #64748b;">C.C. ________________________ · Tel: ${escapeHtml(student.acudienteTelefono || '__________')}</div>
+          </div>
+
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9px; text-transform: uppercase;">${escapeHtml(student.primerNombre)} ${escapeHtml(student.primerApellido)}</div>
+            <div style="font-size: 7.5px; color: #64748b;">FIRMA DEL ESTUDIANTE · Doc: ${escapeHtml(student.nroDocumento || 'N/A')}</div>
+          </div>
+
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9px; text-transform: uppercase;">${escapeHtml(teacherProfile?.name || 'DOCENTE TITULAR')}</div>
+            <div style="font-size: 7.5px; color: #0d9488; font-weight: 700;">DOCENTE / DIRECTOR DE GRUPO</div>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 16px; font-size: 7.5px; color: #94a3b8; line-height: 1.3;" class="avoid-break">
+          <strong>Por la pervivencia e identidad del Pueblo Awá</strong> · Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.title = normalizedFileName;
+    printWindow.document.close();
+  } else {
+    const blob = new Blob([reportHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+}
+
+/**
+ * ── ACTA DE COMPROMISO ACADÉMICO Y CONVIVENCIAL FORMATIVO (4 FIRMAS) ──
+ * Documento legal y pedagógico formal suscrito entre el Estudiante, Acudiente, Docente y Coordinación
+ * con base en la Ley 1620 de 2013, Decreto 1290 de 2009 y el Manual de Convivencia IETABA.
+ */
+export function printStudentCommitmentAgreement(
+  student: any,
+  teacherProfile: any,
+  masterData: any,
+  customNotes?: string
+) {
+  if (!student) {
+    if (typeof window !== "undefined") alert("Aviso: No se encontraron datos del estudiante.");
+    return;
+  }
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+  const activePeriod = masterData?.activePeriod || "1";
+  const pName = activePeriod === "1" ? "Primer Periodo" : activePeriod === "2" ? "Segundo Periodo" : "Tercer Periodo";
+
+  const cleanName = `${student.primerApellido || ''}_${student.segundoApellido || ''}_${student.primerNombre || ''}`.trim().replace(/\s+/g, '_');
+  const normalizedFileName = `IETABA_Acta_Compromiso_${cleanName}`;
+
+  // Diagnóstico de bajo rendimiento o inasistencias
+  const attendanceRecords = student.attendanceRecord || {};
+  let inasistencias = 0;
+  Object.values(attendanceRecords).forEach((val: any) => {
+    if (val === "absent" || val === "A") inasistencias++;
+  });
+
+  const behavioralList: any[] = student.behavioralRecords || [];
+  const faltasCount = behavioralList.filter(b => b.type !== 'POSITIVA').length;
+
+  const reportHtml = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <title>${normalizedFileName}</title>
+      <style>
+        @page {
+          margin: 8mm 10mm;
+          size: A4 portrait;
+        }
+        @media print {
+          .no-print { display: none !important; }
+          body { 
+            background: #ffffff !important; 
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+          font-size: 10px;
+          line-height: 1.45;
+          color: #0f172a;
+          background: #f8fafc;
+          padding: 24px;
+        }
+        .print-container {
+          max-width: 820px;
+          margin: 0 auto;
+          background: #ffffff;
+        }
+        .btn-print {
+          background: #0d9488;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 9999px;
+          font-weight: 800;
+          font-size: 11px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .btn-print:hover { background: #0f766e; transform: translateY(-1px); }
+        
+        .header-institucional {
+          border-bottom: 2px solid #0d9488;
+          padding-bottom: 12px;
+          margin-bottom: 14px;
+        }
+        .header-flex {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 16px;
+        }
+        .header-logo {
+          width: 70px;
+          height: 70px;
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+        .header-text {
+          flex: 1;
+        }
+        .header-text h1 {
+          font-size: 12.5px;
+          font-weight: 900;
+          color: #042f2e;
+          letter-spacing: -0.01em;
+          margin-bottom: 2px;
+          line-height: 1.2;
+        }
+        .header-text h2 {
+          font-size: 10px;
+          font-weight: 800;
+          color: #0f766e;
+          margin-bottom: 2px;
+        }
+        .header-text p {
+          font-size: 8px;
+          color: #475569;
+          line-height: 1.25;
+        }
+        .report-badge {
+          display: inline-block;
+          background: #0f766e;
+          color: #ffffff;
+          font-size: 9.5px;
+          font-weight: 900;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          padding: 4px 12px;
+          border-radius: 6px;
+          margin-top: 6px;
+        }
+
+        .comparecientes-box {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 10px 14px;
+          margin-bottom: 14px;
+          font-size: 9px;
+          line-height: 1.5;
+        }
+
+        .clause-box {
+          margin-bottom: 12px;
+        }
+        .clause-title {
+          font-size: 9.5px;
+          font-weight: 900;
+          text-transform: uppercase;
+          color: #0f766e;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .clause-list {
+          padding-left: 18px;
+          font-size: 8.8px;
+          color: #334155;
+        }
+        .clause-list li {
+          margin-bottom: 3px;
+        }
+
+        .firmas-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px 30px;
+          margin-top: 24px;
+        }
+        .firma-box {
+          text-align: center;
+        }
+        .firma-linea {
+          border-top: 1.5px solid #0f172a;
+          margin-bottom: 4px;
+          margin-top: 32px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="no-print" style="margin-bottom: 16px; text-align: right;">
+        <button onclick="window.print()" class="btn-print">
+          ✍️ Imprimir Acta de Compromiso / Guardar en PDF
+        </button>
+      </div>
+
+      <div class="print-container">
+        <!-- HEADER OFICIAL -->
+        <div class="header-institucional">
+          <div class="header-flex">
+            <img src="${baseUrl}/logo.png" class="header-logo" onerror="this.style.display='none'">
+            <div class="header-text">
+              <h1>UNIDAD INDÍGENA DEL PUEBLO AWÁ &quot;UNIPA&quot;</h1>
+              <h2>INSTITUCIÓN EDUCATIVA INDÍGENA TÉCNICA AGROAMBIENTAL BILINGÜE AWÁ &quot;IETABA&quot;</h2>
+              <p>Licencia de Funcionamiento No. 398 del 28 de abril del 2004 · DANE 25207900204501 · NIT. 900000095-4</p>
+              <p style="color: #0d9488; font-style: italic; margin-top: 2px;">Ambiente – Cultura – Ciencia</p>
+            </div>
+          </div>
+          <div class="report-badge">ACTA DE COMPROMISO ACADÉMICO, PEDAGÓGICO Y FORMATIVO</div>
+        </div>
+
+        <!-- COMPARECIENTES -->
+        <div class="comparecientes-box">
+          <p>
+            En la sede principal de la <strong>Institución Educativa Indígena Técnica Agroambiental Bilingüe Awá - IETABA</strong> (Predio El Verde, Resguardo El Gran Sábalo, El Diviso - Barbacoas, Nariño), a los <strong>${fechaStr}</strong>, comparecen formalmente:
+          </p>
+          <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <strong>ESTUDIANTE:</strong> ${escapeHtml(student.primerApellido)} ${escapeHtml(student.segundoApellido || '')} ${escapeHtml(student.primerNombre)} ${escapeHtml(student.segundoNombre || '')}<br>
+              <strong>DOCUMENTO:</strong> ${escapeHtml(student.tipoDocumento || 'TI')} ${escapeHtml(student.nroDocumento || 'S/N')} · <strong>GRADO:</strong> ${escapeHtml(normalizeGrade(student.grado || ''))} - ${escapeHtml(student.curso || '1')}
+            </div>
+            <div>
+              <strong>ACUDIENTE / RESPONSABLE:</strong> ${escapeHtml(student.acudienteNombre || 'NO REGISTRADO')}<br>
+              <strong>TELÉFONO:</strong> ${escapeHtml(student.acudienteTelefono || 'N/A')} · <strong>DOCENTE:</strong> ${escapeHtml(teacherProfile?.name || 'DOCENTE')}
+            </div>
+          </div>
+        </div>
+
+        <!-- MOTIVACIÓN Y ANTECEDENTES -->
+        <div class="clause-box avoid-break">
+          <div class="clause-title">📌 MOTIVACIÓN Y DIAGNÓSTICO SITUACIONAL</div>
+          <p style="font-size: 8.8px; color: #334155; text-align: justify;">
+            La suscripción del presente documento responde a la necesidad de implementar acciones formativas y de mejoramiento continuo debido a:
+            <strong>(a)</strong> Promedio actual de <strong>${(student.avgGrade || 0).toFixed(2)}</strong> en el ${pName}; 
+            <strong>(b)</strong> Registro de <strong>${inasistencias} inasistencias</strong> acumuladas; 
+            <strong>(c)</strong> Registro de <strong>${faltasCount} anotaciones formativas</strong> en el Observador de Convivencia Escolar.
+            ${customNotes ? `<br><br><strong>Observación Específica del Docente:</strong> <em>"${escapeHtml(customNotes)}"</em>` : ''}
+          </p>
+        </div>
+
+        <!-- CLÁUSULAS FORMATIVAS -->
+        <div class="clause-box avoid-break">
+          <div class="clause-title">1. COMPROMISOS DEL ESTUDIANTE</div>
+          <ul class="clause-list">
+            <li>Asistir puntualmente a la totalidad de las clases, talleres y actividades institucionales.</li>
+            <li>Presentar con calidad, orden y dentro de los plazos fijados todos los trabajos, talleres, guías y evaluaciones de nivelación.</li>
+            <li>Mantener un comportamiento respetuoso, tolerante y acorde con la cosmovisión Awá y el Manual de Convivencia Institucional.</li>
+            <li>Portar adecuadamente los materiales de estudio y abstenerse de conductas que interrumpan el desarrollo pedagógico del aula.</li>
+          </ul>
+        </div>
+
+        <div class="clause-box avoid-break">
+          <div class="clause-title">2. COMPROMISOS DEL PADRE DE FAMILIA O ACUDIENTE</div>
+          <ul class="clause-list">
+            <li>Supervisar y acompañar diariamente el cumplimiento de tareas, horarios de estudio y repaso en el hogar.</li>
+            <li>Garantizar la asistencia diaria y puntual del estudiante, justificando formalmente con soporte médico o de fuerza mayor cualquier ausencia dentro de los 3 días hábiles siguientes.</li>
+            <li>Mantener comunicación fluida con los docentes a través de la plataforma EduManager y citas presenciales periódicas.</li>
+            <li>Asistir con puntualidad a todas las citaciones, asambleas y escuelas de padres convocadas por la institución.</li>
+          </ul>
+        </div>
+
+        <div class="clause-box avoid-break">
+          <div class="clause-title">3. COMPROMISOS DEL DOCENTE Y LA INSTITUCIÓN EDUCATIVA</div>
+          <ul class="clause-list">
+            <li>Diseñar e implementar las estrategias pedagógicas de apoyo y nivelación conforme al SIEEE.</li>
+            <li>Retroalimentar oportunamente las actividades presentadas e informar de manera temprana sobre el progreso del estudiante.</li>
+            <li>Garantizar el debido proceso, la escucha formativa y el acompañamiento afectivo y cultural al estudiante.</li>
+          </ul>
+        </div>
+
+        <div class="clause-box avoid-break">
+          <div class="clause-title">4. MARCO LEGAL Y CONSECUENCIAS DEL INCUMPLIMIENTO</div>
+          <p style="font-size: 8.5px; color: #475569; text-align: justify;">
+            El incumplimiento reiterado de las cláusulas acordadas en la presente acta facultará a la institución para la aplicación de las sanciones estipuladas en el Manual de Convivencia Escolar, la reprobación del periodo o año escolar según el SIEEE y el Decreto 1290 (artículo 9 sobre reprobación por inasistencias superiores al 15%), y la respectiva remisión al Comité Escolar de Convivencia (Ley 1620 de 2013) o a las autoridades competentes.
+          </p>
+        </div>
+
+        <!-- 4 BLOQUES DE FIRMA OFICIAL -->
+        <div class="firmas-grid avoid-break">
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase;">${escapeHtml(student.primerNombre)} ${escapeHtml(student.primerApellido)}</div>
+            <div style="font-size: 8px; color: #64748b;">FIRMA DEL ESTUDIANTE</div>
+            <div style="font-size: 8px; color: #64748b;">Doc: ${escapeHtml(student.nroDocumento || 'N/A')}</div>
+          </div>
+
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase;">${escapeHtml(student.acudienteNombre || 'PADRE / MADRE / ACUDIENTE')}</div>
+            <div style="font-size: 8px; color: #64748b;">FIRMA DEL PADRE / ACUDIENTE</div>
+            <div style="font-size: 8px; color: #64748b;">C.C. ________________________ · Tel: ${escapeHtml(student.acudienteTelefono || '__________')}</div>
+          </div>
+
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase;">${escapeHtml(teacherProfile?.name || 'DOCENTE TITULAR')}</div>
+            <div style="font-size: 8px; color: #0d9488; font-weight: 700;">DOCENTE DE ÁREA / DIRECTOR DE GRUPO</div>
+            <div style="font-size: 8px; color: #64748b;">IETABA - El Diviso</div>
+          </div>
+
+          <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase;">COORDINACIÓN ACADÉMICA / RECTORÍA</div>
+            <div style="font-size: 8px; color: #0d9488; font-weight: 700;">COMITÉ DE EVALUACIÓN Y CONVIVENCIA</div>
+            <div style="font-size: 8px; color: #64748b;">IETABA - Sede Principal</div>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 24px; font-size: 8px; color: #94a3b8; line-height: 1.4;" class="avoid-break">
+          <strong>Por la pervivencia e identidad del Pueblo Awá</strong><br>
+          Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño<br>
+          E-Mail: ietabaawa@yahoo.es
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.title = normalizedFileName;
+    printWindow.document.close();
+  } else {
+    const blob = new Blob([reportHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+}

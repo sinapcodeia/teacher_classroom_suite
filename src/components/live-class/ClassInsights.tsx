@@ -3,17 +3,20 @@
 import { useMemo, useRef } from "react";
 import { Sparkles, AlertTriangle, Lightbulb, Users, ArrowUpRight, TrendingDown } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { matchStudentCourse, normalizeGrade } from "@/lib/constants";
 
 interface ClassInsightsProps {
   course: string;
   subject: string;
+  grade?: string;
 }
 
-export default function ClassInsights({ course, subject }: ClassInsightsProps) {
+export default function ClassInsights({ course, subject, grade }: ClassInsightsProps) {
+  const targetGrade = grade || "TODOS";
   const { myStudents } = useApp();
 
   const insights = useMemo(() => {
-    const classStudents = myStudents.filter(s => s.curso === course && s.isActive !== false);
+    const classStudents = myStudents.filter(s => matchStudentCourse(s.curso, course, s.grado, targetGrade) && (targetGrade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(targetGrade)) && s.isActive !== false);
     if (classStudents.length === 0) return [];
 
     const results: { title: string, message: string, type: 'warning' | 'tip' | 'success', icon: any }[] = [];

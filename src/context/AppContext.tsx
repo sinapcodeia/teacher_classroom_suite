@@ -7,7 +7,7 @@ import {
   doc, getDoc, setDoc, collection, getDocs, updateDoc, 
   writeBatch, onSnapshot, query, where 
 } from "firebase/firestore";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
 import { DetailedGrades, StudentAcademicSummary, calculateDetailedFinal, calculateStudentAcademicSummary } from "@/lib/gradeUtils";
 
 
@@ -126,6 +126,26 @@ export interface Subject {
   color: string;
 }
 
+export interface BehavioralRecord {
+  id: string;
+  date: string;
+  periodId: string;
+  type: "LEVE" | "GRAVE" | "GRAVISIMA" | "POSITIVA";
+  category: "PUNTUALIDAD" | "RESPETO" | "MATERIALES" | "PARTICIPACION" | "CONVIVENCIA" | "UNIFORME" | "OTRO";
+  title: string;
+  description: string;
+  studentDefense?: string;
+  actionsTaken?: string;
+  commitments?: string;
+  teacherName: string;
+  demeritPoints?: number;
+  meritPoints?: number;
+  targetDimension?: "CV" | "SR" | "NONE";
+  appliedToGrades?: boolean;
+  subject?: string;
+  createdAt?: string;
+}
+
 export interface Student {
   id: string;
   nroDocumento: string;
@@ -148,6 +168,7 @@ export interface Student {
   grades?: Grade[];
   detailedGrades?: Record<string, Record<string, DetailedGrades>>; // subjectId -> periodId -> grades
   observations?: string;
+  behavioralRecords?: BehavioralRecord[];
   audit?: {
     createdBy: string;
     createdAt: string;
@@ -271,6 +292,8 @@ interface AppContextType {
   clearAllAgendaNotes: () => Promise<void>;
   clearPendingTasks: () => Promise<void>;
   clearAllTasks: () => Promise<void>;
+  addBehavioralRecord: (studentId: string, record: Omit<BehavioralRecord, "id">) => Promise<void>;
+  deleteBehavioralRecord: (studentId: string, recordId: string) => Promise<void>;
   // USER MANAGEMENT
   allUsers: AppUser[];
   refreshUsers: () => Promise<void>;
@@ -475,13 +498,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
 
-  const [masterData, setMasterData] = useState<MasterData>({
-    subjects: ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
-    grades: ["PREESCOLAR", "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"],
-    teachers: ["ANTONIO RODRIGUEZ"],
-    courses: ["1", "2", "3", "4", "5", "6"],
-    activePeriod: "p2",
-    periodStatus: { p1: "closed", p2: "open", p3: "closed" }
+  const [masterData, setMasterData] = useState<MasterData>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("edu_masterData");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          return {
+            subjects: parsed.subjects || ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
+            grades: parsed.grades || ["PREESCOLAR", "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"],
+            teachers: parsed.teachers || ["ANTONIO RODRIGUEZ"],
+            courses: parsed.courses || ["1", "2", "3", "4", "5", "6"],
+            activePeriod: parsed.activePeriod || "p2",
+            periodStatus: parsed.periodStatus || { p1: "closed", p2: "open", p3: "closed" }
+          };
+        }
+      } catch (_) {}
+    }
+    return {
+      subjects: ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"],
+      grades: ["PREESCOLAR", "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"],
+      teachers: ["ANTONIO RODRIGUEZ"],
+      courses: ["1", "2", "3", "4", "5", "6"],
+      activePeriod: "p2",
+      periodStatus: { p1: "closed", p2: "open", p3: "closed" }
+    };
   });
 
   const [subjects, setSubjects] = useState<Subject[]>([
@@ -492,6 +533,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   const [students, setStudents] = useState<Student[]>([]);
+
+  // 🛡️ Actualiza datos maestros y asegura persistencia inmediata en localStorage y Firestore
+  const updateMasterDataAndCache = React.useCallback((updater: Partial<MasterData> | ((prev: MasterData) => MasterData)) => {
+    setMasterData(prev => {
+      const next = typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("edu_masterData", JSON.stringify(next));
+        } catch (e) {
+          console.warn("Error guardando caché edu_masterData:", e);
+        }
+      }
+      try {
+        if (db) {
+          setDoc(doc(db, "settings", "masterData"), next, { merge: true }).catch(err => {
+            console.warn("Offline fallback para settings/masterData:", err);
+          });
+        }
+      } catch (err) {
+        console.warn("Error al persistir masterData en Firestore:", err);
+      }
+      return next;
+    });
+  }, []);
+
+
+  // 🛡️ Actualiza estado de estudiantes y asegura persistencia inmediata en localStorage
+  const updateStudentsAndCache = React.useCallback((updater: Student[] | ((prev: Student[]) => Student[])) => {
+    setStudents(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("edu_students", JSON.stringify(next));
+        } catch (e) {
+          console.warn("Error guardando caché edu_students:", e);
+        }
+      }
+      return next;
+    });
+  }, []);
 
   // ── GOBERNANZA DE DATOS (Governance) ─────────────────────────────────────────
   const myStudents = React.useMemo(() => {
@@ -516,7 +597,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return tc.trim().toUpperCase();
       });
 
-      const matchesRoom = normalizedTeaching.includes(studentRoom) || normalizedTeaching.includes(studentRoomAlt);
+      const matchesRoom = normalizedTeaching.includes(studentRoom) || 
+        normalizedTeaching.includes(studentRoomAlt) ||
+        (profile.teachingCourses || []).some(tc => {
+          const parts = tc.split('-');
+          const targetG = parts[0];
+          const targetC = parts.length > 1 ? parts[1] : tc;
+          return normalizeGrade(s.grado) === normalizeGrade(targetG) && matchStudentCourse(s.curso, targetC, s.grado, targetG);
+        });
       
       // Super Fallback: Si el grado coincide, lo mostramos (Gobernanza Relajada)
       const teacherGrades = (profile.teachingGrades || []).map(g => normalizeGrade(g).trim().toUpperCase());
@@ -607,6 +695,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.warn("Mock Mode: Could not fetch real-time curriculum", err);
       });
       unsubs.push(unsubscribeCurriculum);
+
+      const unsubscribeMasterData = onSnapshot(doc(db, "settings", "masterData"), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as Partial<MasterData>;
+          setMasterData(prev => {
+            const next = {
+              ...prev,
+              ...data,
+              periodStatus: { ...prev.periodStatus, ...(data.periodStatus || {}) }
+            };
+            if (typeof window !== "undefined") {
+              try { localStorage.setItem("edu_masterData", JSON.stringify(next)); } catch(_) {}
+            }
+            return next;
+          });
+        }
+      }, (err) => {
+        console.warn("Mock Mode: Could not fetch real-time masterData", err);
+      });
+      unsubs.push(unsubscribeMasterData);
 
       setAuthLoading(false);
       return () => {
@@ -830,6 +938,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.warn("Error en tiempo real (currículo):", err);
         });
         unsubs.push(unsubscribeCurriculum);
+
+        const unsubscribeMaster = onSnapshot(doc(db, "settings", "masterData"), (snap) => {
+          if (snap.exists()) {
+            const data = snap.data() as Partial<MasterData>;
+            setMasterData(prev => {
+              const next = {
+                ...prev,
+                ...data,
+                periodStatus: { ...prev.periodStatus, ...(data.periodStatus || {}) }
+              };
+              if (typeof window !== "undefined") {
+                try { localStorage.setItem("edu_masterData", JSON.stringify(next)); } catch(_) {}
+              }
+              return next;
+            });
+          }
+        }, (err) => {
+          console.warn("Error en tiempo real (settings/masterData):", err);
+        });
+        unsubs.push(unsubscribeMaster);
 
         // Carga de datos offline restantes al iniciar sesión
         if (typeof window !== "undefined") {
@@ -1160,7 +1288,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const savedSubjects   = localStorage.getItem("edu_subjects");
 
     localStorage.removeItem("edu_schedule");
-    localStorage.removeItem("edu_students"); // clear old cache
+    const cachedStudents = localStorage.getItem("edu_students");
+    if (cachedStudents) {
+      try {
+        const parsedStudents = JSON.parse(cachedStudents);
+        if (parsedStudents && parsedStudents.length > 0) {
+          setStudents(prev => prev.length === 0 ? parsedStudents : prev);
+        }
+      } catch { /* ignore */ }
+    }
     
     if (savedMasterData) {
       try { 
@@ -1243,7 +1379,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateStudent = async (id: string, updates: Partial<Student>) => {
     try {
       await updateDoc(doc(db, "students", id), updates);
-      setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+      updateStudentsAndCache(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
     } catch (err) {
       console.error("Error al actualizar estudiante:", err);
     }
@@ -1319,14 +1455,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    *  Uso interno para borrados individuales desde la UI.
    */
   const togglePeriodStatus = (periodId: string, status: "open" | "closed") => {
-    setMasterData(prev => ({
+    updateMasterDataAndCache(prev => ({
       ...prev,
       periodStatus: { ...prev.periodStatus, [periodId]: status }
     }));
   };
 
   const setActivePeriod = (periodId: string) => {
-    setMasterData(prev => ({ ...prev, activePeriod: periodId }));
+    updateMasterDataAndCache(prev => ({ ...prev, activePeriod: periodId }));
   };
 
   const addStudent = async (student: Omit<Student, "id">) => {
@@ -1344,7 +1480,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } as Student;
       await setDoc(doc(db, "students", studentId), withAudit);
-      setStudents(prev => {
+      updateStudentsAndCache(prev => {
         const mapa = new Map(prev.map(s => [s.id, s]));
         mapa.set(studentId, withAudit);
         return Array.from(mapa.values());
@@ -1451,7 +1587,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    setStudents(prev => {
+    updateStudentsAndCache(prev => {
       const mapa = new Map(prev.map(s => [s.id, s]));
       for (const nuevo of conIds) {
         const existente = mapa.get(nuevo.id);
@@ -1485,7 +1621,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // doc may not exist in Firestore if it was only local
     }
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
+    updateStudentsAndCache(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
   };
 
   const updateDetailedGrades = async (studentId: string, subjectId: string, periodId: string, detailed: DetailedGrades) => {
@@ -1988,6 +2124,97 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  
+  const addBehavioralRecord = async (studentId: string, recordData: Omit<BehavioralRecord, "id">) => {
+    const newRecord: BehavioralRecord = {
+      id: "beh_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+      createdAt: new Date().toISOString(),
+      ...recordData,
+    };
+
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent) return;
+
+    const existingRecords = targetStudent.behavioralRecords || [];
+    const updatedRecords = [newRecord, ...existingRecords];
+
+    const updatedStudent: Student = {
+      ...targetStudent,
+      behavioralRecords: updatedRecords,
+    };
+
+    // Si se aplica afectación a nota de Ser o Convivencia
+    if (recordData.appliedToGrades && recordData.subject && recordData.targetDimension && recordData.targetDimension !== "NONE") {
+      const pId = recordData.periodId || masterData.activePeriod || "p1";
+      const currentDetailed = targetStudent.detailedGrades?.[recordData.subject]?.[pId] || {
+        sb: Array(8).fill(null),
+        sbh: Array(8).fill(null),
+        sr: Array(5).fill(null),
+        cv: Array(3).fill(null),
+        aut: null,
+      };
+
+      const dim = recordData.targetDimension.toLowerCase() as "cv" | "sr";
+      const dimArray = [...(currentDetailed[dim] || [])];
+      
+      const points = recordData.type === "POSITIVA" ? (recordData.meritPoints || 0.5) : -(recordData.demeritPoints || 0.5);
+      const currentScore = (dimArray[0] != null) ? dimArray[0] : 4.0;
+      const newScore = Math.max(1.0, Math.min(5.0, Number((currentScore + points).toFixed(1))));
+      dimArray[0] = newScore;
+
+      const newDetailed = {
+        ...currentDetailed,
+        [dim]: dimArray,
+      };
+
+      updatedStudent.detailedGrades = {
+        ...(targetStudent.detailedGrades || {}),
+        [recordData.subject]: {
+          ...(targetStudent.detailedGrades?.[recordData.subject] || {}),
+          [pId]: newDetailed,
+        },
+      };
+    }
+
+    const newStudents = students.map(s => s.id === studentId ? updatedStudent : s);
+    updateStudentsAndCache(newStudents);
+
+    try {
+      if (db) {
+        await updateDoc(doc(db, "students", studentId), {
+          behavioralRecords: updatedRecords,
+          ...(updatedStudent.detailedGrades ? { detailedGrades: updatedStudent.detailedGrades } : {}),
+        });
+      }
+    } catch (e) {
+      console.warn("Offline fallback para registro conductual:", e);
+    }
+  };
+
+  const deleteBehavioralRecord = async (studentId: string, recordId: string) => {
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent || !targetStudent.behavioralRecords) return;
+
+    const updatedRecords = targetStudent.behavioralRecords.filter(r => r.id !== recordId);
+    const updatedStudent: Student = {
+      ...targetStudent,
+      behavioralRecords: updatedRecords,
+    };
+
+    const newStudents = students.map(s => s.id === studentId ? updatedStudent : s);
+    updateStudentsAndCache(newStudents);
+
+    try {
+      if (db) {
+        await updateDoc(doc(db, "students", studentId), {
+          behavioralRecords: updatedRecords,
+        });
+      }
+    } catch (e) {
+      console.warn("Offline fallback para eliminar registro conductual:", e);
+    }
+  };
+
   // --- ESTRATEGIA DE GOBERNANZA: KPIs DE POBLACIÓN Y CUMPLEAÑOS ---
   const governanceStats = useMemo(() => {
     // La gobernanza dicta que el docente solo ve sus alumnos, el admin ve todos
@@ -2049,6 +2276,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile, setProfile, updateProfile,
       subjects, setSubjects,
       students, myStudents, setStudents, addStudent, importStudents, removeStudent, updateStudent, updateDetailedGrades, importDetailedGrades, updateSingleDetailedGrade, addGrade, addGradesBatch, saveDailyAttendance,
+    addBehavioralRecord,
+    deleteBehavioralRecord,
       masterData, updateMasterData, updateMasterItem, removeMasterItem, togglePeriodStatus, setActivePeriod,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,

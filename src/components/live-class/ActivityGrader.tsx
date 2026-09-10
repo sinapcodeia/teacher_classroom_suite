@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import React from "react";
@@ -111,6 +111,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const [mode, setMode] = useState<GradeMode>("list");
   const [activityTitle, setActivityTitle] = useState("");
   const activityTitleRef = useRef(activityTitle);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [titleError, setTitleError] = useState(false);
   useEffect(() => { activityTitleRef.current = activityTitle; }, [activityTitle]);
   const [grades, setGrades] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -151,8 +153,8 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   const filteredStudents = useMemo(() =>
     myStudents
       .filter(s => 
-        s.curso === course && 
-        normalizeGrade(s.grado) === normalizeGrade(grade) && 
+        matchStudentCourse(s.curso, course, s.grado, grade) && 
+        (grade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(grade)) && 
         s.isActive !== false
       )
       .sort((a, b) => {
@@ -398,7 +400,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   }, [searchedStudents]);
 
   const handleSaveAll = async () => {
-    if (!activityTitle.trim()) return alert("⚠️ Debes ingresar un nombre o descripción para la actividad antes de guardar.");
+    if (!activityTitle.trim()) {
+      setTitleError(true);
+      titleInputRef.current?.focus();
+      return alert("⚠️ NOMBRE OBLIGATORIO: Debes ingresar el nombre o descripción de la actividad (ej: 'Taller 1: Base de Datos') antes de registrar notas en cualquier saber.");
+    }
+    setTitleError(false);
 
     const toGrade = Object.keys(grades)
       .filter(id => grades[id] !== "")
@@ -471,7 +478,12 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
   };
 
   const handleSaveAndNext = async () => {
-    if (!activityTitle.trim()) return alert("⚠️ Ingresa un nombre para la evaluación.");
+    if (!activityTitle.trim()) {
+      setTitleError(true);
+      titleInputRef.current?.focus();
+      return alert("⚠️ NOMBRE OBLIGATORIO: Debes ingresar el nombre de la actividad antes de registrar la nota individual.");
+    }
+    setTitleError(false);
     if (!currentStudent) return;
 
     // ── Validación de rango: 0.0 – 5.0 ──────────────────────────────────────
@@ -603,23 +615,58 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
 
         <div className="flex flex-col xl:flex-row gap-4">
           <div className="flex-1 space-y-2 min-w-[200px]">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción de la Actividad</p>
+            <div className="flex items-center justify-between ml-1">
+              <p className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 text-slate-700">
+                <FileText size={12} className="text-primary" /> Nombre de la Actividad <span className="text-rose-600 font-black text-[8px] bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded-md">* OBLIGATORIO</span>
+              </p>
+              {!activityTitle.trim() && (
+                <span className="text-[8px] font-bold text-amber-600 animate-pulse">
+                  Escribe el tema antes de guardar
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
+                ref={titleInputRef}
                 type="text"
                 value={activityTitle}
                 onChange={e => {
                   const newTitle = e.target.value;
                   setActivityTitle(newTitle);
+                  if (newTitle.trim()) setTitleError(false);
                   if (selectedActivityKey !== "new") {
                     setSelectedActivityKey("new");
                   }
                   saveDraftLocally(grades, newTitle);
                 }}
-                placeholder="Ej: Taller de circuitos, Examen parcial..."
-                className="w-full border border-outline-variant rounded-2xl px-5 py-4 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none uppercase shadow-sm bg-white text-on-surface cursor-text"
+                placeholder="Ej: Taller 1: Base de Datos, Quiz de Conceptos, Laboratorio..."
+                className={`w-full border-2 rounded-2xl px-5 py-4 text-xs sm:text-sm font-black uppercase outline-none shadow-sm bg-white text-on-surface cursor-text transition-all ${
+                  titleError || !activityTitle.trim()
+                    ? "border-amber-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 bg-amber-50/20"
+                    : "border-outline-variant focus:border-primary focus:ring-2 focus:ring-primary/20"
+                }`}
               />
               <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-outline opacity-30 pointer-events-none" size={18} />
+            </div>
+
+            {/* Quick Title Prefix Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[8px] font-bold text-slate-400 uppercase">Sugerencias:</span>
+              {["Taller:", "Quiz:", "Práctica de BD:", "Guía:", "Evaluación:", "Participación:"].map(chip => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => {
+                    const updated = activityTitle ? `${chip} ${activityTitle.replace(/^(Taller|Quiz|Práctica de BD|Guía|Evaluación|Participación):\s*/i, '')}` : `${chip} `;
+                    setActivityTitle(updated);
+                    setTitleError(false);
+                    titleInputRef.current?.focus();
+                  }}
+                  className="px-2 py-0.5 bg-white hover:bg-primary hover:text-white border border-slate-200 text-slate-600 rounded-lg text-[8px] font-black uppercase transition-all shadow-2xs active:scale-95"
+                >
+                  + {chip}
+                </button>
+              ))}
             </div>
           </div>
 

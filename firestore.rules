@@ -75,6 +75,14 @@ service cloud.firestore {
       allow write: if isAuthenticated() && isSuperAdmin();
     }
 
+    // ── SETTINGS (/settings/{docId}) ──────────────────────────────────────
+    // Usado para masterData sincronizado en tiempo real entre dispositivos.
+    // Todos los docentes pueden leer. Solo SuperAdmin puede escribir.
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
     // ── CONVIVENCIA (/convivencia/{id}) ───────────────────────────────────
     match /convivencia/{id} {
       allow read: if isAuthenticated();

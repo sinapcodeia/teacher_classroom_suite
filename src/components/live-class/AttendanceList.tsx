@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
 
 import { useState, useMemo, useEffect } from "react";
 import { 
@@ -36,7 +36,7 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
     return myStudents.filter(s => {
       if (s.isActive === false) return false;
       const matchGrado = grade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(grade);
-      const matchCurso = course === "TODOS" || s.curso === course;
+      const matchCurso = matchStudentCourse(s.curso, course, s.grado, grade);
       return matchGrado && matchCurso;
     }).sort((a, b) => {
       const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();

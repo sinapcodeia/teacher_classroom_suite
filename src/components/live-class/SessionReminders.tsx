@@ -3,55 +3,67 @@
 import { useState, useEffect, useMemo } from "react";
 import { 
   Bell, CheckCircle2, ClipboardList, AlertTriangle, 
-  X, ArrowRight, Zap, Target, BookOpen, Clock
+  X, ArrowRight, Zap, Target, BookOpen, Clock, CalendarDays, Sparkles, Check
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
 interface SessionRemindersProps {
   subject: string;
   course: string;
+  grade?: string;
 }
 
-export default function SessionReminders({ subject, course }: SessionRemindersProps) {
-  const { agendaNotes, updateAgendaNote, students } = useApp();
+export default function SessionReminders({ subject, course, grade }: SessionRemindersProps) {
+  const { agendaNotes, updateAgendaNote, myStudents } = useApp();
   const [showModal, setShowModal] = useState(false);
-  const [sessionChecklist, setSessionChecklist] = useState([
-    { id: 'attendance', label: 'Control de Asistencia', completed: false, icon: ClipboardList },
-    { id: 'topic', label: 'Desarrollo de Temática', completed: false, icon: BookOpen },
-    { id: 'grades', label: 'Registro de Calificaciones', completed: false, icon: Zap },
-    { id: 'homework', label: 'Asignación de Tarea/Taller', completed: false, icon: Target },
-  ]);
+  const [hasDismissedForSession, setHasDismissedForSession] = useState<string>("");
 
-  // Buscar tareas pendientes específicas de esta clase
+  // Buscar tareas y talleres pendientes específicos de esta clase y materia
   const pendingTasks = useMemo(() => {
-    return agendaNotes.filter(n => 
-      n.course === course && 
-      n.subject === subject && 
-      n.type === 'TASK' && 
-      !n.isCompleted
-    );
-  }, [agendaNotes, course, subject]);
+    return agendaNotes.filter(n => {
+      const matchSub = !n.subject || n.subject.toUpperCase() === subject.toUpperCase();
+      const matchCourse = !n.course || n.course === course || n.course === "TODOS" || (grade && n.course.includes(`${grade}-${course}`));
+      return matchSub && matchCourse && n.type === 'TASK' && !n.isCompleted;
+    });
+  }, [agendaNotes, course, subject, grade]);
 
-  // Historial de notas para este curso y materia (excluyendo la de hoy)
+  // Historial de notas y temas de la sesión anterior
   const lastSessionNote = useMemo(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
     return agendaNotes
-      .filter(n => n.course === course && n.subject === subject && n.date !== todayStr)
+      .filter(n => {
+        const matchSub = !n.subject || n.subject.toUpperCase() === subject.toUpperCase();
+        const matchCourse = !n.course || n.course === course || n.course === "TODOS";
+        return matchSub && matchCourse && n.date !== todayStr;
+      })
       .sort((a, b) => b.date.localeCompare(a.date))[0];
   }, [agendaNotes, course, subject]);
 
-  // Mostrar modal al cargar si hay tareas pendientes o si hubo notas en la sesión anterior
-  useEffect(() => {
-    if (pendingTasks.length > 0 || lastSessionNote) {
-      const timer = setTimeout(() => setShowModal(true), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [course, subject]); 
+  // Asistencia tomada hoy para este curso
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const attendanceDoneToday = useMemo(() => {
+    const classStudents = myStudents.filter(s => s.curso === course);
+    if (classStudents.length === 0) return false;
+    return classStudents.some(s => s.attendanceRecord?.[todayStr] !== undefined);
+  }, [myStudents, course, todayStr]);
 
-  const toggleCheck = (id: string) => {
-    setSessionChecklist(prev => prev.map(item => 
-      item.id === id ? { ...item, completed: !item.completed } : item
-    ));
+  // Mostrar modal SOLO si hay información procesable (tareas pendientes o bitácora previa)
+  // y solo una vez por combinación de curso/materia en la sesión actual
+  useEffect(() => {
+    const sessionKey = `${subject}_${course}`;
+    if (hasDismissedForSession === sessionKey) return;
+
+    if (pendingTasks.length > 0 || lastSessionNote) {
+      const timer = setTimeout(() => setShowModal(true), 600);
+      return () => clearTimeout(timer);
+    } else {
+      setShowModal(false);
+    }
+  }, [course, subject, pendingTasks.length, lastSessionNote, hasDismissedForSession]);
+
+  const handleClose = () => {
+    setShowModal(false);
+    setHasDismissedForSession(`${subject}_${course}`);
   };
 
   const markTaskExecuted = async (id: string) => {
@@ -62,126 +74,130 @@ export default function SessionReminders({ subject, course }: SessionRemindersPr
     }
   };
 
-  const completedCount = sessionChecklist.filter(c => c.completed).length;
-  const progress = (completedCount / sessionChecklist.length) * 100;
-
   return (
     <>
-      {/* MODAL DE ALERTAS DE CLASE */}
+      {/* MODAL INSTRUCTIVO DE ASISTENTE PEDAGÓGICO DE INICIO DE CLASE */}
       {showModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 backdrop-blur-md bg-on-surface/30 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-[0_50px_100px_rgba(0,0,0,0.4)] overflow-hidden border border-white/20 animate-in zoom-in-95 duration-500">
-            <div className="bg-rose-600 p-8 text-white relative">
-              <div className="absolute top-0 right-0 p-12 opacity-10 rotate-12 scale-150"><Bell size={120} /></div>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-6 backdrop-blur-md bg-slate-900/50 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/30 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-primary to-blue-700 p-6 md:p-8 text-white relative shrink-0">
               <div className="flex justify-between items-start relative z-10">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                    <AlertTriangle size={24} className="text-white" />
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner">
+                    <Sparkles size={24} className="text-amber-300 animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black uppercase italic tracking-tighter">Recordatorios de Clase</h3>
-                    <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">{course} · {subject}</p>
+                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-200">Asistente de Inicio de Clase</span>
+                    <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight leading-tight">
+                      {subject} · {course}
+                    </h3>
                   </div>
                 </div>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-all">
-                  <X size={24} />
+                <button 
+                  onClick={handleClose} 
+                  className="p-2 hover:bg-white/20 rounded-full transition-all text-white/80 hover:text-white"
+                  title="Cerrar ventana"
+                >
+                  <X size={20} />
                 </button>
               </div>
             </div>
 
-            <div className="p-8 space-y-6">
+            {/* Content Body */}
+            <div className="p-6 md:p-8 space-y-5 overflow-y-auto flex-1 scrollbar-premium">
+              
+              {/* Explicación de Función */}
+              <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100/80 flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
+                  i
+                </div>
+                <p className="text-[11px] font-medium text-slate-700 leading-relaxed">
+                  <strong>Propósito:</strong> Este asistente sincroniza tus compromisos, talleres asignados y el último tema visto con este grupo antes de iniciar la clase.
+                </p>
+              </div>
+
+              {/* Bitácora de la Última Sesión */}
               {lastSessionNote && (
-                <div className="p-5 bg-indigo-50 rounded-3xl border border-indigo-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock size={14} className="text-indigo-500" />
-                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Contexto: Última Sesión</span>
-                  </div>
-                  <p className="text-[11px] text-indigo-900 leading-relaxed italic">
-                    &quot;{lastSessionNote.content.length > 150 ? lastSessionNote.content.slice(0, 150) + '...' : lastSessionNote.content}&quot;
-                  </p>
-                  <p className="text-[8px] font-bold text-indigo-400 mt-2 uppercase">Registrado el {lastSessionNote.date}</p>
-                </div>
-              )}
-
-              {pendingTasks.length > 0 && (
-                <div className="space-y-4">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Compromisos Pendientes:</p>
-                  {pendingTasks.map(task => (
-                    <div key={task.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between group hover:border-rose-200 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                        <div>
-                          <p className="text-[11px] font-black text-on-surface uppercase leading-tight">{task.content}</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => markTaskExecuted(task.id)}
-                        className="px-4 py-2 bg-rose-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-rose-900/20"
-                      >
-                        Ejecutado
-                      </button>
+                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} className="text-primary" />
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">Último Tema Registrado</span>
                     </div>
-                  ))}
+                    <span className="text-[9px] font-bold text-slate-400">{lastSessionNote.date}</span>
+                  </div>
+                  <p className="text-xs text-slate-800 leading-relaxed font-medium bg-white p-3 rounded-xl border border-slate-100">
+                    &ldquo;{lastSessionNote.content}&rdquo;
+                  </p>
                 </div>
               )}
 
+              {/* Compromisos y Talleres Pendientes */}
+              {pendingTasks.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-1.5">
+                      <AlertTriangle size={14} /> Talleres o Tareas por Recoger ({pendingTasks.length})
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingTasks.map(task => (
+                      <div key={task.id} className="p-4 bg-rose-50/40 rounded-2xl border border-rose-200/60 flex items-center justify-between gap-3 group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0 animate-pulse" />
+                          <p className="text-xs font-black text-slate-800 uppercase leading-snug">{task.content}</p>
+                        </div>
+                        <button 
+                          onClick={() => markTaskExecuted(task.id)}
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-[9px] uppercase tracking-wider transition-all shadow-sm shrink-0 flex items-center gap-1 active:scale-95"
+                          title="Marcar compromiso como cumplido"
+                        >
+                          <Check size={12} /> Revisado
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100 flex items-center gap-3">
+                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                  <p className="text-xs font-bold text-emerald-800">
+                    No tienes talleres ni tareas pendientes asignadas para este grupo.
+                  </p>
+                </div>
+              )}
+
+              {/* Estado de Asistencia de Hoy */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ClipboardList size={18} className={attendanceDoneToday ? "text-emerald-600" : "text-amber-600"} />
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-800">Asistencia de Hoy ({todayStr})</p>
+                    <p className="text-[9px] font-bold text-slate-500">
+                      {attendanceDoneToday ? "Asistencia ya registrada" : "Pendiente por tomar asistencia"}
+                    </p>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase ${attendanceDoneToday ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                  {attendanceDoneToday ? "LISTO" : "PENDIENTE"}
+                </span>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
               <button 
-                onClick={() => setShowModal(false)}
-                className="w-full py-5 bg-on-surface text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] hover:opacity-90 transition-all flex items-center justify-center gap-3 shadow-2xl"
+                onClick={handleClose}
+                className="w-full py-4 bg-on-surface hover:bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 shadow-xl active:scale-95"
               >
-                Entendido, Iniciar Clase <ArrowRight size={18} />
+                Comenzar Clase Ahora <ArrowRight size={16} />
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* PANEL DE GUÍA DOCENTE (CHECKLIST) */}
-      <section className="bg-white border border-outline-variant rounded-[2.5rem] shadow-xl overflow-hidden mt-6">
-        <div className="p-6 border-b border-outline-variant bg-surface-container-lowest">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-indigo-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-              <CheckCircle2 size={20} />
-            </div>
-            <div>
-              <h2 className="text-sm font-black text-on-surface uppercase tracking-tighter italic">Guía de Ejecución</h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-indigo-500 transition-all duration-500" 
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">{Math.round(progress)}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 space-y-2">
-          {sessionChecklist.map(item => (
-            <button 
-              key={item.id}
-              onClick={() => toggleCheck(item.id)}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all border group ${item.completed ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-transparent hover:border-indigo-100'}`}
-            >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${item.completed ? 'bg-emerald-500 text-white rotate-[360deg]' : 'bg-white text-slate-400 group-hover:text-indigo-500'}`}>
-                <item.icon size={16} />
-              </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest text-left flex-1 ${item.completed ? 'text-emerald-700 line-through opacity-60' : 'text-slate-600'}`}>
-                {item.label}
-              </span>
-              {item.completed && <CheckCircle2 size={16} className="text-emerald-500" />}
-            </button>
-          ))}
-        </div>
-
-        <div className="px-6 py-4 bg-slate-50 text-center border-t border-outline-variant">
-           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
-             Sigue esta guía para garantizar el cumplimiento del proceso pedagógico institucional.
-           </p>
-        </div>
-      </section>
     </>
   );
 }

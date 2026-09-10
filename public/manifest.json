@@ -1,20 +1,26 @@
 {
   "name": "EduManager IETABA",
   "short_name": "EduManager",
-  "description": "Sistema de gestión escolar institucional - UNIPA",
+  "description": "Sistema de gestión escolar institucional - UNIPA IETABA",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8f9ff",
   "theme_color": "#00288e",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "/icons/icon-192x192.png?v=3d",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo.png",
+      "src": "/icons/icon-512x512.png?v=3d",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png?v=3d",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
