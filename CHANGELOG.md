@@ -5,6 +5,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.12.1] — 2026-09-11 · Optimización Responsiva del Bot EduAwá en Dispositivos Móviles
+
+### 📱 Optimizado
+- **Ajuste Ergonómico y Compacto del Bot *EduAwá* en Móviles**:
+  - Reducción proporcional del botón flotante a tamaño táctil balanceado (40px en mobile vs 48px en desktop).
+  - Rediseño de la ventana modal en pantallas móviles (`< sm`), limitando la altura máxima a `70vh` para evitar superposición incómoda con la barra de navegación inferior.
+  - Tipografías, avatares de mensaje (20px), píldoras de sugerencias y barra de entrada con padding optimizado para teléfonos compactos y tablets.
+
+---
+
 ## [2.12.0] — 2026-09-10 · Directorio Docente Ejecutivo, Estandarización de Datos, Optimización de Logo y Aislamiento de Impresión
 
 ### 🚀 Agregado

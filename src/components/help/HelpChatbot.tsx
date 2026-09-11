@@ -273,7 +273,7 @@ export default function HelpChatbot() {
     <>
       {/* ── BOTÓN FLOTANTE NO INVASIVO ───────────────────────────────────────── */}
       <div 
-        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2.5 select-none print:hidden no-print"
+        className="fixed bottom-19 right-3.5 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 select-none print:hidden no-print"
         data-no-print="true"
       >
         
@@ -303,12 +303,12 @@ export default function HelpChatbot() {
             setShowTooltip(false);
             if (!isOpen && soundEnabled) playChime("pop");
           }}
-          className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-teal-900 via-teal-700 to-emerald-500 text-white shadow-xl hover:shadow-2xl hover:shadow-teal-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-teal-300/40 relative group p-0.5 overflow-hidden focus:outline-none focus:ring-4 focus:ring-teal-400/30"
+          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-teal-900 via-teal-700 to-emerald-500 text-white shadow-lg sm:shadow-xl hover:shadow-2xl hover:shadow-teal-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-teal-300/40 relative group p-0.5 overflow-hidden focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-teal-400/30"
           title="EduAwá - Asistente Pedagógico IA IETABA"
           aria-label="Abrir Asistente EduAwá"
         >
           {isOpen ? (
-            <X size={24} className="text-white animate-in spin-in-90 duration-200" />
+            <X size={18} className="sm:size-5 text-white animate-in spin-in-90 duration-200" />
           ) : (
             <div className="w-full h-full relative">
               <img 
@@ -316,7 +316,7 @@ export default function HelpChatbot() {
                 alt="EduAwá" 
                 className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-300" 
               />
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900 shadow-sm flex items-center justify-center animate-pulse" />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full border-2 border-slate-900 shadow-sm flex items-center justify-center animate-pulse" />
             </div>
           )}
         </button>
@@ -328,25 +328,25 @@ export default function HelpChatbot() {
           data-no-print="true"
           className={`fixed z-50 transition-all duration-300 ease-out flex flex-col overflow-hidden bg-white/95 backdrop-blur-2xl border border-slate-200/80 shadow-2xl print:hidden no-print ${
             isExpanded 
-              ? "bottom-4 right-4 left-4 top-4 md:left-auto md:w-[680px] md:h-[calc(100vh-2rem)] rounded-3xl" 
-              : "bottom-20 right-4 sm:right-5 w-[calc(100vw-2rem)] sm:w-[440px] h-[610px] max-h-[82vh] rounded-3xl"
+              ? "inset-2 bottom-18 sm:inset-auto sm:bottom-6 sm:right-6 sm:left-auto sm:top-auto w-auto sm:w-[660px] h-[calc(100vh-5.5rem)] sm:h-[calc(100vh-3rem)] rounded-2xl sm:rounded-3xl" 
+              : "inset-x-3 bottom-18 sm:inset-auto sm:bottom-20 sm:right-5 w-auto sm:w-[420px] h-[520px] max-h-[72vh] sm:max-h-[80vh] rounded-2xl sm:rounded-3xl"
           } animate-in fade-in slide-in-from-bottom-8`}
         >
           
           {/* HEADER PRO CON ACCIONES RÁPIDAS */}
-          <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-teal-950 text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between shrink-0 border-b border-slate-800 shadow-sm select-none">
+          <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-teal-950 text-white px-3 py-2 sm:px-4.5 sm:py-3 flex items-center justify-between shrink-0 border-b border-slate-800 shadow-sm select-none">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <img
                   src="/eduawa.png"
                   alt="EduAwá Avatar"
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-teal-400/60 shadow-lg bg-teal-950"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl object-cover border-2 border-teal-400/60 shadow-md bg-teal-950"
                 />
                 <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 animate-pulse" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-black text-sm tracking-tight text-white flex items-center gap-1">
+                  <h3 className="font-black text-xs sm:text-sm tracking-tight text-white flex items-center gap-1">
                     EduAwá
                   </h3>
                   <span className="px-2 py-0.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 text-[9px] font-black rounded-full uppercase tracking-wider border border-emerald-400/40 flex items-center gap-1">
@@ -354,7 +354,7 @@ export default function HelpChatbot() {
                     Sesión Segura
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-300/90 font-medium">Asistente Pedagógico de {userName} ({userRole})</p>
+                <p className="text-[9px] sm:text-[10px] text-slate-300/90 font-medium">Asistente Pedagógico de {userName} ({userRole})</p>
               </div>
             </div>
 
@@ -385,7 +385,7 @@ export default function HelpChatbot() {
           </div>
 
           {/* NAVEGACIÓN PRO EN TABS */}
-          <div className="flex border-b border-slate-200/80 bg-slate-50/90 px-2 pt-1.5 shrink-0 gap-1 select-none">
+          <div className="flex border-b border-slate-200/80 bg-slate-50/90 px-1.5 pt-1 shrink-0 gap-0.5 sm:gap-1 select-none">
             <button
               onClick={() => setActiveTab("chat")}
               className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 rounded-t-xl transition-all ${
@@ -433,7 +433,7 @@ export default function HelpChatbot() {
             <div className="flex-1 flex flex-col min-h-0 bg-slate-50/40">
               
               {/* Área de Mensajes */}
-              <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5">
+              <div className="flex-1 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5 sm:space-y-3">
                 {messages.map(msg => (
                   <div
                     key={msg.id}
@@ -443,7 +443,7 @@ export default function HelpChatbot() {
                       <img
                         src="/eduawa.png"
                         alt="EduAwá"
-                        className="w-7 h-7 rounded-xl object-cover border border-teal-400/50 shadow-xs shrink-0 mt-1 bg-teal-950"
+                        className="w-5 h-5 sm:w-6.5 sm:h-6.5 rounded-lg sm:rounded-xl object-cover border border-teal-400/50 shadow-xs shrink-0 mt-0.5 bg-teal-950"
                       />
                     )}
                     <div className={`flex flex-col ${msg.sender === "user" ? "items-end max-w-[85%]" : "items-start max-w-[92%]"}`}>
@@ -573,7 +573,7 @@ export default function HelpChatbot() {
               </div>
 
               {/* Input Bar con Dictado por Voz y Atajos */}
-              <div className="p-2.5 sm:p-3 bg-white border-t border-slate-200 shrink-0">
+              <div className="p-2 sm:p-2.5 bg-white border-t border-slate-200 shrink-0">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -587,7 +587,7 @@ export default function HelpChatbot() {
                       value={inputQuery}
                       onChange={(e) => setInputQuery(e.target.value)}
                       placeholder={isListening ? "Escuchando tu voz..." : "Escribe o dicta tu consulta pedagógica..."}
-                      className={`w-full text-xs bg-slate-50 border rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:ring-2 text-slate-800 placeholder-slate-400 font-medium transition-all ${
+                      className={`w-full text-[11px] sm:text-xs bg-slate-50 border rounded-xl pl-3 pr-8 sm:pl-3.5 sm:pr-9 py-1.5 sm:py-2 focus:outline-none focus:ring-2 text-slate-800 placeholder-slate-400 font-medium transition-all ${
                         isListening 
                           ? "border-red-400 ring-2 ring-red-300/40 bg-red-50/20" 
                           : "border-slate-300 focus:ring-teal-500 focus:border-teal-500"
@@ -610,7 +610,7 @@ export default function HelpChatbot() {
                   <button
                     type="submit"
                     disabled={!inputQuery.trim()}
-                    className="p-2.5 bg-gradient-to-tr from-teal-700 to-teal-600 hover:from-teal-600 hover:to-teal-500 disabled:opacity-40 text-white rounded-xl shadow-md hover:shadow-teal-700/20 transition-all flex items-center justify-center shrink-0 active:scale-95"
+                    className="p-2 sm:p-2.5 bg-gradient-to-tr from-teal-700 to-teal-600 hover:from-teal-600 hover:to-teal-500 disabled:opacity-40 text-white rounded-lg sm:rounded-xl shadow-md hover:shadow-teal-700/20 transition-all flex items-center justify-center shrink-0 active:scale-95"
                     title="Enviar mensaje"
                   >
                     <Send size={15} />
@@ -789,7 +789,7 @@ export default function HelpChatbot() {
           )}
 
           {/* FOOTER ELEGANTE CON ACCESO AL MANUAL */}
-          <div className="px-4 py-2 bg-slate-100/80 border-t border-slate-200 flex items-center justify-between text-[10px] font-bold text-slate-600 shrink-0">
+          <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100/80 border-t border-slate-200 flex items-center justify-between text-[8.5px] sm:text-[9.5px] font-bold text-slate-600 shrink-0">
             <span className="text-[9px] text-slate-400">{APP_VERSION_LABEL} · EduAwá IA</span>
             <Link
               href="/ayuda"
