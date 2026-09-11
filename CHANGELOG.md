@@ -5,6 +5,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.12.2] — 2026-09-11 · Afinación Responsiva Integral en Home y Visibilidad Ergonómica de EduAwá
+
+### 📱 Optimizado
+- **Alineación y Adaptabilidad en Home (Dashboard)**:
+  - **Filtros Globales**: Rediseñados como cuadrícula responsive (`grid-cols-1 sm:grid-cols-3`), eliminando desbordamientos y colapsos de texto en los selectores de Grado, Curso y Materia.
+  - **Informe Académico Consolidado**: Botones y selector organizados en distribución fluida sin desborde en pantallas compactas de 360px–420px.
+  - **Botones del Header Principal**: Adaptación elástica con `flex-wrap` y padding ergonómico para evitar que se corten en móviles.
+- **Visibilidad y Posicionamiento Seguro del Bot *EduAwá***:
+  - Posicionamiento calibrado con `bottom-20 right-4` (`z-50`) garantizando que flote visiblemente 16px por encima de la barra de navegación inferior.
+  - Tamaño táctil balanceado (44px en mobile) con botón no invasivo, accesible y sin obstrucción de controles.
+
+---
+
 ## [2.12.1] — 2026-09-11 · Optimización Responsiva del Bot EduAwá en Dispositivos Móviles
 
 ### 📱 Optimizado

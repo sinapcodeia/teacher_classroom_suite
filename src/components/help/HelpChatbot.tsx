@@ -273,7 +273,7 @@ export default function HelpChatbot() {
     <>
       {/* ── BOTÓN FLOTANTE NO INVASIVO ───────────────────────────────────────── */}
       <div 
-        className="fixed bottom-19 right-3.5 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 select-none print:hidden no-print"
+        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 select-none print:hidden no-print"
         data-no-print="true"
       >
         
@@ -303,7 +303,7 @@ export default function HelpChatbot() {
             setShowTooltip(false);
             if (!isOpen && soundEnabled) playChime("pop");
           }}
-          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-teal-900 via-teal-700 to-emerald-500 text-white shadow-lg sm:shadow-xl hover:shadow-2xl hover:shadow-teal-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-teal-300/40 relative group p-0.5 overflow-hidden focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-teal-400/30"
+          className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-gradient-to-tr from-teal-900 via-teal-700 to-emerald-500 text-white shadow-xl hover:shadow-2xl hover:shadow-teal-600/40 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-teal-300/50 relative group p-0.5 overflow-hidden focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-teal-400/40 cursor-pointer"
           title="EduAwá - Asistente Pedagógico IA IETABA"
           aria-label="Abrir Asistente EduAwá"
         >
@@ -328,8 +328,8 @@ export default function HelpChatbot() {
           data-no-print="true"
           className={`fixed z-50 transition-all duration-300 ease-out flex flex-col overflow-hidden bg-white/95 backdrop-blur-2xl border border-slate-200/80 shadow-2xl print:hidden no-print ${
             isExpanded 
-              ? "inset-2 bottom-18 sm:inset-auto sm:bottom-6 sm:right-6 sm:left-auto sm:top-auto w-auto sm:w-[660px] h-[calc(100vh-5.5rem)] sm:h-[calc(100vh-3rem)] rounded-2xl sm:rounded-3xl" 
-              : "inset-x-3 bottom-18 sm:inset-auto sm:bottom-20 sm:right-5 w-auto sm:w-[420px] h-[520px] max-h-[72vh] sm:max-h-[80vh] rounded-2xl sm:rounded-3xl"
+              ? "inset-2 bottom-20 sm:inset-auto sm:bottom-6 sm:right-6 sm:left-auto sm:top-auto w-auto sm:w-[660px] h-[calc(100vh-6rem)] sm:h-[calc(100vh-3rem)] rounded-2xl sm:rounded-3xl" 
+              : "inset-x-3 bottom-20 sm:inset-auto sm:bottom-22 sm:right-6 w-auto sm:w-[420px] h-[520px] max-h-[70vh] sm:max-h-[82vh] rounded-2xl sm:rounded-3xl"
           } animate-in fade-in slide-in-from-bottom-8`}
         >
           
