@@ -1087,7 +1087,7 @@ export function printCopilotLessonPlan(
       </div>
 
       <div class="footer">
-        <span>SinapCode IA • EduManager v2.8</span>
+        <span>${APP_BRAND} • ${APP_NAME} ${APP_VERSION_LABEL}</span>
         <span>Documento Confidencial</span>
       </div>
 

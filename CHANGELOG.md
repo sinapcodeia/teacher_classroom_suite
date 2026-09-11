@@ -5,6 +5,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.12.3] — 2026-09-11 · Actualización Universal de Descargables, Reportes y Metadatos Institucionales
+
+### 📄 Optimizado
+- **Sincronización Total de Descargables y Reportes Imprimibles**:
+  - Actualización de todos los generadores PDF e informes en [`src/lib/printService.ts`](file:///C:/USB/PROGRAMAS/COLEGIO/teacher_classroom_suite/src/lib/printService.ts) y [`src/lib/reports.ts`](file:///C:/USB/PROGRAMAS/COLEGIO/teacher_classroom_suite/src/lib/reports.ts) (Dossier 360°, Acta de Compromiso con 4 firmas, Informe Gerencial, Analítica BI, Planeación Didáctica del Copiloto IA, Sábanas y Boletines Oficiales).
+  - Eliminación de versiones estáticas residuales en modales de perfil del estudiante y pies de página de reportes, unificando todo bajo la fuente única de verdad `APP_VERSION_LABEL`.
+  - Integridad en exportaciones CSV de Directorio Institucional, Listas Maestras y Sábanas de Dirección de Grupo.
+
+---
+
 ## [2.12.2] — 2026-09-11 · Afinación Responsiva Integral en Home y Visibilidad Ergonómica de EduAwá
 
 ### 📱 Optimizado

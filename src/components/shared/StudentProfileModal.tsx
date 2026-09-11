@@ -1,6 +1,6 @@
 "use client";
 
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText, APP_VERSION_LABEL } from "@/lib/constants";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useMemo } from "react";
 import { 
@@ -643,7 +643,7 @@ export default function StudentProfileModal({ student, onClose }: { student: any
           {/* Footer Bottom Actions */}
           <div className="bg-white px-6 py-3 border-t border-slate-200 flex flex-wrap gap-2 items-center justify-between">
             <span className="text-[8px] font-black uppercase text-slate-400">
-              IETABA EduManager Suite · v2.0
+              IETABA EduManager Suite · {APP_VERSION_LABEL}
             </span>
 
             <div className="flex items-center gap-2">
