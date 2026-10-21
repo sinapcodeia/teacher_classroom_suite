@@ -303,17 +303,17 @@ export default function Home() {
   return (
     <RoleGuard>
       <div
-        className="flex flex-col min-h-screen"
+        className="flex flex-col min-h-screen w-full max-w-full overflow-x-hidden"
         style={{ background: "linear-gradient(160deg, #f8faff 0%, #eef2ff 50%, #f0f7ff 100%)" }}
       >
         <TopAppBar />
 
-        <main className="pt-20 pb-32 px-4 md:px-8 max-w-7xl mx-auto w-full">
+        <main className="pt-20 pb-32 px-3 sm:px-4 md:px-8 max-w-7xl mx-auto w-full max-w-full min-w-0 overflow-x-hidden">
 
           {/* ── HERO HEADER ── */}
           <section className="mt-8 mb-10">
             <div
-              className="relative overflow-hidden rounded-[2.5rem] p-6 md:p-12"
+              className="relative overflow-hidden rounded-3xl sm:rounded-[2.5rem] p-4 sm:p-6 md:p-12 w-full max-w-full"
               style={{
                 background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%)",
                 boxShadow: "0 32px 80px rgba(29,78,216,0.35)" }}
@@ -333,7 +333,7 @@ export default function Home() {
                   </p>
                   <h1 className="font-black tracking-tighter leading-none mb-2"
                     style={{
-                      fontSize: "clamp(28px, 5vw, 52px)",
+                      fontSize: "clamp(22px, 5vw, 52px)", wordBreak: "break-word",
                       color: "#ffffff",
                       fontStyle: "italic" }}>
                     {getGreeting()}, {firstName}!
@@ -356,7 +356,7 @@ export default function Home() {
                 </div>
 
                 {/* Live indicator / Admin Button */}
-                <div className="shrink-0 flex flex-col items-end gap-3">
+                <div className="shrink-0 flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
                   <div className="flex items-center gap-2 px-4 py-2 rounded-full"
                     style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}>
                     <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#34d399" }} />
@@ -372,14 +372,14 @@ export default function Home() {
                       Panel de Control
                     </Link>
                   ) : (
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                       <Link href="/agenda"
-                        className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105 bg-white/10 text-white border border-white/20">
+                        className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 sm:px-6 py-3 rounded-2xl font-black text-[10px] sm:text-[11px] uppercase tracking-widest transition-all hover:scale-105 bg-white/10 text-white border border-white/20">
                         <FileText size={16} />
                         Ver Agenda
                       </Link>
                       <Link href="/clase-en-vivo"
-                        className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-105"
+                        className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 sm:px-6 py-3 rounded-2xl font-black text-[10px] sm:text-[11px] uppercase tracking-widest transition-all hover:scale-105"
                         style={{ background: "#3b82f6", color: "#fff", boxShadow: "0 8px 24px rgba(59,130,246,0.4)" }}>
                         <Zap size={16} />
                         Clase en Vivo
@@ -394,13 +394,13 @@ export default function Home() {
 
           {/* ── GLOBAL DASHBOARD FILTERS ── */}
           <section className="mb-10 animate-in fade-in zoom-in duration-500">
-             <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-[2.5rem] p-4 shadow-xl flex flex-wrap items-center gap-4">
+             <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-3xl sm:rounded-[2.5rem] p-3 sm:p-4 shadow-xl flex flex-wrap items-center gap-3 w-full max-w-full">
                 <div className="flex items-center gap-3 px-6 py-3 bg-on-surface text-white rounded-[1.5rem] shadow-lg">
                    <Filter size={18} />
                    <span className="text-[10px] font-black uppercase tracking-widest">Filtro de Control</span>
                 </div>
                 
-                <div className="flex-1 flex gap-3">
+                <div className="w-full sm:flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
 
                      <select 
                         value={gradoFilter}
@@ -441,7 +441,7 @@ export default function Home() {
             
             {/* INFORME GERENCIAL - VISIBLE AL USUARIO */}
             <section className="mb-10 animate-in fade-in zoom-in duration-700">
-               <div className="bg-white/60 backdrop-blur-md border border-indigo-100 rounded-[2.5rem] p-4 md:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+               <div className="bg-white/60 backdrop-blur-md border border-indigo-100 rounded-3xl sm:rounded-[2.5rem] p-4 md:p-6 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 w-full max-w-full">
                  <div className="flex items-center gap-4">
                    <div className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center shadow-inner">
                      <BarChart3 size={28} className="text-indigo-600" />
@@ -452,7 +452,7 @@ export default function Home() {
                    </div>
                  </div>
                  
-                 <div className="flex w-full md:w-auto items-center gap-3">
+                 <div className="flex flex-wrap w-full md:w-auto items-center gap-2 sm:gap-3">
                     <select id="reportPeriodSelect" className="flex-1 md:flex-none h-14 bg-white border-2 border-indigo-50 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-indigo-900 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm">
                       <option value="p1">Periodo 1</option>
                       <option value="p2">Periodo 2</option>
@@ -465,7 +465,7 @@ export default function Home() {
                         const modMaster = { ...masterData, activePeriod: p };
                         printExecutiveReport(students, profile, modMaster);
                       }}
-                      className="flex-1 md:flex-none h-14 flex items-center justify-center gap-2 px-8 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-indigo-500/20"
+                      className="flex-1 min-w-[130px] sm:flex-none h-12 sm:h-14 flex items-center justify-center gap-2 px-4 sm:px-8 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-indigo-500/20"
                       style={{ background: "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)", color: "white" }}
                     >
                       <FileText size={18} className="text-white" />
@@ -478,7 +478,7 @@ export default function Home() {
                         const modMaster = { ...masterData, activePeriod: p };
                         printAnalyticsReport(students, profile, modMaster);
                       }}
-                      className="flex-1 md:flex-none h-14 flex items-center justify-center gap-2 px-6 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-teal-500/20"
+                      className="flex-1 min-w-[130px] sm:flex-none h-12 sm:h-14 flex items-center justify-center gap-2 px-4 sm:px-6 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-teal-500/20"
                       style={{ background: "linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)", color: "white" }}
                     >
                       <Activity size={18} className="text-white" />
@@ -544,7 +544,7 @@ export default function Home() {
 
           {/* ── KPI STATS ── */}
           <section className="mb-10">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full max-w-full">
               {quickStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -592,15 +592,15 @@ export default function Home() {
           <EduAISentinel grado={gradoFilter} curso={cursoFilter} />
 
           {/* ── MAIN GRID ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full max-w-full min-w-0">
 
             {/* SCHEDULE CARD */}
             <div className="lg:col-span-7">
-              <div className="rounded-[2rem] overflow-hidden"
+              <div className="rounded-3xl sm:rounded-[2rem] overflow-hidden w-full max-w-full"
                 style={{ background: "#fff", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: "1px solid rgba(226,232,240,0.8)" }}>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-8 py-5"
+                <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5"
                   style={{ borderBottom: "1px solid rgba(226,232,240,0.8)" }}>
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -621,7 +621,7 @@ export default function Home() {
                 </div>
 
                 {/* Content: Schedule for Teachers, Summary for Admin */}
-                <div className="p-6 space-y-2">
+                <div className="p-4 sm:p-6 space-y-2 w-full max-w-full min-w-0">
                   {profile.isSuperAdmin ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">

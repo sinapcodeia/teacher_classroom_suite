@@ -85,13 +85,13 @@ export default function PedagogicalControlPanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full max-w-full">
         {alerts.length > 0 ? (
           alerts.map((alert, idx) => (
             <Link 
               key={idx} 
               href={alert.link}
-              className={`p-5 rounded-[2rem] border ${alert.border} ${alert.bg} flex flex-col gap-4 transition-all hover:scale-[1.02] active:scale-95 group`}
+              className={`p-4 sm:p-5 rounded-3xl sm:rounded-[2rem] border ${alert.border} ${alert.bg} flex flex-col gap-3 sm:gap-4 transition-all hover:scale-[1.02] active:scale-95 group w-full max-w-full min-w-0`}
             >
               <div className="flex justify-between items-start">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${alert.bg} border ${alert.border} shadow-sm`}>

@@ -13,10 +13,11 @@ export default function OfflineToast() {
   useEffect(() => {
     if (isFirstRender) {
       setIsFirstRender(false);
-      // Don't show toast on initial mount if already online
       if (!isOnline) {
         setStatus("offline");
         setShow(true);
+        const timer = setTimeout(() => setShow(false), 3500);
+        return () => clearTimeout(timer);
       }
       return;
     }
@@ -24,14 +25,17 @@ export default function OfflineToast() {
     if (isOnline) {
       setStatus("online");
       setShow(true);
-      // Auto-hide online toast after 4 seconds
       const timer = setTimeout(() => {
         setShow(false);
-      }, 4000);
+      }, 3500);
       return () => clearTimeout(timer);
     } else {
       setStatus("offline");
       setShow(true);
+      const timer = setTimeout(() => {
+        setShow(false);
+      }, 4000);
+      return () => clearTimeout(timer);
     }
   }, [isOnline]);
 

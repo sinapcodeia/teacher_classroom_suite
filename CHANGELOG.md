@@ -5,6 +5,28 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.12.4] — 2026-09-11 · Modo 100% Offline Real y Corrección de Desborde Móvil en Inicio
+
+### ⚡ Offline-First y Carga Autónoma
+- **Service Worker PWA Rehabilitado**:
+  - Eliminado el script en `layout.tsx` que ejecutaba `unregister()` automático de los Service Workers, permitiendo que `next-pwa` mantenga cacheada la aplicación y sus recursos en el navegador.
+- **Acceso Instantáneo sin Dependencia de Internet**:
+  - `RoleGuard.tsx` y `AppContext.tsx` configurados con bypass local de 0ms cuando existen credenciales y perfiles en caché local (`offline_user` / `offline_profile`).
+  - Eliminada la pantalla que exigía reintentar conexión con internet para poder entrar a la aplicación.
+  - El toast de red (`OfflineToast.tsx`) ahora se auto-oculta en 3.5s para no alarmar innecesariamente al docente en zonas rurales sin cobertura.
+
+### 📱 Optimización Móvil y Prevención de Desbordes en Home
+- **Contención de Ancho Estricta en Home (`src/app/page.tsx`)**:
+  - Se agregó `overflow-x-hidden w-full max-w-full min-w-0` a los contenedores y `body`.
+  - Ajuste de cuadrículas en widgets (`PedagogicalControlPanel`, `QuickResourceHub`, `GovernanceKPIs`, `AcademicAccumulatedWidget`) para soportar pantallas estrechas (<400px) sin forzar scroll horizontal.
+  - Botones del Hero, filtros y selectores adaptados para no colapsar ni desbordar la pantalla en dispositivos móviles.
+
+### 📊 Resumen de Saberes y Actividades Evaluadas
+- **Componente `EvaluatedActivitiesSummary.tsx`**:
+  - Integrado en Clase en Vivo para visualizar de forma clara las sesiones no cerradas y el resumen condensado de saberes evaluados (Saber, Nombre de la Actividad y Fecha) sin necesidad de ingresar a las planillas completas.
+
+---
+
 ## [2.12.3] — 2026-09-11 · Actualización Universal de Descargables, Reportes y Metadatos Institucionales
 
 ### 📄 Optimizado

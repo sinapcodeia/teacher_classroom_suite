@@ -66,7 +66,7 @@ export default function GovernanceKPIs({ grado, curso, subject }: GovernanceKPIs
   const { birthdaysToday, birthdaysMonth, gender, extraedad, totalActive } = stats;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 w-full max-w-full">
       {/* CARD: CUMPLEAÑOS (Engagement) */}
       <div className="bg-white p-6 rounded-[2.5rem] border border-outline-variant shadow-sm hover:shadow-xl transition-all group relative overflow-hidden animate-fade-in-up">
         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">

@@ -11,6 +11,7 @@ const AttendanceList = nextDynamic(() => import("@/components/live-class/Attenda
 const TopicSelector = nextDynamic(() => import("@/components/live-class/TopicSelector"), { ssr: false });
 const SessionNotes = nextDynamic(() => import("@/components/live-class/SessionNotes"), { ssr: false });
 const ActivityGrader = nextDynamic(() => import("@/components/live-class/ActivityGrader"), { ssr: false });
+const EvaluatedActivitiesSummary = nextDynamic(() => import("@/components/live-class/EvaluatedActivitiesSummary"), { ssr: false });
 const ClassInsights = nextDynamic(() => import("@/components/live-class/ClassInsights"), { ssr: false });
 const GradebookManager = nextDynamic(() => import("@/components/live-class/GradebookManager"), { ssr: false });
 const SessionReminders = nextDynamic(() => import("@/components/live-class/SessionReminders"), { ssr: false });
@@ -28,6 +29,7 @@ function LiveClassPageContent() {
   const [selectedGrado, setSelectedGrado] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
+  const [selectedActivityForGrading, setSelectedActivityForGrading] = useState<{ category: "sb" | "sbh" | "sr" | "cv" | "aut" | "rec"; slotIndex: number; title: string; ts: number } | null>(null);
   const [initialSyncDone, setInitialSyncDone] = useState(false);
   type DraftInfo = { key: string, type: "attendance" | "activity", grade: string, course: string, subject: string };
   const [drafts, setDrafts] = useState<DraftInfo[]>([]);
@@ -191,6 +193,18 @@ function LiveClassPageContent() {
   }, [cursoOptions, selectedCurso, initialSyncDone]);
 
   const currentSubjectName = subjects.find(s => s.id === selectedSubject)?.name || "MATERIA";
+  const activePeriodId = useMemo(() => {
+    if (currentSubjectName === "FÍSICA" && normalizeGrade(selectedGrado) === "6") return "p1";
+    return masterData?.activePeriod || "p2";
+  }, [currentSubjectName, selectedGrado, masterData?.activePeriod]);
+
+  const currentClassStudents = useMemo(() => {
+    return myStudents.filter(s => {
+      const matchGrado = selectedGrado === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(selectedGrado);
+      const matchCurso = selectedCurso === "TODOS" || s.curso === selectedCurso || (s.curso && s.curso.endsWith("-" + selectedCurso));
+      return matchGrado && matchCurso && s.isActive !== false;
+    });
+  }, [myStudents, selectedGrado, selectedCurso]);
   const normalizedGradeForCurriculum = normalizeGrade(selectedGrado === "TODOS" ? "1" : selectedGrado);
 
   if (!mounted) return null;
@@ -301,10 +315,24 @@ function LiveClassPageContent() {
                 grade={selectedGrado}
                 course={selectedCurso}
               />
+
+              {/* Resumen Ejecutivo de Saberes y Actividades Evaluadas */}
+              <EvaluatedActivitiesSummary
+                students={currentClassStudents}
+                subject={currentSubjectName}
+                periodId={activePeriodId}
+                grade={selectedGrado}
+                course={selectedCurso}
+                onSelectActivity={(category, slotIndex, title) => {
+                  setSelectedActivityForGrading({ category, slotIndex, title, ts: Date.now() });
+                }}
+              />
+
               <ActivityGrader 
                 subject={currentSubjectName}
                 course={selectedCurso}
                 grade={selectedGrado}
+                externalSelection={selectedActivityForGrading}
               />
             </div>
 

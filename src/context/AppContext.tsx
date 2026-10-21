@@ -1058,7 +1058,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (prev) console.log("Carga ultrarrápida: resolviendo sesión inmediatamente.");
         return false;
       });
-    }, 1200);
+    }, 300);
 
     return () => {
       unsubscribe();

@@ -41,22 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full flex flex-col bg-background text-on-background font-inter">
-
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  for(let registration of registrations) {
-                    registration.unregister();
-                  }
-                });
-              }
-            `
-          }}
-        />
-
+      <body className="min-h-full flex flex-col bg-background text-on-background font-inter overflow-x-hidden w-full max-w-full">
         <AppProvider>
           {children}
           <OfflineToast />

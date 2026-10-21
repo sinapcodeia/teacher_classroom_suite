@@ -61,17 +61,27 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
 
   useEffect(() => {
     // Si la autenticación tarda más de 250ms y no hay usuario, permitir bypass local u orientar a /login
+    // Si hay datos locales, dar bypass inmediato 0ms
+    if (typeof window !== "undefined") {
+      const hasOffline = localStorage.getItem("offline_user") || localStorage.getItem("offline_profile");
+      if (hasOffline) {
+        setLocalBypass(true);
+      }
+    }
+
     const autoBypassTimer = setTimeout(() => {
       if (authLoading && !user) {
         setLocalBypass(true);
       }
-    }, 250);
+    }, 80);
 
     if (!authLoading && !user) {
       const hasOffline = typeof window !== "undefined" && (localStorage.getItem("offline_user") || localStorage.getItem("offline_profile"));
       if (!hasOffline) {
         router.replace("/login");
         return;
+      } else {
+        setLocalBypass(true);
       }
     }
     

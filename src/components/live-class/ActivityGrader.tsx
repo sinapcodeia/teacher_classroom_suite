@@ -13,6 +13,7 @@ interface ActivityGraderProps {
   course: string;
   subject: string;
   grade: string;
+  externalSelection?: { category: "sb" | "sbh" | "sr" | "cv" | "aut" | "rec"; slotIndex: number; title: string; ts: number } | null;
 }
 
 type GradeMode = "list" | "individual";
@@ -103,7 +104,7 @@ const StudentRow = React.memo(({
 });
 StudentRow.displayName = "StudentRow";
 
-export default function ActivityGrader({ course, subject, grade }: ActivityGraderProps) {
+export default function ActivityGrader({ course, subject, grade, externalSelection }: ActivityGraderProps) {
   const { students, myStudents, addGrade, addGradesBatch, updateSingleDetailedGrade, masterData } = useApp();
   const [targetCategory, setTargetCategory] = useState<"sb" | "sbh" | "sr" | "cv" | "aut" | "rec">("sbh");
   const [targetSlot, setTargetSlot] = useState(0);
@@ -229,6 +230,16 @@ export default function ActivityGrader({ course, subject, grade }: ActivityGrade
     setSelectedActivityKey("new");
     setActivityTitle("");
   }, [course]);
+
+  // Actualizar configuración cuando el docente hace clic en una actividad del Resumen de Saberes
+  useEffect(() => {
+    if (externalSelection) {
+      setSelectedActivityKey(`${externalSelection.category}-${externalSelection.slotIndex}`);
+      setActivityTitle(externalSelection.title || "");
+      setTargetCategory(externalSelection.category);
+      setTargetSlot(externalSelection.slotIndex);
+    }
+  }, [externalSelection]);
 
   // Reset index when search term changes
   useEffect(() => {

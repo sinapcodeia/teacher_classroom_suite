@@ -44,7 +44,7 @@ const RESOURCES = [
 
 export default function QuickResourceHub() {
   return (
-    <section className="bg-white rounded-[2.5rem] p-8 border border-outline-variant shadow-xl overflow-hidden relative group">
+    <section className="bg-white rounded-3xl sm:rounded-[2.5rem] p-4 sm:p-8 border border-outline-variant shadow-xl overflow-hidden relative group w-full max-w-full">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />
       
       <div className="flex items-center justify-between mb-8 relative z-10">
@@ -60,7 +60,7 @@ export default function QuickResourceHub() {
         <Sparkles size={20} className="text-amber-400 animate-pulse" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 relative z-10 w-full max-w-full">
         {RESOURCES.map((r, i) => (
           <Link 
             key={i} 
