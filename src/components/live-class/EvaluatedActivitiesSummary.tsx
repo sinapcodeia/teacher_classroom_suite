@@ -74,7 +74,7 @@ export default function EvaluatedActivitiesSummary({
 
           // Si no tiene etiqueta pero tiene categoría y título, solo aceptar si coincide explícitamente o no pertenece a otra materia
           if (matchesCurrentSubject || (!titleUpper.startsWith("[") && g.category && g.title)) {
-            const cleanTitle = g.title ? g.title.replace(new RegExp(`^\\[${subjectUpper}\\]\\s*`, 'i')).trim() : "Actividad";
+            const cleanTitle = g.title ? g.title.replace(new RegExp(`^\\[${subjectUpper}\\]\\s*`, 'i'), '').trim() : "Actividad";
             const category = (g.category || (g.type === 'exam' ? 'sb' : (g.type === 'participation' ? 'sr' : 'sbh'))) as "sb" | "sbh" | "sr" | "cv" | "aut" | "rec";
             const slotIndex = g.slotIndex !== undefined ? g.slotIndex : 0;
             const key = `${category}-${slotIndex}`;
