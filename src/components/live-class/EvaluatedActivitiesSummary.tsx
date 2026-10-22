@@ -54,18 +54,27 @@ export default function EvaluatedActivitiesSummary({
     const map = new Map<string, EvaluatedActivityItem>();
 
     // 1. Extraer actividades nombradas del historial student.grades
+    // ESTRICTO: Solo incluir notas que pertenezcan a la materia actual
     students.forEach(student => {
       if (student.grades && Array.isArray(student.grades)) {
         student.grades.forEach((g: any) => {
           if (g.periodId && g.periodId !== periodId) return;
 
+          const titleUpper = (g.title || "").toUpperCase().trim();
           const subjectTag = `[${subjectUpper}]`;
-          const titleMatches = g.title && g.title.toUpperCase().includes(subjectTag);
-          if (!titleMatches && g.title && !g.title.toUpperCase().startsWith("[")) {
-            // Si no tiene prefijo, no podemos asegurar que sea de esta materia salvo que coincida
-          }
-          if (titleMatches || (g.category && g.title)) {
-            const cleanTitle = g.title ? g.title.replace(new RegExp(`\\s*\\[${subject}\\s*\\]\\s*`, 'i'), '').trim() : "Actividad";
+          
+          // REGLA ESTRICTA DE MATERIA:
+          // Si tiene etiqueta [MATERIA], debe ser EXACTAMENTE la materia actual.
+          // Si tiene la etiqueta de OTRA materia (ej: [FÍSICA], [MATEMÁTICAS] cuando estamos en TECNOLOGÍA), se DESCARTA.
+          const hasOtherSubjectTag = titleUpper.startsWith("[") && !titleUpper.startsWith(subjectTag);
+          if (hasOtherSubjectTag) return;
+
+          const matchesCurrentSubject = titleUpper.startsWith(subjectTag) || 
+            (g.subject && g.subject.toUpperCase() === subjectUpper);
+
+          // Si no tiene etiqueta pero tiene categoría y título, solo aceptar si coincide explícitamente o no pertenece a otra materia
+          if (matchesCurrentSubject || (!titleUpper.startsWith("[") && g.category && g.title)) {
+            const cleanTitle = g.title ? g.title.replace(new RegExp(`^\\[${subjectUpper}\\]\\s*`, 'i')).trim() : "Actividad";
             const category = (g.category || (g.type === 'exam' ? 'sb' : (g.type === 'participation' ? 'sr' : 'sbh'))) as "sb" | "sbh" | "sr" | "cv" | "aut" | "rec";
             const slotIndex = g.slotIndex !== undefined ? g.slotIndex : 0;
             const key = `${category}-${slotIndex}`;
