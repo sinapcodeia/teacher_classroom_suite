@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Student, useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/lib/constants";
+import { calculateSubjectPeriodScore, calculateGroupRankings, formatRank, round2 } from "@/lib/gradeUtils";
 import { exportToCSV } from "@/lib/reports";
 import GuardianModal from "@/components/students/GuardianModal";
 import StudentStatusModal from "@/components/students/StudentStatusModal";
@@ -58,40 +59,13 @@ export default function DirectorGrupoCockpit({
     return subjects.filter(s => s.name && s.name.trim() !== "");
   }, [subjects]);
 
-  // Helper para calcular la nota definitiva de una materia en el periodo seleccionado
+  // Nota definitiva de una materia en el periodo seleccionado (MOTOR OFICIAL SIEEE:
+  // normaliza sobre pilares calificados y aplica Recuperación igual que el resto de la app)
   const getStudentSubjectScore = (student: Student, subjectName: string) => {
     const detailed = student.detailedGrades?.[subjectName]?.[selectedPeriod];
     if (detailed) {
-      const getAvg = (arr?: (number | null)[]) => {
-        if (!arr || arr.length === 0) return null;
-        const valid = arr.filter(v => typeof v === 'number') as number[];
-        return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
-      };
-
-      const sbAvg = getAvg(detailed.sb);
-      const sbhAvg = getAvg(detailed.sbh);
-      const srAvg = getAvg(detailed.sr);
-      const cvAvg = getAvg(detailed.cv);
-      const aut = detailed.aut;
-
-      if (sbAvg === null && sbhAvg === null && srAvg === null && cvAvg === null && aut === null) {
-        return null; // En curso / sin calificar
-      }
-
-      let finalScore = (
-        ((sbAvg ?? 0) * 0.30) +
-        ((sbhAvg ?? 0) * 0.40) +
-        ((srAvg ?? 0) * 0.20) +
-        ((cvAvg ?? 0) * 0.05) +
-        ((aut ?? 0) * 0.05)
-      );
-
-      // Si tiene recuperación aprobatoria
-      if (detailed.rec && detailed.rec >= 3.0 && finalScore < 3.0) {
-        finalScore = Math.max(finalScore, detailed.rec);
-      }
-
-      return parseFloat(finalScore.toFixed(1));
+      const score = calculateSubjectPeriodScore(detailed);
+      return score === null ? null : round2(score);
     }
 
     // Fallback legacy
@@ -108,6 +82,12 @@ export default function DirectorGrupoCockpit({
 
     return null;
   };
+
+  // 🏆 Puestos oficiales del salón (por período seleccionado y Final acumulado)
+  const groupRankings = useMemo(() => calculateGroupRankings(groupStudents, {
+    activePeriod: masterData.activePeriod,
+    groupBy: "course"
+  }), [groupStudents, masterData.activePeriod]);
 
   // Diagnóstico individual de salud académica
   const studentDiagnostics = useMemo(() => {
@@ -127,7 +107,15 @@ export default function DirectorGrupoCockpit({
         }
       });
 
-      const average = ratedCount > 0 ? parseFloat((totalSum / ratedCount).toFixed(1)) : null;
+      const rankEntry = groupRankings.entries.get(student.id);
+      // Promedio oficial del período (incluye bono de participación del período)
+      const enginePeriodAvg = rankEntry?.breakdown.periods[selectedPeriod] ?? null;
+      const average = enginePeriodAvg ?? (ratedCount > 0 ? round2(totalSum / ratedCount) : null);
+      const periodRank = rankEntry?.periodRanks[selectedPeriod] ?? null;
+      const finalRank = rankEntry?.finalRank ?? null;
+      const accumulatedAvg = rankEntry?.breakdown.accumulatedAvg ?? null;
+      const rankedOfPeriod = rankEntry?.rankedOf[selectedPeriod] ?? 0;
+      const rankedOfFinal = rankEntry?.rankedOf.final ?? 0;
       const status: "safe" | "warning" | "danger" = 
         failingCount >= 3 ? "danger" : (failingCount >= 1 ? "warning" : "safe");
 
@@ -139,6 +127,11 @@ export default function DirectorGrupoCockpit({
         student,
         subjectScores,
         average,
+        accumulatedAvg,
+        periodRank,
+        finalRank,
+        rankedOfPeriod,
+        rankedOfFinal,
         ratedCount,
         failingCount,
         status,
@@ -147,7 +140,7 @@ export default function DirectorGrupoCockpit({
         faltas
       };
     });
-  }, [groupStudents, activeSubjects, selectedPeriod]);
+  }, [groupStudents, activeSubjects, selectedPeriod, groupRankings]);
 
   // KPIs Grupales
   const kpis = useMemo(() => {
@@ -199,7 +192,10 @@ export default function DirectorGrupoCockpit({
         "Grado": normalizeGrade(d.student.grado),
         "Curso": d.student.curso || "",
         "Periodo": selectedPeriod.toUpperCase(),
-        "Promedio": d.average !== null ? d.average : "En Curso",
+        "Promedio Periodo": d.average !== null ? d.average.toFixed(2) : "En Curso",
+        "Puesto Periodo": d.periodRank !== null ? `${d.periodRank} / ${d.rankedOfPeriod}` : "—",
+        "Acumulado Anual": d.accumulatedAvg !== null ? d.accumulatedAvg.toFixed(2) : "—",
+        "Puesto Final": d.finalRank !== null ? `${d.finalRank} / ${d.rankedOfFinal}` : "—",
         "Materias Perdidas": d.failingCount,
         "Estado": d.status === "safe" ? "Aprobando" : (d.status === "warning" ? "En Observación" : "Riesgo Crítico")
       };
@@ -508,7 +504,10 @@ export default function DirectorGrupoCockpit({
               <thead>
                 <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider border-b border-slate-800">
                   <th className="p-4 sticky left-0 bg-slate-900 z-10">Estudiante</th>
-                  <th className="p-4 text-center">Promedio</th>
+                  <th className="p-4 text-center">Promedio {selectedPeriod.toUpperCase()}</th>
+                  <th className="p-4 text-center">Puesto {selectedPeriod.toUpperCase()}</th>
+                  <th className="p-4 text-center">Acum. / Final</th>
+                  <th className="p-4 text-center">Puesto Final</th>
                   <th className="p-4 text-center">Estado SIEEE</th>
                   {activeSubjects.map(sub => (
                     <th key={sub.id} className="p-4 text-center whitespace-nowrap" title={sub.name}>
@@ -553,7 +552,45 @@ export default function DirectorGrupoCockpit({
                             diag.average >= 3.0 ? "bg-amber-100 text-amber-800" :
                             "bg-rose-100 text-rose-700"
                           }`}>
-                            {diag.average.toFixed(1)}
+                            {diag.average.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Puesto Período */}
+                      <td className="p-4 text-center font-black whitespace-nowrap">
+                        {diag.periodRank !== null ? (
+                          <span className={`px-2 py-1 rounded-lg text-[10px] border ${diag.periodRank <= 3 ? "bg-amber-50 text-amber-800 border-amber-300" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
+                            {formatRank(diag.periodRank)} <span className="opacity-60">/ {diag.rankedOfPeriod}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Acumulado Anual / Final */}
+                      <td className="p-4 text-center font-black">
+                        {diag.accumulatedAvg !== null ? (
+                          <span className={`px-2.5 py-1 rounded-lg text-[11px] ${
+                            diag.accumulatedAvg >= 4.6 ? "bg-emerald-100 text-emerald-800" :
+                            diag.accumulatedAvg >= 4.0 ? "bg-sky-100 text-sky-800" :
+                            diag.accumulatedAvg >= 3.0 ? "bg-indigo-100 text-indigo-800" :
+                            "bg-rose-100 text-rose-700"
+                          }`}>
+                            {diag.accumulatedAvg.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Puesto Final (3 Períodos) */}
+                      <td className="p-4 text-center font-black whitespace-nowrap">
+                        {diag.finalRank !== null ? (
+                          <span className={`px-2 py-1 rounded-lg text-[10px] border ${diag.finalRank <= 3 ? "bg-amber-50 text-amber-800 border-amber-300" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
+                            {formatRank(diag.finalRank)} <span className="opacity-60">/ {diag.rankedOfFinal}</span>
                           </span>
                         ) : (
                           <span className="text-slate-300">—</span>

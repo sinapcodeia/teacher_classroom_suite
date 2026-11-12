@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { calculateStudentAcademicSummary, calculateDetailedFinal } from "@/lib/gradeUtils";
+import { calculateGroupRankings, formatRank, PASSING_GRADE, TOTAL_ACADEMIC_PERIODS, type RankingScope } from "@/lib/gradeUtils";
 import { 
   Trophy, AlertTriangle, CheckCircle2, TrendingUp, 
   Search, ChevronDown, ChevronUp, UserCheck, UserX, Award,
@@ -22,7 +22,7 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
   const { myStudents, masterData } = useApp();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PASSING" | "FAILING">("ALL");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | RankingScope>("asc");
   const [isExpanded, setIsExpanded] = useState(true);
   const [selectedRecoveryStudent, setSelectedRecoveryStudent] = useState<any>(null);
   const [selectedProfileStudent, setSelectedProfileStudent] = useState<any>(null);
@@ -30,50 +30,30 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
   const activePeriod = masterData.activePeriod || "p2";
   const activeSubject = (subjectFilter && subjectFilter !== "TODOS") ? subjectFilter : ((masterData.subjects?.[0] as any)?.name || masterData.subjects?.[0] || "TECNOLOGÍA");
 
-  // Procesar notas por período (P1, P2, P3) y proyecciones pedagógicas
+  // Procesar notas por período (P1, P2, P3), puestos y proyecciones con el MOTOR OFICIAL SIEEE
+  const subjectForCalc = (subjectFilter && subjectFilter !== "TODOS") ? activeSubject : undefined;
   const studentSummaries = useMemo(() => {
-    return myStudents.filter(s => {
+    const groupStudents = myStudents.filter(s => {
       if (s.isActive === false) return false;
       const matchGrado = gradoFilter === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(gradoFilter);
       const matchCurso = cursoFilter === "TODOS" || s.curso === cursoFilter;
       return matchGrado && matchCurso;
-    }).map(student => {
-      const summary = calculateStudentAcademicSummary(student, activePeriod);
-      const detailedGrades = student.detailedGrades || {};
-      
-      const periodNotes: Record<string, number | null> = { p1: null, p2: null, p3: null };
-      
-      ["p1", "p2", "p3"].forEach(pId => {
-        const subNotes: number[] = [];
-        
-          const mapsToCheck = (subjectFilter && subjectFilter !== "TODOS") 
-            ? (detailedGrades[activeSubject] ? [detailedGrades[activeSubject]] : [])
-            : Object.values(detailedGrades);
-          
-          mapsToCheck.forEach(pMap => {
-          if (pMap && pMap[pId]) {
-            const finalSubNote = calculateDetailedFinal(pMap[pId]);
-            if (finalSubNote > 0) subNotes.push(finalSubNote);
-          }
-        });
-        if (subNotes.length > 0) {
-          const avg = subNotes.reduce((a, b) => a + b, 0) / subNotes.length;
-          periodNotes[pId] = Number(avg.toFixed(2));
-        }
-      });
+    });
 
-      if (periodNotes.p1 === null && periodNotes.p2 === null && periodNotes.p3 === null && student.avgGrade) {
-        periodNotes.p1 = Number(student.avgGrade.toFixed(2));
-      }
+    // Puestos dentro de cada salón (grado + curso)
+    const rankings = calculateGroupRankings(groupStudents, { activePeriod, subject: subjectForCalc, groupBy: "course" });
 
-      const completedPeriods = ["p1", "p2", "p3"].filter(p => periodNotes[p] !== null);
-      const completedCount = completedPeriods.length;
-      const totalPeriodsYear = 3;
+    return groupStudents.map(student => {
+      const entry = rankings.entries.get(student.id)!;
+      const { breakdown } = entry;
+      const periodNotes: Record<string, number | null> = { ...breakdown.periods };
 
-      const sumCompleted = completedPeriods.reduce((sum, p) => sum + (periodNotes[p] || 0), 0);
-      const currentOverallAvg = completedCount > 0 ? Number((sumCompleted / completedCount).toFixed(2)) : (student.avgGrade || 0);
+      const completedCount = breakdown.evaluatedPeriods.length;
+      const totalPeriodsYear = TOTAL_ACADEMIC_PERIODS;
+      const sumCompleted = breakdown.pointsAccumulated;
+      const currentOverallAvg = breakdown.accumulatedAvg ?? 0;
 
-      const targetTotalYear = totalPeriodsYear * 3.0; // 9.0 puntos acumulados necesarios en 3 períodos
+      const targetTotalYear = totalPeriodsYear * PASSING_GRADE; // 9.0 puntos acumulados necesarios en 3 períodos
       const pointsNeededRemaining = targetTotalYear - sumCompleted;
       const remainingPeriodsCount = totalPeriodsYear - completedCount;
 
@@ -81,11 +61,11 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
       let guidanceStatus: "safe" | "warning" | "danger" | "passed" | "pending_start" = "safe";
       let guidanceText = "";
 
-      if (completedCount === 0) {
+      if (breakdown.accumulatedAvg === null) {
         guidanceStatus = "pending_start";
-        guidanceText = "Períodos sin iniciar";
+        guidanceText = "Sin notas registradas";
       } else if (remainingPeriodsCount <= 0) {
-        if (currentOverallAvg >= 3.0) {
+        if (currentOverallAvg >= PASSING_GRADE) {
           guidanceStatus = "passed";
           guidanceText = "¡Año Aprobado!";
         } else {
@@ -94,49 +74,62 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
         }
       } else {
         minScoreNeededInNext = Number((pointsNeededRemaining / remainingPeriodsCount).toFixed(2));
+        const nextP = completedCount + 1;
 
         if (minScoreNeededInNext <= 1.0) {
           guidanceStatus = "safe";
-          guidanceText = "✅ Año Asegurado (Incluso con 1.0 en P3 aprueba)";
+          guidanceText = `✅ Año Asegurado (Incluso con 1.0 en P${nextP} aprueba)`;
         } else if (minScoreNeededInNext <= 3.0) {
           guidanceStatus = "safe";
-          guidanceText = `✓ Necesita mín. ${minScoreNeededInNext.toFixed(1)} en P${completedCount + 1} para ganar el año`;
+          guidanceText = `✓ Necesita mín. ${minScoreNeededInNext.toFixed(1)} en P${nextP} para ganar el año`;
         } else if (minScoreNeededInNext <= 5.0) {
           guidanceStatus = "warning";
-          guidanceText = `⚠️ Alerta: Necesita sacar al menos ${minScoreNeededInNext.toFixed(1)} en P${completedCount + 1} para alcanzar 3.0`;
+          guidanceText = `⚠️ Alerta: Necesita sacar al menos ${minScoreNeededInNext.toFixed(1)} en P${nextP} para alcanzar 3.0`;
         } else {
           guidanceStatus = "danger";
           guidanceText = `🚨 Riesgo Crítico: Requisito mayor a 5.0 (${minScoreNeededInNext.toFixed(1)}). Necesita nivelación obligatoria`;
         }
       }
+      if (breakdown.missingPeriods.length > 0 && breakdown.accumulatedAvg !== null) {
+        guidanceText += ` · Sin nota en ${breakdown.missingPeriods.map(p => p.toUpperCase()).join(", ")} (cuenta 0)`;
+        if (guidanceStatus === "safe") guidanceStatus = "warning";
+      }
 
       return {
         student,
         periodNotes,
+        periodRanks: entry.periodRanks,
+        finalRank: entry.finalRank,
+        rankedOf: entry.rankedOf,
+        isYearClosed: breakdown.isYearClosed,
         completedCount,
         currentOverallAvg,
-        isPassingNow: currentOverallAvg >= 3.0,
+        isPassingNow: breakdown.accumulatedAvg !== null && currentOverallAvg >= PASSING_GRADE,
+        hasGrades: breakdown.accumulatedAvg !== null,
         minScoreNeededInNext,
         guidanceStatus,
         guidanceText
       };
     }).sort((a, b) => a.currentOverallAvg - b.currentOverallAvg);
-  }, [myStudents, gradoFilter, cursoFilter, activePeriod, activeSubject, subjectFilter]);
+  }, [myStudents, gradoFilter, cursoFilter, activePeriod, subjectForCalc]);
 
-  // Métricas globales del grupo
+  // Métricas globales del grupo (solo estudiantes con notas cuentan para aprobando / en riesgo)
   const stats = useMemo(() => {
     const total = studentSummaries.length;
-    if (total === 0) return { total: 0, passing: 0, failing: 0, passRate: 0 };
-    const passing = studentSummaries.filter(s => s.isPassingNow).length;
-    const failing = total - passing;
-    const passRate = Math.round((passing / total) * 100);
-    return { total, passing, failing, passRate };
+    if (total === 0) return { total: 0, passing: 0, failing: 0, passRate: 0, graded: 0, groupAvg: 0 };
+    const gradedList = studentSummaries.filter(s => s.hasGrades);
+    const graded = gradedList.length;
+    const passing = gradedList.filter(s => s.isPassingNow).length;
+    const failing = graded - passing;
+    const passRate = graded > 0 ? Math.round((passing / graded) * 100) : 0;
+    const groupAvg = graded > 0 ? gradedList.reduce((a, b) => a + b.currentOverallAvg, 0) / graded : 0;
+    return { total, passing, failing, passRate, graded, groupAvg };
   }, [studentSummaries]);
 
   // Filtrado por búsqueda y estado seleccionado en las tarjetas KPI
   const displayedStudents = useMemo(() => {
     const list = studentSummaries.filter(s => {
-      if (statusFilter === "FAILING" && s.isPassingNow) return false;
+      if (statusFilter === "FAILING" && (s.isPassingNow || !s.hasGrades)) return false;
       if (statusFilter === "PASSING" && !s.isPassingNow) return false;
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
@@ -144,11 +137,13 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
       const doc = (s.student.nroDocumento || "").toLowerCase();
       return fullName.includes(term) || doc.includes(term);
     });
-    return [...list].sort((a, b) =>
-      sortOrder === "asc"
-        ? a.currentOverallAvg - b.currentOverallAvg
-        : b.currentOverallAvg - a.currentOverallAvg
-    );
+    const rankOf = (s: typeof list[number], scope: RankingScope) =>
+      (scope === "final" ? s.finalRank : s.periodRanks[scope]) ?? Number.MAX_SAFE_INTEGER;
+    return [...list].sort((a, b) => {
+      if (sortOrder === "asc") return a.currentOverallAvg - b.currentOverallAvg;
+      if (sortOrder === "desc") return b.currentOverallAvg - a.currentOverallAvg;
+      return rankOf(a, sortOrder) - rankOf(b, sortOrder) || b.currentOverallAvg - a.currentOverallAvg;
+    });
   }, [studentSummaries, statusFilter, searchTerm, sortOrder]);
 
   if (studentSummaries.length === 0) return null;
@@ -280,14 +275,14 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
             <div className="flex items-center gap-2">
               <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider">Promedio Acumulado Grupo</p>
               <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                Orden {sortOrder === "asc" ? "↑ Menor a Mayor" : "↓ Mayor a Menor"}
+                Orden {sortOrder === "asc" ? "↑ Menor a Mayor" : sortOrder === "desc" ? "↓ Mayor a Menor" : `🏆 Puesto ${sortOrder === "final" ? "Final" : sortOrder.toUpperCase()}`}
               </span>
             </div>
             <p className="text-2xl md:text-3xl font-black text-indigo-700 mt-1">
-              {(studentSummaries.reduce((a, b) => a + b.currentOverallAvg, 0) / (stats.total || 1)).toFixed(2)}
+              {stats.groupAvg.toFixed(2)}
             </p>
             <p className="text-[9px] font-bold text-indigo-600 mt-0.5">
-              Promedio de períodos cursados · <span className="underline">Toca para ordenar / ver todos</span>
+              Promedio de períodos evaluados ({stats.graded} con notas) · <span className="underline">Toca para ordenar / ver todos</span>
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-indigo-600 group-hover:scale-110 transition-transform text-white flex items-center justify-center shadow-md shrink-0">
@@ -348,29 +343,46 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
                 <AlertTriangle size={13} />
                 En Riesgo ({stats.failing})
               </button>
+              <span className="hidden sm:inline-block w-px h-6 bg-slate-200 mx-1" aria-hidden="true" />
+              {(["p1", "p2", "p3", "final"] as RankingScope[]).map(scope => (
+                <button
+                  key={scope}
+                  type="button"
+                  onClick={() => { setSortOrder(prev => (prev === scope ? "asc" : scope)); setStatusFilter("ALL"); }}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                    sortOrder === scope
+                      ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+                      : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  }`}
+                  title={scope === "final" ? "Ordenar por Puesto Final (acumulado de los períodos evaluados)" : `Ordenar por Puesto en el Período ${scope.replace("p", "")}`}
+                >
+                  <Award size={12} /> Puesto {scope === "final" ? "Final" : scope.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Tabla de Desglose por Período y Pronóstico */}
           <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-[440px] custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[760px]">
+            <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider sticky top-0 border-b border-slate-200">
                   <th className="p-3 pl-4">Estudiante (Toca para Ficha 360°)</th>
                   <th className="p-3 text-center">Período 1</th>
                   <th className="p-3 text-center">Período 2</th>
                   <th className="p-3 text-center">Período 3</th>
-                  <th className="p-3 text-center">Acumulado Actual</th>
+                  <th className="p-3 text-center">Acumulado / Final</th>
+                  <th className="p-3 text-center">Puesto Final</th>
                   <th className="p-3 pl-4">Guía Docente / Acciones 360°</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium">
-                {displayedStudents.map(({ student, periodNotes, currentOverallAvg, isPassingNow, guidanceStatus, guidanceText }) => {
+                {displayedStudents.map(({ student, periodNotes, periodRanks, finalRank, rankedOf, isYearClosed, hasGrades, currentOverallAvg, isPassingNow, guidanceStatus, guidanceText }) => {
                   return (
                     <tr
                       key={student.id}
                       onClick={() => setSelectedProfileStudent(student)}
-                      className={`hover:bg-indigo-50/40 transition-colors cursor-pointer group ${!isPassingNow ? 'bg-rose-50/40' : ''}`}
+                      className={`hover:bg-indigo-50/40 transition-colors cursor-pointer group ${hasGrades && !isPassingNow ? 'bg-rose-50/40' : ''}`}
                     >
                       <td className="p-3 pl-4">
                         <div className="font-black text-on-surface group-hover:text-primary transition-colors uppercase leading-tight flex items-center gap-1.5">
@@ -380,49 +392,61 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
                         <div className="text-[9px] font-bold text-slate-400">DOC: {student.nroDocumento} | Grado {normalizeGrade(student.grado)} - {student.curso}</div>
                       </td>
                       
-                      {/* P1 */}
+                      {/* P1 · P2 · P3 con su puesto en el salón */}
+                      {(["p1", "p2", "p3"] as const).map(pId => {
+                        const note = periodNotes[pId];
+                        const rank = periodRanks[pId];
+                        return (
+                          <td key={pId} className="p-3 text-center">
+                            {note !== null ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className={`px-2 py-0.5 rounded-md text-xs font-black ${note >= PASSING_GRADE ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'}`}>
+                                  {note.toFixed(2)}
+                                </span>
+                                {rank !== null && (
+                                  <span className={`text-[8.5px] font-black ${rank <= 3 ? 'text-amber-600' : 'text-slate-400'}`} title={`Puesto ${rank} de ${rankedOf[pId]} en el salón`}>
+                                    {formatRank(rank)} / {rankedOf[pId]}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">⏳ Pend.</span>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      {/* Acumulado de períodos evaluados (= Nota Final de los 3 períodos al cerrar P3) */}
                       <td className="p-3 text-center">
-                        {periodNotes.p1 !== null ? (
-                          <span className={`px-2 py-0.5 rounded-md text-xs font-black ${periodNotes.p1 >= 3.0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'}`}>
-                            {periodNotes.p1.toFixed(1)}
-                          </span>
+                        {hasGrades ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-black border ${
+                              currentOverallAvg >= 4.6 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                              currentOverallAvg >= 4.0 ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                              currentOverallAvg >= PASSING_GRADE ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                              'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
+                            }`}>
+                              {currentOverallAvg.toFixed(2)}
+                            </span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase">{isYearClosed ? "Nota Final" : "Acumulado"}</span>
+                          </div>
                         ) : (
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">⏳ Pend.</span>
+                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Sin notas</span>
                         )}
                       </td>
 
-                      {/* P2 */}
+                      {/* Puesto Final */}
                       <td className="p-3 text-center">
-                        {periodNotes.p2 !== null ? (
-                          <span className={`px-2 py-0.5 rounded-md text-xs font-black ${periodNotes.p2 >= 3.0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'}`}>
-                            {periodNotes.p2.toFixed(1)}
+                        {finalRank !== null ? (
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black border whitespace-nowrap ${finalRank <= 3 ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                            title={`Puesto ${finalRank} de ${rankedOf.final} en su salón (${isYearClosed ? "Nota Final de los 3 períodos" : "acumulado de los períodos evaluados"})`}
+                          >
+                            {formatRank(finalRank)} <span className="ml-1 opacity-60">/ {rankedOf.final}</span>
                           </span>
                         ) : (
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">⏳ Pend.</span>
+                          <span className="text-[9px] font-bold text-slate-400">—</span>
                         )}
-                      </td>
-
-                      {/* P3 */}
-                      <td className="p-3 text-center">
-                        {periodNotes.p3 !== null ? (
-                          <span className={`px-2 py-0.5 rounded-md text-xs font-black ${periodNotes.p3 >= 3.0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'}`}>
-                            {periodNotes.p3.toFixed(1)}
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">⏳ Pend.</span>
-                        )}
-                      </td>
-
-                      {/* Promedio Acumulado Cursado */}
-                      <td className="p-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-black border ${
-                          currentOverallAvg >= 4.6 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                          currentOverallAvg >= 4.0 ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                          currentOverallAvg >= 3.0 ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
-                          'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
-                        }`}>
-                          {currentOverallAvg.toFixed(2)}
-                        </span>
                       </td>
 
                       {/* Pronóstico / Guía Docente + Botones 360° */}
@@ -451,7 +475,7 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
                           </button>
 
                           {/* Botón para generar el Plan de Nivelación listo para imprimir */}
-                          {(!isPassingNow || guidanceStatus === "warning" || guidanceStatus === "danger") && (
+                          {hasGrades && (!isPassingNow || guidanceStatus === "warning" || guidanceStatus === "danger") && (
                             <button
                               type="button"
                               onClick={() => setSelectedRecoveryStudent(student)}

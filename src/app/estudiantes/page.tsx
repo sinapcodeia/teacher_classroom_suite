@@ -10,11 +10,9 @@ const ImportSummaryModal = nextDynamic(() => import("@/components/students/Impor
 const DirectorGrupoCockpit = nextDynamic(() => import("@/components/students/DirectorGrupoCockpit"), { ssr: false });
 import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2, Users } from "lucide-react";
 import Papa from "papaparse";
-import { exportToCSV, exportToPDF } from "@/lib/reports";
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { printInstitutionalStudentReport } from "@/lib/printService";
 import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 import {
   downloadStudentTemplate,
@@ -33,6 +31,7 @@ export default function StudentsPage() {
   
   const [viewMode, setViewMode] = useState<"profile" | "cockpit">("profile");
   const [materiaFilter, setMateriaFilter] = useState("TODAS");
+  const [batchDossierPeriod, setBatchDossierPeriod] = useState<string>(() => (masterData.activePeriod || "p2").replace(/[^1-3]/g, "") || "2");
   const [perfFilter, setPerfFilter] = useState<StudentPerfFilter>("ALL");
   const [selectedId, setSelectedId] = useState("");
   // Verificación estricta de Rol: Solo Directores de Grupo, Rectores o Coordinadores tienen acceso al Cockpit Grupal
@@ -95,7 +94,7 @@ export default function StudentsPage() {
     if (ok) setTimeout(() => setModalToast(null), 3000);
   };
 
-  const handleExportAll = () => {
+  const handleExportAll = async () => {
     const dataToExport = myStudents.map(s => ({
       "GRADO": s.grado || "",
       "CURSO IETABA": s.curso || "",
@@ -114,6 +113,7 @@ export default function StudentsPage() {
       "VEREDA / COMUNIDAD": s.acudienteVereda || "",
       "ESTADO MATRICULA": s.estadoMatricula || "MATRICULADO",
     }));
+    const { exportToCSV } = await import("@/lib/reports");
     exportToCSV(dataToExport, "Estudiantes_Maestro_SIMAT_IETABA");
   };
 
@@ -213,11 +213,45 @@ export default function StudentsPage() {
               <FileText size={16} className="text-primary-container" /> Asistencia Oficial
             </Link>
             <button 
-              onClick={() => printInstitutionalStudentReport(filteredReportStudents, profile.name)}
+              onClick={async () => {
+                const { printInstitutionalStudentReport } = await import("@/lib/printService");
+                printInstitutionalStudentReport(filteredReportStudents, profile.name);
+              }}
               className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-5 md:py-3 bg-white border md:border-2 border-outline-variant rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all min-w-[140px]"
             >
               <FileText size={16} className="text-error" /> PDF
             </button>
+            <div className="flex items-center bg-teal-50 border md:border-2 border-teal-200 rounded-xl md:rounded-2xl p-1 gap-1 shadow-sm">
+              <select
+                value={batchDossierPeriod}
+                onChange={(e) => setBatchDossierPeriod(e.target.value)}
+                className="bg-transparent border-none text-[9px] md:text-[10px] font-black text-teal-900 uppercase tracking-wider pl-2 pr-1 py-1.5 focus:ring-0 cursor-pointer"
+                title="Periodo para los Dossiers en Lote"
+              >
+                <option value="1">P1</option>
+                <option value="2">P2</option>
+                <option value="3">P3</option>
+                <option value="final">Final 3P</option>
+              </select>
+              <button
+                type="button"
+                onClick={async () => {
+                  const { printBatchStudentDossiers } = await import("@/lib/printService");
+                  printBatchStudentDossiers(
+                    filteredReportStudents,
+                    profile,
+                    masterData,
+                    batchDossierPeriod,
+                    myStudents,
+                    `${gradoFilter === "TODOS" ? "TODOS" : gradoFilter}-${cursoFilter === "TODOS" ? "TODOS" : cursoFilter}`
+                  );
+                }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                title="Imprimir en un solo PDF los dossiers de todos los estudiantes del filtro actual (1 por página)"
+              >
+                <FileText size={15} /> Dossiers Lote ({filteredReportStudents.length})
+              </button>
+            </div>
             <button 
               onClick={handleExportAll}
               className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-5 md:py-3 bg-white border md:border-2 border-outline-variant rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-container-low transition-all min-w-[140px]"
@@ -418,7 +452,8 @@ export default function StudentsPage() {
               setSelectedId(id);
               setViewMode("profile");
             }}
-            onPrintActa={(st) => {
+            onPrintActa={async (st) => {
+              const { printInstitutionalStudentReport } = await import("@/lib/printService");
               printInstitutionalStudentReport([st], profile?.name || "Docente IETABA");
             }}
           />

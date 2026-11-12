@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { printStudentProfileReport, printStudentCommitmentAgreement } from "@/lib/printService";
+import { calculateSubjectPeriodScore } from "@/lib/gradeUtils";
 import GuardianModal from "@/components/students/GuardianModal";
 import StudentStatusModal from "@/components/students/StudentStatusModal";
 import { Mail, ShieldAlert } from "lucide-react";
@@ -176,36 +177,14 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
     }
   }, [initialSubject, availableSubjects]);
 
-  // ── Memoized Academic Calculation Engines ────────────────────────────────────
+  // ── Memoized Academic Calculation Engines (Fuente Única de Verdad SIEEE) ────
   const getPeriodDefinitive = useCallback((subject: string, periodId: string) => {
     if (!student) return null;
     const pid = periodId.toLowerCase();
     
-    // 1. Detailed structure check
+    // 1. Detailed structure check (normaliza pilares calificados y aplica Recuperación REC)
     if (student.detailedGrades?.[subject]?.[pid]) {
-      const d = student.detailedGrades[subject][pid];
-      const getAvg = (vals: (number | null)[]) => {
-        const valid = vals.filter(v => v !== null) as number[];
-        return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
-      };
-      const sbAvg = getAvg(d.sb);
-      const sbhAvg = getAvg(d.sbh);
-      const srAvg = getAvg(d.sr);
-      const cvAvg = getAvg(d.cv);
-      const aut = d.aut;
-
-      if (sbAvg === null && sbhAvg === null && srAvg === null && cvAvg === null && aut === null) {
-        return null;
-      }
-
-      const final = (
-        ((sbAvg ?? 0) * 0.3) +
-        ((sbhAvg ?? 0) * 0.4) +
-        ((srAvg ?? 0) * 0.2) +
-        ((cvAvg ?? 0) * 0.05) +
-        ((aut ?? 0) * 0.05)
-      );
-      return parseFloat(final.toFixed(2));
+      return calculateSubjectPeriodScore(student.detailedGrades[subject][pid]);
     }
     
     // 2. Legacy check
@@ -637,6 +616,7 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
               <option value="1">Periodo 1</option>
               <option value="2">Periodo 2</option>
               <option value="3">Periodo 3</option>
+              <option value="final">Final (3 Períodos)</option>
             </select>
             <button
               type="button"

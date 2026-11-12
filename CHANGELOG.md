@@ -9,6 +9,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.14.0] — 2026-11-12 · Motor Unificado SIEEE, Primeros Puestos (P1/P2/P3 y Final 3P), Dossiers en Lote e ISO 15489
+
+### 🏆 Motor Oficial SIEEE y Primeros Puestos (`src/lib/gradeUtils.ts`)
+- **Fuente Única de Verdad**: Unificados todos los cálculos de notas por período (`P1`, `P2`, `P3`), promedio acumulado, Nota Final Anual `(P1 + P2 + P3) / 3` y desempate justo (ranking de competencia `1-2-2-4`: promedio → acumulado/período activo → menos inasistencias).
+- **Corrección de Distorsiones**: Si un período ya fue evaluado en el grupo y un estudiante no tiene nota registrada, cuenta como `0` en su acumulado (`resolveGroupEvaluatedPeriods`). Unificados `DirectorGrupoCockpit.tsx` y `StudentProfile.tsx` con la normalización oficial de pilares SIEEE y la Recuperación (`REC`).
+- **Recálculo en Vivo (`src/context/AppContext.tsx`)**: `avgGrade` se recalcula dinámicamente desde `detailedGrades` al cambiar de período activo.
+- **UI de Primeros Puestos**: Selector `P1 / P2 / P3 / Final` en la tarjeta del Dashboard (`src/app/page.tsx`), columnas de **Puesto por Período** y **Puesto Final** en `AcademicAccumulatedWidget.tsx` y `DirectorGrupoCockpit.tsx`, y Cuadro de Honor unificado en `VisualReportModal.tsx` y `printService.ts`.
+
+### 📄 Dossier 360° Final (3 Períodos), Impresión en Lote y Estándar ISO 15489 / 8601 (`src/lib/printService.ts`)
+- **Cuadre Exacto**: Curva de tendencia a 2 decimales, redondeo `round2` en la matriz desagregada y fila explícita de **Bono de Participación en Vivo** cuando aplica.
+- **Dossier Final Anual (`final`)**: Nuevo modo `Final (3 Períodos)` en `StudentProfile.tsx`, `StudentProfileModal.tsx` y `estudiantes/page.tsx` con tabla consolidada `P1 | P2 | P3 | Def. Final (3P)`.
+- **Impresión en Lote (`printBatchStudentDossiers`)**: Botón `Dossiers Lote` en `/estudiantes` para imprimir todos los dossiers filtrados en un solo PDF (1 por página).
+- **Nomenclatura Documental ISO 15489 + ISO 8601 (`buildDocumentFilename`)**: Formato unificado `IETABA_<TIPO>_<GRADO-CURSO>_<PERIODO>_<SUJETO>_<YYYYMMDD>` en ASCII MAYÚSCULAS.
+
+### ⚡ Limpieza, Seguridad y Optimización de Carga
+- **Bundle Más Ligero**: Carga dinámica bajo demanda (`await import(...)`) de `printService.ts` (176 KB) y `reports.ts` (`jspdf`) en `src/app/page.tsx` y `src/app/estudiantes/page.tsx`, más `next/dynamic` para `StudentProfileModal` y `RecoveryPlanModal`.
+- **Next.js (`next.config.ts`)**: Eliminada la directiva obsoleta `interest-cohort=()` de `Permissions-Policy`, añadido `experimental.optimizePackageImports: ["lucide-react", "recharts"]` y formatos AVIF/WebP en imágenes.
+- **Calidad de Código**: 35/35 pruebas unitarias en `scripts/test-grade-engine.mts`, 0 errores de TypeScript (`tsc --noEmit`) y 0 errores/warnings en ESLint sobre los archivos modificados.
+
+---
+
 ## [2.13.0] — 2026-11-12 · Interactividad Total 360°, Gobernanza "Todo o Nada", Formatos Institucionales y Motor Offline-First 0ms
 
 ### ⚡ Optimización Offline-First, Rendimiento Ulrarrápido y Auditoría Responsive

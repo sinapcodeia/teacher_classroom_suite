@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { X, Download, Award, BarChart3, HelpCircle, User } from "lucide-react";
 import { Student } from "@/context/AppContext";
+import { calculateGroupRankings, normalizePeriodId } from "@/lib/gradeUtils";
 
 interface VisualReportModalProps {
   isOpen: boolean;
@@ -372,16 +373,32 @@ export default function VisualReportModal({
     ctx.font = "bold 15px Georgia, serif";
     ctx.fillText("CUADRO DE HONOR (EXCELENCIA)", 60, 645);
 
-    const topSt = [...students]
-      .filter(s => s.avgGrade)
-      .sort((a, b) => b.avgGrade - a.avgGrade)
-      .slice(0, 5);
+    const vScope = normalizePeriodId(period) || "p1";
+    const vRankings = calculateGroupRankings(students, {
+      activePeriod: vScope,
+      subject: subject && subject !== "TODOS" ? subject : undefined,
+      groupBy: "none"
+    });
+    const byId = new Map(students.map(s => [s.id, s]));
+    const rankedTop = vRankings.getTop(vScope, 5).map(e => ({
+      st: byId.get(e.studentId)!,
+      rank: e.periodRanks[vScope] || 1,
+      score: vRankings.getScore(e, vScope) ?? 0
+    })).filter(r => !!r.st);
+
+    const topSt = rankedTop.length > 0
+      ? rankedTop
+      : [...students]
+          .filter(s => s.avgGrade)
+          .sort((a, b) => b.avgGrade - a.avgGrade)
+          .slice(0, 5)
+          .map((st, i) => ({ st, rank: i + 1, score: st.avgGrade }));
 
     let stY = 690;
-    topSt.forEach((st, idx) => {
-      ctx.fillStyle = idx === 0 ? "#fbbf24" : "#ffffff";
+    topSt.forEach(({ st, rank, score }) => {
+      ctx.fillStyle = rank === 1 ? "#fbbf24" : "#ffffff";
       ctx.font = "bold 11px Helvetica, sans-serif";
-      ctx.fillText(`★ #${idx + 1}`, 60, stY);
+      ctx.fillText(`★ #${rank}`, 60, stY);
 
       ctx.fillStyle = "#e2e8f0";
       const name = `${st.primerApellido} ${st.primerNombre}`.toUpperCase();
@@ -389,7 +406,7 @@ export default function VisualReportModal({
 
       ctx.textAlign = "right";
       ctx.fillStyle = "#fbbf24";
-      ctx.fillText(`${st.avgGrade.toFixed(1)}`, 360, stY);
+      ctx.fillText(`${score.toFixed(2)}`, 360, stY);
       ctx.textAlign = "left";
 
       stY += 34;

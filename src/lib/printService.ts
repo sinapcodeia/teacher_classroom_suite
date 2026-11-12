@@ -26,6 +26,45 @@ import {
   APP_BRAND,
   normalizeGrade,
 } from "@/lib/constants";
+import {
+  calculateGroupRankings,
+  calculatePeriodParticipationBonus,
+  calculateSubjectPeriodScore,
+  normalizePeriodId,
+  round2,
+  PERIOD_IDS,
+  type PeriodId,
+} from "@/lib/gradeUtils";
+
+/**
+ * Estándar Internacional de Nomenclatura Documental (ISO 15489 + ISO 8601):
+ * IETABA_<TIPO>_<GRADO-CURSO>_<PERIODO>_<SUJETO>_<YYYYMMDD>
+ * ASCII puro en MAYÚSCULAS, sin tildes ni caracteres especiales.
+ */
+export function buildDocumentFilename(
+  docType: string,
+  periodTag: string,
+  subjectTag: string,
+  gradeCourseTag?: string
+): string {
+  const clean = (s: string) =>
+    (s || "")
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/Ñ/g, "N")
+      .replace(/[^A-Z0-9-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_+/g, "_");
+  const now = new Date();
+  const yyyymmdd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+  const parts = ["IETABA", clean(docType)];
+  if (gradeCourseTag && clean(gradeCourseTag)) parts.push(clean(gradeCourseTag));
+  if (periodTag && clean(periodTag)) parts.push(clean(periodTag));
+  if (subjectTag && clean(subjectTag)) parts.push(clean(subjectTag));
+  parts.push(yyyymmdd);
+  return parts.join("_");
+}
 
 
 interface Student {
@@ -1325,7 +1364,11 @@ export function printExecutiveReport(
 
   const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
   const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
-  const normalizedFileName = `IETABA_INFORME_EJECUTIVO_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+  const normalizedFileName = buildDocumentFilename(
+    "INFORME_EJECUTIVO",
+    `P${String(activePeriod || "1").replace(/[^0-9]/g, "") || "1"}`,
+    teacherClean
+  );
 
   const reportBadgeText = activePeriod === "p1" ? "INFORME GERENCIAL · DIAGNÓSTICO PEDAGÓGICO INICIAL (PERIODO 1)" :
     activePeriod === "p2" ? "INFORME GERENCIAL & ALERTA TEMPRANA DE PROYECCIÓN ANUAL (SIEEE)" :
@@ -2201,20 +2244,35 @@ export function printAnalyticsReport(
     item.pedagogicalAction = action;
   });
 
+  // Cuadro de honor oficial (motor SIEEE: empates compartidos y desempate justo)
+  const biActiveP = normalizePeriodId(activePeriod) || "p1";
+  const biList = Array.from(studentAverages.values()).map(d => d.st);
+  const biRankings = calculateGroupRankings(biList, { activePeriod, groupBy: "none" });
   const honorRoll = Array.from(studentAverages.values())
-    .map(data => ({
-      st: data.st,
-      avg: Number((data.totalDef / data.count).toFixed(2))
-    }))
+    .map(data => {
+      const entry = biRankings.entries.get(data.st.id);
+      const avg = Number((data.totalDef / data.count).toFixed(2));
+      return {
+        st: data.st,
+        avg,
+        rank: entry?.periodRanks[biActiveP] ?? null,
+        accumulatedAvg: entry?.breakdown.accumulatedAvg ?? avg,
+        finalRank: entry?.finalRank ?? null,
+      };
+    })
     .filter(item => item.avg >= 3.5)
-    .sort((a, b) => b.avg - a.avg)
+    .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || b.avg - a.avg)
     .slice(0, 10);
 
   const sanitizeFilename = (str: string) => (str || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
   const teacherClean = sanitizeFilename(teacherProfile?.name || "DOCENTE");
-  const normalizedFileName = `IETABA_ANALITICA_BI_${pName}_${teacherClean}_${new Date().getFullYear()}`;
+  const normalizedFileName = buildDocumentFilename(
+    "ANALITICA_BI",
+    `P${activePeriod.replace(/[^0-9]/g, "") || "1"}`,
+    teacherClean
+  );
 
-  let reportHtml = `
+  const reportHtml = `
     <!DOCTYPE html>
     <html lang="es">
     <head>
@@ -2583,20 +2641,25 @@ export function printAnalyticsReport(
             <thead>
               <tr>
                 <th style="width: 8%;">Puesto</th>
-                <th style="width: 45%; text-align: left;">Estudiante</th>
-                <th style="width: 25%;">Grado / Curso</th>
-                <th style="width: 22%;">Promedio Periodo</th>
+                <th style="width: 40%; text-align: left;">Estudiante</th>
+                <th style="width: 22%;">Grado / Curso</th>
+                <th style="width: 15%;">Prom. Periodo</th>
+                <th style="width: 15%;">Acum. / Final</th>
               </tr>
             </thead>
             <tbody>
-              ${honorRoll.map((h, i) => `
+              ${honorRoll.map((h, i) => {
+                const pos = h.rank ?? (i + 1);
+                return `
                 <tr>
-                  <td><strong style="color: ${i===0 ? '#eab308' : i===1 ? '#94a3b8' : i===2 ? '#b45309' : '#64748b'}; font-size: 10px;">#${i+1}</strong></td>
+                  <td><strong style="color: ${pos===1 ? '#eab308' : pos===2 ? '#94a3b8' : pos===3 ? '#b45309' : '#64748b'}; font-size: 10px;">#${pos}</strong></td>
                   <td class="text-left">${escapeHtml(h.st.primerApellido)} ${escapeHtml(h.st.segundoApellido || "")} ${escapeHtml(h.st.primerNombre)}</td>
                   <td>${h.st.grado}-${h.st.curso || '1'}</td>
                   <td><strong style="color: #0d9488; font-size: 10px;">${h.avg.toFixed(2)}</strong></td>
+                  <td><strong style="color: #4f46e5; font-size: 10px;">${h.accumulatedAvg.toFixed(2)}${h.finalRank ? ` (#${h.finalRank})` : ''}</strong></td>
                 </tr>
-              `).join('') || '<tr><td colspan="4">No hay datos de honor disponibles</td></tr>'}
+              `;
+              }).join('') || '<tr><td colspan="5">No hay datos de honor disponibles</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -2691,85 +2754,72 @@ export function printAnalyticsReport(
  * Diseñado bajo estándares de plataformas mundiales (PowerSchool, Toddle, Canvas Parent)
  * para entrega formal de informes y reuniones de atención a padres de familia y acudientes.
  */
-export function printStudentProfileReport(
+function buildDossierInnerHtml(
   student: any,
   teacherProfile: any,
   masterData: any,
-  selectedPeriod?: string,
-  allStudents?: any[]
-) {
-  if (!student) {
-    if (typeof window !== "undefined") alert("Aviso: No se encontraron datos del estudiante.");
-    return;
-  }
-
+  selectedPeriod: string,
+  allStudents: any[],
+  groupRankingsCache?: ReturnType<typeof calculateGroupRankings>
+): { innerHtml: string; normalizedFileName: string; styles: string } {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const period = selectedPeriod || masterData?.activePeriod || "1";
-  const pName = period === "1" ? "Primer Periodo" : period === "2" ? "Segundo Periodo" : "Tercer Periodo";
+  const rawPeriod = String(selectedPeriod || masterData?.activePeriod || "1").toLowerCase();
+  const isFinalMode = rawPeriod === "final" || rawPeriod === "anual";
+  const period = isFinalMode ? "final" : (rawPeriod.replace(/[^1-3]/g, "") || "1");
+  const pName = isFinalMode
+    ? "Nota Final Anual (3 Períodos)"
+    : period === "1" ? "Primer Periodo" : period === "2" ? "Segundo Periodo" : "Tercer Periodo";
   const now = new Date();
   const fechaStr = now.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
   const horaStr = now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
 
-  // Cálculo de promedios multi-periodo del estudiante (estricto: si no hay notas retorna 0)
-  const calculatePeriodAvg = (st: any, pId: string): number => {
-    if (!st || !st.detailedGrades) return 0;
-    const cleanPid = pId.replace('p', '');
-    const altPid = 'p' + cleanPid;
-    const scores: number[] = [];
-    
-    Object.values(st.detailedGrades).forEach((subPeriods: any) => {
-      if (!subPeriods) return;
-      const periodObj = subPeriods[pId] || subPeriods[cleanPid] || subPeriods[altPid];
-      if (periodObj) {
-        // Verificar si realmente tiene alguna calificación registrada
-        const hasSb = Array.isArray(periodObj.sb) && periodObj.sb.some((x: any) => x !== null && x !== undefined);
-        const hasSbh = Array.isArray(periodObj.sbh) && periodObj.sbh.some((x: any) => x !== null && x !== undefined);
-        const hasSr = Array.isArray(periodObj.sr) && periodObj.sr.some((x: any) => x !== null && x !== undefined);
-        const hasCv = Array.isArray(periodObj.cv) && periodObj.cv.some((x: any) => x !== null && x !== undefined);
-        const hasAut = periodObj.aut !== null && periodObj.aut !== undefined;
-        
-        if (hasSb || hasSbh || hasSr || hasCv || hasAut) {
-          const res = calculatePeriodGrades(periodObj);
-          if (res && res.definitiva !== null && res.definitiva !== undefined && res.definitiva > 0) {
-            scores.push(res.definitiva);
-          }
-        }
-      }
-    });
-    return scores.length > 0 ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : 0;
-  };
-
-  const p1Avg = calculatePeriodAvg(student, "1");
-  const p2Avg = calculatePeriodAvg(student, "2");
-  const p3Avg = calculatePeriodAvg(student, "3");
-  const currentPeriodAvg = calculatePeriodAvg(student, period); // Removed fallback to student.avgGrade
-
-  // Cálculo de ranking y promedios grupales
-  const classmates = (allStudents || []).filter((s: any) => 
+  // Cálculo oficial multi-periodo y puestos en salón (Motor SIEEE)
+  const targetPId: PeriodId = isFinalMode ? "p3" : (normalizePeriodId(period) || "p1");
+  const classmates = (allStudents || []).filter((s: any) =>
     s.isActive !== false &&
-    normalizeGrade(s.grado) === normalizeGrade(student.grado) && 
+    normalizeGrade(s.grado) === normalizeGrade(student.grado) &&
     (String(s.curso || '').trim() === String(student.curso || '').trim())
   );
+  const rankingPool = classmates.some((c: any) => c.id === student.id)
+    ? classmates
+    : [student, ...classmates];
+
+  const groupRankings = groupRankingsCache || calculateGroupRankings(rankingPool, {
+    activePeriod: targetPId,
+    groupBy: "course"
+  });
+  const myEntry = groupRankings.entries.get(student.id);
+
+  const p1Avg = myEntry?.breakdown.periods.p1 ?? 0;
+  const p2Avg = myEntry?.breakdown.periods.p2 ?? 0;
+  const p3Avg = myEntry?.breakdown.periods.p3 ?? 0;
+  const accumulatedAvg = myEntry?.breakdown.accumulatedAvg ?? 0;
+  const currentPeriodAvg = isFinalMode
+    ? accumulatedAvg
+    : (myEntry?.breakdown.periods[targetPId] ?? 0);
+  const finalRank: number | null = myEntry?.finalRank ?? null;
+  const studentRank: number | null = isFinalMode
+    ? finalRank
+    : (myEntry?.periodRanks[targetPId] ?? null);
+  const totalClassmates = Math.max(1, isFinalMode ? (myEntry?.rankedOf.final ?? classmates.length) : (myEntry?.rankedOf[targetPId] ?? classmates.length));
+  const rankedFinalOf = myEntry?.rankedOf.final ?? classmates.length;
 
   let classAverage = 0;
-  let studentRank: number | null = null;
-  const totalClassmates = Math.max(1, classmates.length);
-
-  // Solo consideramos estudiantes evaluados con notas reales en este periodo (sin inventar con avgGrade)
-  const evaluatedClassScores = classmates
-    .map((c: any) => ({ id: c.id, avg: calculatePeriodAvg(c, period) }))
-    .filter(c => c.avg > 0);
+  const evaluatedClassScores = rankingPool
+    .map((c: any) => {
+      const e = groupRankings.entries.get(c.id);
+      return isFinalMode ? (e?.breakdown.accumulatedAvg ?? null) : (e?.breakdown.periods[targetPId] ?? null);
+    })
+    .filter((v): v is number => v !== null && v > 0);
 
   if (evaluatedClassScores.length > 0) {
-    const sumClass = evaluatedClassScores.reduce((acc, curr) => acc + curr.avg, 0);
-    classAverage = Number((sumClass / evaluatedClassScores.length).toFixed(2));
-    
-    if (currentPeriodAvg > 0) {
-      evaluatedClassScores.sort((a, b) => b.avg - a.avg);
-      const rankIndex = evaluatedClassScores.findIndex(c => c.id === student.id);
-      studentRank = rankIndex >= 0 ? rankIndex + 1 : null;
-    }
+    const sumClass = evaluatedClassScores.reduce((acc, curr) => acc + curr, 0);
+    classAverage = round2(sumClass / evaluatedClassScores.length);
   }
+
+  const periodBonus = isFinalMode
+    ? round2(PERIOD_IDS.reduce((sum, p) => sum + calculatePeriodParticipationBonus(student, p, targetPId), 0) / Math.max(1, myEntry?.breakdown.evaluatedPeriods.length || 1))
+    : calculatePeriodParticipationBonus(student, targetPId, targetPId);
 
   const deltaVsClass = (currentPeriodAvg > 0 && classAverage > 0) 
     ? Number((currentPeriodAvg - classAverage).toFixed(2)) 
@@ -2910,22 +2960,17 @@ export function printStudentProfileReport(
 
   if (student.detailedGrades) {
     Object.entries(student.detailedGrades).forEach(([subjName, pData]: [string, any]) => {
-      const getDef = (pKey1: string, pKey2: string) => {
-        const obj = pData?.[pKey1] || pData?.[pKey2];
-        if (!obj) return null;
-        const hasAny = (Array.isArray(obj.sb) && obj.sb.some((v: any) => v != null)) ||
-                       (Array.isArray(obj.sbh) && obj.sbh.some((v: any) => v != null)) ||
-                       (Array.isArray(obj.sr) && obj.sr.some((v: any) => v != null)) ||
-                       (Array.isArray(obj.cv) && obj.cv.some((v: any) => v != null)) ||
-                       obj.aut != null;
-        if (!hasAny) return null;
-        return calculatePeriodGrades(obj).definitiva;
+      const getBlock = (pId: PeriodId) => pData?.[pId] || pData?.[pId.replace("p", "")] || pData?.[pId.toUpperCase()];
+      const p1 = calculateSubjectPeriodScore(getBlock("p1"));
+      const p2 = calculateSubjectPeriodScore(getBlock("p2"));
+      const p3 = calculateSubjectPeriodScore(getBlock("p3"));
+
+      const getAvgArr = (arr: any[]) => {
+        if (!Array.isArray(arr)) return null;
+        const v = arr.filter((x: any) => typeof x === "number" && !Number.isNaN(x));
+        return v.length > 0 ? round2(v.reduce((a: number, b: number) => a + b, 0) / v.length) : null;
       };
-      const p1 = getDef("p1", "1");
-      const p2 = getDef("p2", "2");
-      const p3 = getDef("p3", "3");
-      
-      const currentDetailed = pData?.[period];
+
       let sbAvg: number | null = null;
       let sbhAvg: number | null = null;
       let srAvg: number | null = null;
@@ -2933,36 +2978,59 @@ export function printStudentProfileReport(
       let autVal: number | null = null;
       let definitiva: number | null = null;
 
-      if (currentDetailed) {
-        const getAvgArr = (arr: any[]) => {
-          if (!arr) return null;
-          const v = arr.filter((x: any) => x !== null && x !== undefined);
-          return v.length > 0 ? Number((v.reduce((a: number, b: number) => a + b, 0) / v.length).toFixed(1)) : null;
+      if (isFinalMode) {
+        // Promedio anual de la asignatura sobre los períodos evaluados del grupo
+        const evalList = myEntry?.breakdown.evaluatedPeriods && myEntry.breakdown.evaluatedPeriods.length > 0
+          ? myEntry.breakdown.evaluatedPeriods
+          : (PERIOD_IDS.filter(p => calculateSubjectPeriodScore(getBlock(p)) !== null) as PeriodId[]);
+        const pScores = evalList.map(p => calculateSubjectPeriodScore(getBlock(p)) ?? 0);
+        const anySubj = PERIOD_IDS.some(p => calculateSubjectPeriodScore(getBlock(p)) !== null);
+        if (anySubj && evalList.length > 0) {
+          definitiva = round2(pScores.reduce((a, b) => a + b, 0) / evalList.length);
+        }
+        const avgDim = (getter: (b: any) => number | null) => {
+          const vals = PERIOD_IDS.map(p => getter(getBlock(p))).filter((v): v is number => v !== null);
+          return vals.length > 0 ? round2(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
         };
-        sbAvg = getAvgArr(currentDetailed.sb);
-        sbhAvg = getAvgArr(currentDetailed.sbh);
-        srAvg = getAvgArr(currentDetailed.sr);
-        cvAvg = getAvgArr(currentDetailed.cv);
-        autVal = currentDetailed.aut ?? null;
-
-        // Solo calcular definitiva si al menos un saber tiene valor real
-        const hasAnySaber = sbAvg !== null || sbhAvg !== null || srAvg !== null || cvAvg !== null || autVal !== null;
-        if (hasAnySaber) {
-          const res = calculatePeriodGrades(currentDetailed);
-          definitiva = res.definitiva;
-          if (sbAvg !== null) { totalSb += sbAvg; }
-          if (sbhAvg !== null) { totalSbh += sbhAvg; }
-          if (srAvg !== null) { totalSr += srAvg; }
-          if (cvAvg !== null) { totalCv += cvAvg; }
-          if (autVal !== null) { totalAut += autVal; }
+        sbAvg = avgDim(b => getAvgArr(b?.sb));
+        sbhAvg = avgDim(b => getAvgArr(b?.sbh));
+        srAvg = avgDim(b => getAvgArr(b?.sr));
+        cvAvg = avgDim(b => getAvgArr(b?.cv));
+        autVal = avgDim(b => (typeof b?.aut === "number" ? b.aut : null));
+        if (definitiva !== null) {
+          if (sbAvg !== null) totalSb += sbAvg;
+          if (sbhAvg !== null) totalSbh += sbhAvg;
+          if (srAvg !== null) totalSr += srAvg;
+          if (cvAvg !== null) totalCv += cvAvg;
+          if (autVal !== null) totalAut += autVal;
           subCount++;
+        }
+      } else {
+        const currentDetailed = getBlock(targetPId);
+        if (currentDetailed) {
+          sbAvg = getAvgArr(currentDetailed.sb);
+          sbhAvg = getAvgArr(currentDetailed.sbh);
+          srAvg = getAvgArr(currentDetailed.sr);
+          cvAvg = getAvgArr(currentDetailed.cv);
+          autVal = typeof currentDetailed.aut === "number" ? currentDetailed.aut : null;
+
+          const score = calculateSubjectPeriodScore(currentDetailed);
+          if (score !== null) {
+            definitiva = score;
+            if (sbAvg !== null) totalSb += sbAvg;
+            if (sbhAvg !== null) totalSbh += sbhAvg;
+            if (srAvg !== null) totalSr += srAvg;
+            if (cvAvg !== null) totalCv += cvAvg;
+            if (autVal !== null) totalAut += autVal;
+            subCount++;
+          }
         }
       }
 
       subjectsBreakdown.push({
         subject: subjName,
         p1, p2, p3,
-        definitiva: definitiva,
+        definitiva,
         sb: sbAvg,
         sbh: sbhAvg,
         sr: srAvg,
@@ -2971,6 +3039,11 @@ export function printStudentProfileReport(
       });
     });
   }
+
+  const evaluatedSubjs = subjectsBreakdown.filter(s => s.definitiva !== null);
+  const baseSubjectsAvg = evaluatedSubjs.length > 0
+    ? round2(evaluatedSubjs.reduce((sum, s) => sum + (s.definitiva as number), 0) / evaluatedSubjs.length)
+    : 0;
 
   const avgSb = subCount > 0 ? Number((totalSb / subCount).toFixed(1)) : null;
   const avgSbh = subCount > 0 ? Number((totalSbh / subCount).toFixed(1)) : null;
@@ -2985,16 +3058,16 @@ export function printStudentProfileReport(
   const gravisimasCount = behavioralList.filter(b => b.type === "GRAVISIMA").length;
   const positivasCount = behavioralList.filter(b => b.type === "POSITIVA").length;
 
-  const cleanName = `${student.primerApellido || ''}_${student.segundoApellido || ''}_${student.primerNombre || ''}`.trim().replace(/\s+/g, '_');
-  const normalizedFileName = `IETABA_Dossier_Acudiente_${cleanName}_P${period}`;
+  const cleanName = `${student.primerApellido || ''}_${student.segundoApellido || ''}_${student.primerNombre || ''}`.trim();
+  const cleanGradeCourse = `${normalizeGrade(student.grado || '')}-${student.curso || '1'}`;
+  const normalizedFileName = buildDocumentFilename(
+    "DOSSIER_360",
+    isFinalMode ? "FINAL_3P" : `P${period}`,
+    cleanName,
+    cleanGradeCourse
+  );
 
-  const reportHtml = `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="utf-8">
-      <title>${normalizedFileName}</title>
-      <style>
+  const DOSSIER_STYLES = `
         @page {
           margin: 8mm 10mm;
           size: A4 portrait;
@@ -3008,6 +3081,8 @@ export function printStudentProfileReport(
             print-color-adjust: exact !important;
           }
           .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+          .dossier-page-break { page-break-after: always; break-after: page; }
+          .dossier-page-break:last-child { page-break-after: auto; break-after: auto; }
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -3020,7 +3095,7 @@ export function printStudentProfileReport(
         }
         .print-container {
           max-width: 820px;
-          margin: 0 auto;
+          margin: 0 auto 24px auto;
           background: #ffffff;
         }
         .btn-print {
@@ -3279,16 +3354,10 @@ export function printStudentProfileReport(
           margin-bottom: 3px;
           margin-top: 28px;
         }
-      </style>
-    </head>
-    <body>
-      <div class="no-print" style="margin-bottom: 12px; text-align: right;">
-        <button onclick="window.print()" class="btn-print">
-          🖨️ Imprimir Dossier Ejecutivo / Guardar en PDF
-        </button>
-      </div>
+  `;
 
-      <div class="print-container">
+  const innerHtml = `
+      <div class="print-container dossier-page-break">
         <!-- HEADER INSTITUCIONAL -->
         <div class="header-institucional">
           <div class="header-flex">
@@ -3334,11 +3403,13 @@ export function printStudentProfileReport(
           </div>
 
           <div class="bento-card">
-            <div class="bento-label">Puesto en Salón</div>
+            <div class="bento-label">Puesto en Salón (${pName})</div>
             <div class="bento-val" style="color: #0284c7;">
               ${studentRank !== null ? `#${studentRank} <span style="font-size: 10px; color: #64748b; font-weight: 600;">/ ${totalClassmates}</span>` : '—'}
             </div>
-            <div class="bento-sub">${studentRank !== null ? (studentRank <= 3 ? '🏆 Cuadro de Honor' : 'Grupo Académico') : 'Periodo en Curso'}</div>
+            <div class="bento-sub">
+              ${finalRank !== null ? `Final Acum.: <strong>#${finalRank}/${rankedFinalOf}</strong> (${accumulatedAvg.toFixed(2)})` : (studentRank !== null ? (studentRank <= 3 ? '🏆 Cuadro de Honor' : 'Grupo Académico') : 'Periodo en Curso')}
+            </div>
           </div>
 
           <div class="bento-card">
@@ -3416,22 +3487,22 @@ export function printStudentProfileReport(
                 <line x1="${pt3.x}" y1="${pt3.y}" x2="${ptProj.x}" y2="${ptProj.y}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3" />
               `}
 
-              <!-- Puntos de datos -->
+              <!-- Puntos de datos (2 decimales consistentes con Tarjeta KPI y Matriz) -->
               <circle cx="${pt1.x}" cy="${pt1.y}" r="4" fill="#0d9488" stroke="#ffffff" stroke-width="1.5" />
-              <text x="${pt1.x}" y="${pt1.y - 7}" font-size="7.5" font-weight="900" fill="#0f172a" text-anchor="middle">${pt1.val.toFixed(1)}</text>
+              <text x="${pt1.x}" y="${pt1.y - 7}" font-size="7.5" font-weight="900" fill="#0f172a" text-anchor="middle">${p1Avg > 0 ? pt1.val.toFixed(2) : '—'}</text>
               <text x="${pt1.x}" y="108" font-size="7" font-weight="700" fill="#64748b" text-anchor="middle">Periodo 1</text>
 
               <circle cx="${pt2.x}" cy="${pt2.y}" r="4" fill="#0d9488" stroke="#ffffff" stroke-width="1.5" />
-              <text x="${pt2.x}" y="${pt2.y - 7}" font-size="7.5" font-weight="900" fill="#0f172a" text-anchor="middle">${pt2.val.toFixed(1)}</text>
+              <text x="${pt2.x}" y="${pt2.y - 7}" font-size="7.5" font-weight="900" fill="#0f172a" text-anchor="middle">${p2Avg > 0 ? pt2.val.toFixed(2) : '—'}</text>
               <text x="${pt2.x}" y="108" font-size="7" font-weight="700" fill="#64748b" text-anchor="middle">Periodo 2</text>
 
               <circle cx="${pt3.x}" cy="${pt3.y}" r="4" fill="${p3Avg > 0 ? '#0d9488' : '#94a3b8'}" stroke="#ffffff" stroke-width="1.5" />
-              <text x="${pt3.x}" y="${pt3.y - 7}" font-size="7.5" font-weight="900" fill="${p3Avg > 0 ? '#0f172a' : '#94a3b8'}" text-anchor="middle">${p3Avg > 0 ? p3Avg.toFixed(1) : '—'}</text>
+              <text x="${pt3.x}" y="${pt3.y - 7}" font-size="7.5" font-weight="900" fill="${p3Avg > 0 ? '#0f172a' : '#94a3b8'}" text-anchor="middle">${p3Avg > 0 ? p3Avg.toFixed(2) : '—'}</text>
               <text x="${pt3.x}" y="108" font-size="7" font-weight="700" fill="#64748b" text-anchor="middle">${p3Avg > 0 ? 'Periodo 3' : 'P3 (En Curso)'}</text>
 
               <circle cx="${ptProj.x}" cy="${ptProj.y}" r="3.5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
-              <text x="${ptProj.x}" y="${ptProj.y - 7}" font-size="7" font-weight="800" fill="#d97706" text-anchor="middle">Proy.</text>
-              <text x="${ptProj.x}" y="108" font-size="7" font-weight="700" fill="#d97706" text-anchor="middle">Cierre</text>
+              <text x="${ptProj.x}" y="${ptProj.y - 7}" font-size="7" font-weight="800" fill="#d97706" text-anchor="middle">${isFinalMode && accumulatedAvg > 0 ? accumulatedAvg.toFixed(2) : 'Proy.'}</text>
+              <text x="${ptProj.x}" y="108" font-size="7" font-weight="700" fill="#d97706" text-anchor="middle">${isFinalMode ? 'Final 3P' : 'Cierre'}</text>
             </svg>
           </div>
 
@@ -3535,6 +3606,16 @@ export function printStudentProfileReport(
           
           <table class="custom-table">
             <thead>
+              ${isFinalMode ? `
+              <tr>
+                <th style="text-align: left; width: 34%;">Área / Asignatura</th>
+                <th style="width: 12%;">Periodo 1</th>
+                <th style="width: 12%;">Periodo 2</th>
+                <th style="width: 12%;">Periodo 3</th>
+                <th style="width: 16%;">Def. Final (3P)</th>
+                <th style="width: 14%;">Estado SIEEE</th>
+              </tr>
+              ` : `
               <tr>
                 <th style="text-align: left; width: 28%;">Área / Asignatura</th>
                 <th style="width: 10%;">Saber (30%)</th>
@@ -3545,9 +3626,25 @@ export function printStudentProfileReport(
                 <th style="width: 10%;">Def. ${pName}</th>
                 <th style="width: 10%;">Estado SIEEE</th>
               </tr>
+              `}
             </thead>
             <tbody>
-              ${subjectsBreakdown.length > 0 ? subjectsBreakdown.map(s => `
+              ${subjectsBreakdown.length > 0 ? subjectsBreakdown.map(s => isFinalMode ? `
+                <tr>
+                  <td style="text-align: left; font-weight: 800;">${escapeHtml(s.subject)}</td>
+                  <td>${s.p1 !== null ? s.p1.toFixed(2) : '—'}</td>
+                  <td>${s.p2 !== null ? s.p2.toFixed(2) : '—'}</td>
+                  <td>${s.p3 !== null ? s.p3.toFixed(2) : '—'}</td>
+                  <td><strong style="color: ${(s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626'}; font-size: 9.5px;">${s.definitiva !== null ? s.definitiva.toFixed(2) : '-'}</strong></td>
+                  <td>
+                    <span style="font-size: 7.5px; font-weight: 800; color: ${s.definitiva !== null ? ((s.definitiva || 0) >= 3.0 ? '#059669' : '#dc2626') : '#64748b'};">
+                      ${s.definitiva !== null 
+                        ? ((s.definitiva || 0) >= 4.6 ? 'Superior' : (s.definitiva || 0) >= 4.0 ? 'Alto' : (s.definitiva || 0) >= 3.0 ? 'Básico' : 'Bajo') 
+                        : 'En Curso'}
+                    </span>
+                  </td>
+                </tr>
+              ` : `
                 <tr>
                   <td style="text-align: left; font-weight: 800;">${escapeHtml(s.subject)}</td>
                   <td>${s.sb !== null ? s.sb : '-'}</td>
@@ -3567,11 +3664,20 @@ export function printStudentProfileReport(
               `).join('') : `
                 <tr>
                   <td style="text-align: left; font-weight: 800;">Evaluación Integrada</td>
-                  <td colspan="5">Ponderación General</td>
+                  <td colspan="${isFinalMode ? 3 : 5}">Ponderación General</td>
                   <td><strong style="color: ${currentPeriodAvg >= 3.0 ? '#059669' : '#dc2626'}; font-size: 9.5px;">${currentPeriodAvg.toFixed(2)}</strong></td>
                   <td><strong>${currentPeriodAvg >= 3.0 ? 'Aprobado' : 'Bajo'}</strong></td>
                 </tr>
               `}
+              ${(periodBonus > 0 && currentPeriodAvg > 0) ? `
+                <tr style="background: #f0fdfa;">
+                  <td colspan="${isFinalMode ? 4 : 6}" style="text-align: right; font-size: 8px; font-weight: 800; color: #0f766e;">
+                    Promedio Base (${baseSubjectsAvg.toFixed(2)}) + Bono Participación en Vivo (+${periodBonus.toFixed(2)}) = Definitiva Oficial ${pName}:
+                  </td>
+                  <td style="background: #ccfbf1;"><strong style="color: #0f766e; font-size: 10px;">${currentPeriodAvg.toFixed(2)}</strong></td>
+                  <td><strong style="font-size: 7.5px; color: #0f766e;">Con Bono</strong></td>
+                </tr>
+              ` : ''}
             </tbody>
           </table>
         </div>
@@ -3626,6 +3732,30 @@ export function printStudentProfileReport(
           <strong>Por la pervivencia e identidad del Pueblo Awá</strong> · Unidad administrativa – Predio el Verde, resguardo el Gran Sábalo – El Diviso - Barbacoas Nariño
         </div>
       </div>
+  `;
+
+  return { innerHtml, normalizedFileName, styles: DOSSIER_STYLES };
+}
+
+function openDossierWindow(title: string, styles: string, bodyContent: string, totalCount: number) {
+  const reportHtml = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <title>${title}</title>
+      <style>${styles}</style>
+    </head>
+    <body>
+      <div class="no-print" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; max-width: 820px; margin-left: auto; margin-right: auto;">
+        <span style="font-size: 11px; font-weight: 800; color: #475569;">
+          ${totalCount > 1 ? `📑 Lote listo: ${totalCount} dossiers (1 estudiante por página)` : `📄 ${title}`}
+        </span>
+        <button onclick="window.print()" class="btn-print">
+          🖨️ ${totalCount > 1 ? `Imprimir ${totalCount} Dossiers / Guardar PDF` : "Imprimir Dossier Ejecutivo / Guardar en PDF"}
+        </button>
+      </div>
+      ${bodyContent}
     </body>
     </html>
   `;
@@ -3634,13 +3764,77 @@ export function printStudentProfileReport(
   if (printWindow) {
     printWindow.document.open();
     printWindow.document.write(reportHtml);
-    printWindow.document.title = normalizedFileName;
+    printWindow.document.title = title;
     printWindow.document.close();
   } else {
     const blob = new Blob([reportHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
   }
+}
+
+/**
+ * ── DOSSIER EJECUTIVO 360° DEL ESTUDIANTE (POR PERÍODO O FINAL 3 PERÍODOS) ──
+ */
+export function printStudentProfileReport(
+  student: any,
+  teacherProfile: any,
+  masterData: any,
+  selectedPeriod?: string,
+  allStudents?: any[]
+) {
+  if (!student) {
+    if (typeof window !== "undefined") alert("Aviso: No se encontraron datos del estudiante.");
+    return;
+  }
+  const period = selectedPeriod || masterData?.activePeriod || "1";
+  const { innerHtml, normalizedFileName, styles } = buildDossierInnerHtml(
+    student,
+    teacherProfile,
+    masterData,
+    period,
+    allStudents || [student]
+  );
+  openDossierWindow(normalizedFileName, styles, innerHtml, 1);
+}
+
+/**
+ * ── IMPRESIÓN EN LOTE DE TODOS LOS DOSSIERS DEL CURSO / FILTRO ──
+ * Genera un único PDF/impresión con salto de página automático entre estudiantes.
+ */
+export function printBatchStudentDossiers(
+  studentsList: any[],
+  teacherProfile: any,
+  masterData: any,
+  selectedPeriod?: string,
+  allStudents?: any[],
+  groupLabel?: string
+) {
+  const activeList = (studentsList || []).filter((s: any) => s && s.isActive !== false);
+  if (activeList.length === 0) {
+    if (typeof window !== "undefined") alert("No hay estudiantes activos en el filtro actual para generar dossiers.");
+    return;
+  }
+
+  const rawPeriod = String(selectedPeriod || masterData?.activePeriod || "1").toLowerCase();
+  const isFinal = rawPeriod === "final" || rawPeriod === "anual";
+  const targetPId: PeriodId = isFinal ? "p3" : (normalizePeriodId(rawPeriod) || "p1");
+  const pool = allStudents && allStudents.length > 0 ? allStudents : activeList;
+  const rankingsCache = calculateGroupRankings(pool, { activePeriod: targetPId, groupBy: "course" });
+
+  let sharedStyles = "";
+  const pages = activeList.map(st => {
+    const res = buildDossierInnerHtml(st, teacherProfile, masterData, rawPeriod, pool, rankingsCache);
+    if (!sharedStyles) sharedStyles = res.styles;
+    return res.innerHtml;
+  });
+
+  const batchTitle = buildDocumentFilename(
+    "DOSSIERS_LOTE",
+    isFinal ? "FINAL_3P" : `P${rawPeriod.replace(/[^1-3]/g, "") || "1"}`,
+    groupLabel || "GRUPO_COMPLETO"
+  );
+  openDossierWindow(batchTitle, sharedStyles, pages.join("\n"), activeList.length);
 }
 
 /**
@@ -3665,8 +3859,9 @@ export function printStudentCommitmentAgreement(
   const activePeriod = masterData?.activePeriod || "1";
   const pName = activePeriod === "1" ? "Primer Periodo" : activePeriod === "2" ? "Segundo Periodo" : "Tercer Periodo";
 
-  const cleanName = `${student.primerApellido || ''}_${student.segundoApellido || ''}_${student.primerNombre || ''}`.trim().replace(/\s+/g, '_');
-  const normalizedFileName = `IETABA_Acta_Compromiso_${cleanName}`;
+  const cleanName = `${student.primerApellido || ''}_${student.segundoApellido || ''}_${student.primerNombre || ''}`.trim();
+  const cleanGradeCourse = `${normalizeGrade(student.grado || '')}-${student.curso || '1'}`;
+  const normalizedFileName = buildDocumentFilename("ACTA_COMPROMISO", `P${String(masterData?.activePeriod || "1").replace(/[^0-9]/g, "")}`, cleanName, cleanGradeCourse);
 
   // Diagnóstico de bajo rendimiento o inasistencias
   const attendanceRecords = student.attendanceRecord || {};

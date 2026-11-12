@@ -8,7 +8,7 @@ import {
   writeBatch, onSnapshot, query, where 
 } from "firebase/firestore";
 import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
-import { DetailedGrades, StudentAcademicSummary, calculateDetailedFinal, calculateStudentAcademicSummary } from "@/lib/gradeUtils";
+import { DetailedGrades, StudentAcademicSummary, calculateDetailedFinal, calculateStudentAcademicSummary, defaultGroupKey, resolveGroupEvaluatedPeriods, hasDetailedData, PeriodId } from "@/lib/gradeUtils";
 
 
 
@@ -577,7 +577,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     { id: "sub-4", name: "ÉTICA",       courses: "2", color: "bg-yellow-500" },
   ]);
 
-  const [students, setStudents] = useState<Student[]>([]);
+  const [rawStudents, setStudents] = useState<Student[]>([]);
+
+  // 🎯 FUENTE ÚNICA DE VERDAD: `avgGrade` se recalcula EN VIVO desde las notas SIEEE
+  // según el período activo (evita promedios congelados del último período editado).
+  const students = React.useMemo(() => {
+    const activeP = masterData.activePeriod || "p2";
+    const groups = new Map<string, Student[]>();
+    rawStudents.forEach(s => {
+      const k = defaultGroupKey(s);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(s);
+    });
+    const evaluatedByGroup = new Map<string, PeriodId[]>();
+    groups.forEach((members, k) => evaluatedByGroup.set(k, resolveGroupEvaluatedPeriods(members, activeP)));
+
+    return rawStudents.map(s => {
+      const hasSieee = !!s.detailedGrades && Object.values(s.detailedGrades).some(pm =>
+        pm && Object.values(pm).some(b => hasDetailedData(b))
+      );
+      if (!hasSieee) return s;
+      const summary = calculateStudentAcademicSummary(s, activeP, evaluatedByGroup.get(defaultGroupKey(s)));
+      return summary.periodAvg === s.avgGrade ? s : { ...s, avgGrade: summary.periodAvg };
+    });
+  }, [rawStudents, masterData.activePeriod]);
 
   // 🛡️ Actualiza datos maestros y asegura persistencia inmediata en localStorage y Firestore
   const updateMasterDataAndCache = React.useCallback((updater: Partial<MasterData> | ((prev: MasterData) => MasterData)) => {
@@ -1232,7 +1255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 2. Si no hay cache global, buscar por email específico
     const individualProfileRaw = typeof window !== "undefined" ? localStorage.getItem(`edu_profile_${targetEmail}`) : null;
     let profileData: Profile;
-    let offlineUid = "offline-uid-123";
+    const offlineUid = "offline-uid-123";
     if (individualProfileRaw) {
       profileData = JSON.parse(individualProfileRaw);
     } else {

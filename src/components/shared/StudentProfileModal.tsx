@@ -185,6 +185,7 @@ export default function StudentProfileModal({ student, onClose }: { student: any
                 <option value="1">Periodo 1</option>
                 <option value="2">Periodo 2</option>
                 <option value="3">Periodo 3</option>
+                <option value="final">Final (3 Períodos)</option>
               </select>
               <button
                 onClick={() => printStudentProfileReport(currentStudent, profile, masterData, dossierPeriod, students)}
@@ -651,7 +652,7 @@ export default function StudentProfileModal({ student, onClose }: { student: any
                 onClick={() => printStudentProfileReport(currentStudent, profile, masterData, dossierPeriod, students)}
                 className="py-2 px-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-[9.5px] uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm"
               >
-                <FileText size={13} /> Imprimir Dossier P{dossierPeriod} (PDF)
+                <FileText size={13} /> Imprimir Dossier {dossierPeriod === "final" ? "Final 3P" : `P${dossierPeriod}`} (PDF)
               </button>
               <button
                 onClick={() => setShowCommitmentModal(true)}

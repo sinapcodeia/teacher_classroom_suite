@@ -1,5 +1,4 @@
 "use client";
-import { printExecutiveReport, printAnalyticsReport } from "@/lib/printService";
 import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 import { useState, useMemo, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
@@ -17,8 +16,10 @@ import {
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { APP_VERSION_LABEL } from "@/lib/version";
-import StudentProfileModal from "@/components/shared/StudentProfileModal";
-import RecoveryPlanModal from "@/components/live-class/RecoveryPlanModal";
+import { calculateGroupRankings, normalizePeriodId, formatRank, type RankingScope } from "@/lib/gradeUtils";
+
+const StudentProfileModal = nextDynamic(() => import("@/components/shared/StudentProfileModal"), { ssr: false });
+const RecoveryPlanModal = nextDynamic(() => import("@/components/live-class/RecoveryPlanModal"), { ssr: false });
 
 const CriticalAlerts = nextDynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
 const EduAISentinel = nextDynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
@@ -162,11 +163,30 @@ export default function Home() {
     });
   }, [agendaNotes, profile.isSuperAdmin, effectiveCourses]);
 
-  // Top 5 Estudiantes (Cuadro de Honor)
-  const topStudents = useMemo(() => [...filteredDashboardStudents]
-    .filter(s => s.isActive !== false && s.avgGrade)
-    .sort((a, b) => b.avgGrade - a.avgGrade)
-    .slice(0, 5), [filteredDashboardStudents]);
+  // 🏆 Primeros Puestos (motor oficial SIEEE): por P1, P2, P3 o Final (acumulado 3 períodos)
+  const [rankingScope, setRankingScope] = useState<RankingScope>(
+    () => (normalizePeriodId(masterData.activePeriod) || "final") as RankingScope
+  );
+  const dashboardRankings = useMemo(() => calculateGroupRankings(
+    filteredDashboardStudents.filter(s => s.isActive !== false),
+    {
+      activePeriod: masterData.activePeriod,
+      subject: subjectFilter !== "TODOS" ? subjectFilter : undefined,
+      groupBy: "none"
+    }
+  ), [filteredDashboardStudents, masterData.activePeriod, subjectFilter]);
+
+  const topStudents = useMemo(() => {
+    const byId = new Map(filteredDashboardStudents.map(s => [s.id, s]));
+    return dashboardRankings.getTop(rankingScope, 5)
+      .map(e => ({
+        student: byId.get(e.studentId)!,
+        rank: rankingScope === "final" ? e.finalRank : e.periodRanks[rankingScope],
+        score: dashboardRankings.getScore(e, rankingScope) ?? 0,
+        isYearClosed: e.breakdown.isYearClosed
+      }))
+      .filter(r => !!r.student);
+  }, [dashboardRankings, rankingScope, filteredDashboardStudents]);
 
   // Fechas SAPRED
   const { periodEndDate, daysLeft } = useMemo(() => {
@@ -452,9 +472,10 @@ export default function Home() {
                     </select>
                     
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const p = (document.getElementById('reportPeriodSelect') as HTMLSelectElement).value;
                         const modMaster = { ...masterData, activePeriod: p };
+                        const { printExecutiveReport } = await import("@/lib/printService");
                         printExecutiveReport(students, profile, modMaster);
                       }}
                       className="flex-1 min-w-[130px] sm:flex-none h-12 sm:h-14 flex items-center justify-center gap-2 px-4 sm:px-8 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-indigo-500/20"
@@ -465,9 +486,10 @@ export default function Home() {
                     </button>
                     
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const p = (document.getElementById('reportPeriodSelect') as HTMLSelectElement).value;
                         const modMaster = { ...masterData, activePeriod: p };
+                        const { printAnalyticsReport } = await import("@/lib/printService");
                         printAnalyticsReport(students, profile, modMaster);
                       }}
                       className="flex-1 min-w-[130px] sm:flex-none h-12 sm:h-14 flex items-center justify-center gap-2 px-4 sm:px-6 rounded-2xl transition-all hover:scale-[1.02] shadow-xl shadow-teal-500/20"
@@ -752,29 +774,53 @@ export default function Home() {
                 </div>
               )}
 
-              {/* CUADRO DE HONOR (RANKING) */}
-              {!profile.isSuperAdmin && topStudents.length > 0 && (
+              {/* CUADRO DE HONOR (RANKING) — Primeros Puestos por Período y Final */}
+              {!profile.isSuperAdmin && dashboardRankings.entries.size > 0 && (
                 <div className="rounded-[2rem] p-6 border shadow-sm bg-white" style={{ borderColor: "rgba(226,232,240,0.8)" }}>
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
                         <Trophy size={20} className="text-amber-500" />
                       </div>
                       <div>
-                        <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800">Ranking Excelencia</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Top Estudiantes</p>
+                        <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800">Primeros Puestos</h3>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                          {cursoFilter !== "TODOS" && gradoFilter !== "TODOS" ? `Salón ${gradoFilter}-${cursoFilter}` : "Filtro actual (todos los salones)"}
+                          {subjectFilter !== "TODOS" ? ` · ${subjectFilter}` : ""}
+                        </p>
                       </div>
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-4 gap-1 p-1 mb-4 bg-slate-100 rounded-xl" role="tablist" aria-label="Alcance del ranking">
+                    {(["p1", "p2", "p3", "final"] as RankingScope[]).map(scope => (
+                      <button
+                        key={scope}
+                        type="button"
+                        role="tab"
+                        aria-selected={rankingScope === scope}
+                        onClick={() => setRankingScope(scope)}
+                        className={`py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${rankingScope === scope ? "bg-white text-amber-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                        title={scope === "final" ? "Acumulado de los períodos evaluados (Nota Final de los 3 períodos al cerrar P3)" : `Puesto en el Período ${scope.replace("p", "")}`}
+                      >
+                        {scope === "final" ? "Final" : scope.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+
+                  {topStudents.length === 0 ? (
+                    <p className="text-[10px] font-bold text-slate-400 text-center py-6 uppercase tracking-wider">
+                      Aún no hay notas registradas para {rankingScope === "final" ? "el acumulado" : `el Período ${rankingScope.replace("p", "")}`}
+                    </p>
+                  ) : (
                   <div className="space-y-3">
-                    {topStudents.map((student, idx) => {
-                      const isFirst = idx === 0;
+                    {topStudents.map(({ student, rank, score, isYearClosed }) => {
+                      const isFirst = rank === 1;
                       return (
-                        <div key={student.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all hover:scale-[1.02] ${isFirst ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                        <button type="button" onClick={() => setSelectedQuickProfileStudent(student)} key={student.id} className={`w-full text-left flex items-center justify-between p-3 rounded-2xl border transition-all hover:scale-[1.02] cursor-pointer ${isFirst ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black ${isFirst ? 'bg-amber-400 text-amber-900 shadow-sm' : 'bg-slate-200 text-slate-600'}`}>
-                              #{idx + 1}
+                            <div className={`min-w-8 h-8 px-1 rounded-full flex items-center justify-center text-[10px] font-black whitespace-nowrap ${isFirst ? 'bg-amber-400 text-amber-900 shadow-sm' : 'bg-slate-200 text-slate-600'}`}>
+                              {formatRank(rank)}
                             </div>
                             <div className="flex flex-col">
                               <p className={`text-[11px] font-black uppercase ${isFirst ? 'text-amber-900' : 'text-slate-700'}`}>
@@ -790,13 +836,17 @@ export default function Home() {
                               </div>
                             </div>
                           </div>
-                          <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${isFirst ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
-                            {student.avgGrade.toFixed(1)}
+                          <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${isFirst ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-600 border border-slate-200'}`} title={rankingScope === "final" ? (isYearClosed ? "Nota Final de los 3 períodos" : "Acumulado de los períodos evaluados") : "Promedio del período"}>
+                            {score.toFixed(2)}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
+                  )}
+                  <p className="text-[8px] font-bold text-slate-400 mt-3 leading-snug">
+                    Empates comparten puesto. Desempate: acumulado → nota del período activo → menos inasistencias.
+                  </p>
                 </div>
               )}
 
