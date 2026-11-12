@@ -1,0 +1,310 @@
+﻿<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Informe Estratégico y Arquitectónico SaaS — EduManager</title>
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+    <w:Zoom>100</w:Zoom>
+    <w:DoNotOptimizeForBrowser/>
+  </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page {
+    size: 21.59cm 27.94cm;
+    margin: 2.2cm 2.0cm 2.2cm 2.0cm;
+  }
+  body {
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    color: #0f172a;
+    line-height: 1.5;
+    font-size: 11pt;
+  }
+  .cover-box {
+    background-color: #0f172a;
+    color: #ffffff;
+    padding: 28px 32px;
+    border-bottom: 6px solid #2563eb;
+    margin-bottom: 24px;
+  }
+  .cover-tag {
+    color: #60a5fa;
+    font-size: 9pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .cover-title {
+    font-size: 22pt;
+    font-weight: bold;
+    color: #ffffff;
+    margin: 0 0 8px 0;
+  }
+  .cover-subtitle {
+    font-size: 11pt;
+    color: #cbd5e1;
+    margin: 0;
+  }
+  h1 {
+    font-size: 15pt;
+    color: #1e3a8a;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 4px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  h2 {
+    font-size: 12.5pt;
+    color: #0f172a;
+    margin-top: 16px;
+    margin-bottom: 8px;
+  }
+  p {
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: justify;
+  }
+  ul, ol {
+    margin-top: 4px;
+    margin-bottom: 12px;
+  }
+  li {
+    margin-bottom: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    margin-bottom: 18px;
+    font-size: 9.5pt;
+  }
+  th {
+    background-color: #1e293b;
+    color: #ffffff;
+    font-weight: bold;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #334155;
+  }
+  td {
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+  .callout {
+    background-color: #eff6ff;
+    border-left: 5px solid #2563eb;
+    padding: 12px 16px;
+    margin: 14px 0;
+  }
+  .callout-title {
+    font-weight: bold;
+    color: #1e40af;
+    margin-bottom: 4px;
+  }
+  .badge-free {
+    color: #15803d;
+    font-weight: bold;
+  }
+  .badge-pro {
+    color: #1d4ed8;
+    font-weight: bold;
+  }
+  .badge-ent {
+    color: #6d28d9;
+    font-weight: bold;
+  }
+  .footer-note {
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid #cbd5e1;
+    font-size: 9pt;
+    color: #64748b;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover-box">
+  <div class="cover-tag">DOCUMENTO EJECUTIVO DE ARQUITECTURA Y NEGOCIO · SINAPCODE IA</div>
+  <div class="cover-title">INFORME ESTRATÉGICO SAAS: MULTI-TENANCY POR COLEGIO Y MONETIZACIÓN FREEMIUM A PREMIUM</div>
+  <div class="cover-subtitle">Plataforma: Teacher Classroom Suite / EduManager (v2.13.0) · Fecha: Noviembre 2026</div>
+</div>
+
+<p><strong>Objetivo Ejecutivo:</strong> Transformar la plataforma actual en un sistema <strong>SaaS (Software as a Service) B2B2C escalable</strong> donde: (1) cada colegio nuevo que ingrese cuente con una base de datos 100% aislada y segura sin multiplicar los costos fijos ni el trabajo de mantenimiento, y (2) los docentes ingresen de forma gratuita enamorándose del sistema en su uso diario, convirtiendo posteriormente a planes pagos (<strong>Docente PRO</strong> o <strong>Licencia Institucional Colegio</strong>) en los momentos de mayor valor operativo.</p>
+
+<h1>PARTE 1: Arquitectura de Base de Datos por Colegio ("Una BD Aparte por Institución")</h1>
+
+<p>Actualmente, las colecciones de la aplicación (<code>/users</code>, <code>/students</code>, <code>/curriculum</code>, <code>/agendaNotes</code>, <code>/settings</code>) residen en la raíz de una única base de datos Firestore. Para que cada colegio nuevo opere en su propio entorno aislado sin mezclar matrículas, docentes ni horarios, existen <strong>3 arquitecturas posibles en Google Cloud / Firebase</strong>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:18%;">Criterio</th>
+      <th style="width:28%;">Opción A (RECOMENDADA):<br/>Aislamiento por Subcolecciones<br/>(<code>/schools/{schoolId}/...</code>)</th>
+      <th style="width:27%;">Opción B:<br/>Firestore Named Databases<br/>(Múltiples BDs en 1 Proyecto)</th>
+      <th style="width:27%;">Opción C:<br/>Un Proyecto Firebase separado por Colegio</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>¿Cómo funciona?</strong></td>
+      <td>Cada colegio tiene su propio nodo raíz <code>/schools/{schoolId}/</code> que encapsula sus colecciones (<code>students</code>, <code>curriculum</code>, <code>agendaNotes</code>, <code>settings</code>).</td>
+      <td>Se crean múltiples bases de datos físicas dentro del mismo proyecto GCP y se conecta con <code>getFirestore(app, schoolDbId)</code>.</td>
+      <td>Se crea un proyecto de Firebase distinto por cada colegio y un catálogo central entrega el <code>firebaseConfig</code> según el colegio.</td>
+    </tr>
+    <tr>
+      <td><strong>Escalabilidad máxima</strong></td>
+      <td><strong>Ilimitada</strong> (de 1 a +50,000 colegios sin tocar infraestructura).</td>
+      <td><strong>Límite duro de 100 bases de datos</strong> por proyecto en Google Cloud.</td>
+      <td><strong>Límite de ~30 a 50 proyectos</strong> por cuenta de facturación estándar.</td>
+    </tr>
+    <tr>
+      <td><strong>Creación de un Colegio Nuevo</strong></td>
+      <td><strong>100% Automática (0 segundos)</strong>: cuando un colegio o docente se registra, se crea el nodo <code>/schools/{schoolId}</code> al instante.</td>
+      <td><strong>Compleja</strong>: requiere Cloud Function con permisos IAM que llame a Google Cloud Admin API (tarda 1–2 min).</td>
+      <td><strong>Manual y costosa en tiempo</strong>: requiere aprovisionar proyecto, Auth y Firestore por cada cliente.</td>
+    </tr>
+    <tr>
+      <td><strong>Seguridad y Aislamiento</strong></td>
+      <td><strong>Blindaje por Firestore Rules</strong>: ningún usuario puede leer ni escribir fuera de su <code>schoolId</code>.</td>
+      <td><strong>Aislamiento físico de motor</strong>: cada BD tiene sus propias reglas y backups independientes.</td>
+      <td><strong>Aislamiento total de cuenta</strong>: proyectos completamente separados.</td>
+    </tr>
+    <tr>
+      <td><strong>Tu Tiempo de Mantenimiento</strong></td>
+      <td><strong>Mínimo (Ideal)</strong>: despliegas reglas e índices <strong>1 sola vez</strong> para todos los colegios.</td>
+      <td><strong>Medio</strong>: requiere script CI/CD para actualizar reglas e índices en <em>N</em> bases de datos.</td>
+      <td><strong>Muy Alto</strong>: mantener llaves y despliegues en <em>N</em> proyectos distintos.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="callout-title">💡 RECOMENDACIÓN ARQUITECTÓNICA DEFINITIVA (ESTRATEGIA HÍBRIDA A + B)</div>
+  <p style="margin-bottom:4px;"><strong>1. Para el 95% de los colegios y docentes (Auto-registro y Colegios Estándar):</strong> Implementar la <strong>Opción A (<code>/schools/{schoolId}/...</code>)</strong> mediante un helper central en <code>AppContext.tsx</code>. En lugar de llamar a <code>collection(db, "students")</code>, se llama a <code>tenantCollection(db, schoolId, "students")</code> que apunta a <code>/schools/{schoolId}/students</code>. Además, las llaves del modo Offline-First en <code>localStorage</code> se prefijan como <code>edu_{schoolId}_students</code>. Costo fijo por colegio nuevo: <strong>$0 USD</strong>.</p>
+  <p style="margin-bottom:0;"><strong>2. Para Secretarías de Educación o Megacolegios (Contrato Enterprise):</strong> Dado que Firebase SDK permite pasar un <code>databaseId</code> en <code>initializeFirestore(app, settings, dedicatedDbId)</code>, si un cliente gubernamental exige base de datos física exclusiva, basta con asignarle el atributo <code>dedicatedDbId</code> en su ficha de colegio (<strong>Opción B</strong>) sin cambiar una sola línea del código de las pantallas.</p>
+</div>
+
+<h1>PARTE 2: Psicología del Docente y Estrategia "Product-Led Growth" (Enganchar Gratis → Cobrar por Valor)</h1>
+
+<p>En el sector educativo latinoamericano, venderle directamente al Rector en frío toma meses. En cambio, <strong>entrar por el docente ("Bottom-Up SaaS")</strong> produce adopción inmediata: cuando varios docentes de un colegio ya tienen sus cursos, asistencias y notas del Periodo 1 dentro de la aplicación, se genera un <strong>efecto de retención natural (Lock-in de datos)</strong> y los mismos profesores le piden al Rector adquirir la Licencia Institucional.</p>
+
+<h2>La Estrategia del "Trial Inverso" (30 Días Todo PRO al Registrarse)</h2>
+<ul>
+  <li><strong>Días 1 al 30 (Enamoramiento sin fricción):</strong> Al registrarse, el docente recibe <strong>30 días del Plan PRO activado automáticamente</strong> (sin pedir tarjeta de crédito). Durante ese primer mes sube sus listas en CSV, configura su horario, usa el Copiloto IA para sus Higras del Conocimiento y califica en Clase en Vivo.</li>
+  <li><strong>Día 31 en adelante (Paso suave a Plan Semilla o Conversión a PRO):</strong> Nunca se le bloquea la visualización de los datos que ya ingresó. Puede seguir llamando a lista y calificando manualmente hasta 2 cursos, pero en los <strong>momentos pico de trabajo pesado</strong> (fin de periodo, generación de Planes de Nivelación PDF, Dossier 360°, cargas masivas CSV o nuevas consultas de IA) se activa el muro de pago hacia <strong>Docente PRO</strong>.</li>
+</ul>
+
+<h1>PARTE 3: Matriz de Módulos — Qué Dejar Gratis vs. Qué Volver Premium</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:26%;">Módulo Actual en tu App</th>
+      <th style="width:16%;">Nivel SaaS</th>
+      <th style="width:29%;">Límite en Plan Gratis (El Gancho)</th>
+      <th style="width:29%;">Por qué el Docente o Colegio Paga (El Dolor que Resuelve)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Asistencia Diaria y Calificador Manual SIEEE</strong><br/>(<code>Clase en Vivo</code>)</td>
+      <td><span class="badge-free">GRATIS (Semilla)</span><br/>con límite de cupo</td>
+      <td>Gratis hasta <strong>2 cursos (máx. 70 estudiantes)</strong>. Horario semanal y agenda personal incluidos.</td>
+      <td>Un docente de bachillerato dicta en 5 a 9 cursos (150–300 alumnos). Para gestionar todos sus salones actualiza a <strong>Docente PRO</strong>.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Carga y Descarga Masiva CSV con Gobernanza</strong><br/>(<code>SIMAT, Planillas SIEEE, Tejidos, Horarios</code>)</td>
+      <td><span class="badge-pro">FREEMIUM → PRO</span></td>
+      <td><strong>1 carga masiva CSV de cortesía</strong> durante el primer mes para que suba su matrícula sin digitar.</td>
+      <td>Subir planillas de notas en CSV o exportar sábanas consolidadas a Excel en los cierres de periodo ahorra +4 horas de digitación manual.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Planes de Nivelación Automáticos e Impresión PDF con 4 Firmas</strong><br/>(<code>RecoveryPlanModal</code>)</td>
+      <td><span class="badge-pro">PREMIUM<br/>(Docente PRO)</span></td>
+      <td>Muestra en pantalla quiénes van perdiendo (<code>&lt; 3.0</code>) y permite descargar <strong>2 PDFs de prueba al mes</strong>.</td>
+      <td>Al cierre de cada periodo el docente debe elaborar entre 10 y 30 actas de nivelación individuales. Tu app las genera listas para firmar en 1 clic.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Copiloto IA de Clase, Asistente Curricular Higra, Presentaciones y Adaptación PIAR</strong></td>
+      <td><span class="badge-pro">PREMIUM<br/>(Por Créditos IA)</span></td>
+      <td>Incluye <strong>10 Créditos IA de regalo</strong> al crear la cuenta para probar el Copiloto, los Hilos del Saber y el PIAR.</td>
+      <td>Armar planeaciones pedagógicas y adaptaciones PIAR toma horas. Además, limitar la IA por créditos protege tu bolsillo cuando uses APIs pagas (Gemini/OpenAI).</td>
+    </tr>
+    <tr>
+      <td><strong>5. Dossier Estudiantil 360°, Convivencia con Afectación SIEEE y WhatsApp a Padres</strong></td>
+      <td><span class="badge-pro">PREMIUM<br/>(Docente PRO)</span></td>
+      <td>Consulta básica de la ficha del alumno en pantalla.</td>
+      <td>Descarga del <strong>Dossier 360° en PDF</strong>, afectación automática en nota del Ser/Convivencia y envío de citaciones por <strong>WhatsApp en 1 clic</strong> al acudiente.</td>
+    </tr>
+    <tr>
+      <td><strong>6. Estado Acumulado Multi-Período y Proyección SIEEE P3</strong><br/>(<code>AcademicAccumulatedWidget</code>)</td>
+      <td><span class="badge-pro">TEASER → PRO</span></td>
+      <td>Muestra los contadores globales de aprobados y en riesgo del salón.</td>
+      <td>Desbloquear el cálculo exacto de <em>"Nota mínima necesaria en el Periodo 3 para aprobar el año"</em> e imprimir el informe para reuniones de padres.</td>
+    </tr>
+    <tr>
+      <td><strong>7. Panel Rector / Coordinador, EduAI Sentinel, Cruce de Horarios y Boletines Oficiales</strong></td>
+      <td><span class="badge-ent">ENTERPRISE<br/>(Licencia Colegio)</span></td>
+      <td>Vista previa bloqueada con botón <em>"Solicitar activación para Rectoría / Coordinación"</em>.</td>
+      <td>Se cobra al <strong>Colegio (presupuesto anual FOSE)</strong>: control de cumplimiento curricular de todos los docentes, alertas de deserción/extraedad, paridad SIMAT y cierre de periodos.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1>PARTE 4: Estructura de Precios Recomendada y Rentabilidad (Caso Colombia / LatAm)</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:24%;">Plan</th>
+      <th style="width:22%;">Precio Sugerido</th>
+      <th style="width:27%;">Tu Costo de Nube Estimado</th>
+      <th style="width:27%;">Qué Incluye</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>🌱 Plan Semilla (Docente Gratis)</strong></td>
+      <td><strong>$0 COP</strong></td>
+      <td><strong>~$0.00 USD / mes</strong><br/>(90% corre en <code>localStorage</code> Offline-First dentro de la capa gratuita de Firebase).</td>
+      <td>• Hasta 2 cursos (70 alumnos)<br/>• Asistencia y notas manuales<br/>• 10 Créditos IA de bienvenida<br/>• 2 descargas PDF de prueba/mes</td>
+    </tr>
+    <tr>
+      <td><strong>🚀 Plan Docente PRO (Individual)</strong></td>
+      <td><strong>$19.900 COP / mes</strong><br/>o <strong>$149.000 COP / año</strong></td>
+      <td><strong>~$0.15 – $0.35 USD / mes</strong><br/>(Margen bruto &gt; 88%). Un solo docente PRO paga la nube de +100 gratuitos.</td>
+      <td>• Cursos y alumnos ilimitados<br/>• Importador/Exportador CSV ilimitado<br/>• Planes de Nivelación y Dossier 360° PDF ilimitados<br/>• 200 Créditos IA/mes (Copiloto, PIAR, Higra)<br/>• CRM WhatsApp a acudientes en 1 clic</td>
+    </tr>
+    <tr>
+      <td><strong>🏛️ Licencia Institucional Colegio (FOSE / Rectoría)</strong></td>
+      <td><strong>$1.800.000 a $4.500.000 COP / año escolar</strong><br/>(según tamaño del colegio)</td>
+      <td><strong>~$3 a $8 USD / mes</strong> por colegio completo (Margen bruto &gt; 92%).</td>
+      <td>• Base de Datos Aislada para el Colegio<br/>• Todos los docentes del colegio con Plan PRO<br/>• Panel Rector/Coordinador + EduAI Sentinel<br/>• Verificador de Colisiones de Horarios<br/>• Sábanas y Boletines Institucionales SIEEE</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1>PARTE 5: Hoja de Ruta de Implementación en 3 Pasos</h1>
+
+<ol>
+  <li><strong>Paso 1 — Aislamiento Multi-Colegio (<code>schoolId</code>):</strong> Añadir el campo <code>schoolId</code> (ej. Código DANE o identificador del colegio) al perfil del usuario y encapsular las colecciones bajo <code>/schools/{schoolId}/...</code> con migración transparente de los datos actuales de IETABA a <code>/schools/ietaba/...</code>.</li>
+  <li><strong>Paso 2 — Candados Inteligentes (<code>useFeatureGate</code>):</strong> Incorporar el objeto <code>subscription</code> en el contexto para validar cupos de cursos, créditos de IA y descargas PDF, mostrando un modal de actualización a PRO cuando el docente alcance el límite gratuito.</li>
+  <li><strong>Paso 3 — Torre de Control SuperAdmin (Solo para ti):</strong> Un panel maestro exclusivo para tu cuenta donde puedas crear nuevos colegios en 1 clic, ver cuántos docentes tiene cada institución, activarles o pausarles el Plan PRO/Enterprise cuando te paguen por Nequi, transferencia o factura FOSE, y recargar créditos de IA.</li>
+</ol>
+
+<div class="footer-note">
+  Informe generado para <strong>Teacher Classroom Suite / EduManager v2.13.0</strong> · Arquitectura SaaS &amp; Estrategia de Monetización
+</div>
+
+</body>
+</html>
