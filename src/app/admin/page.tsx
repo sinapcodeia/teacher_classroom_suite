@@ -1,7 +1,11 @@
 "use client";
 import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
-
-
+import {
+  downloadStudentTemplate,
+  downloadStudentNoveltiesCSV,
+  parseAndValidateStudentsCSV,
+  StudentRowValidationIssue,
+} from "@/lib/studentTemplate";
 
 import { useState, useRef, useEffect } from "react";
 import { useApp, toTitleCase } from "@/context/AppContext";
@@ -18,12 +22,6 @@ import RoleGuard from "@/components/shared/RoleGuard";
 import StatisticsDashboard from "@/components/admin/StatisticsDashboard";
 import { seedCurriculum } from "@/lib/seedCurriculum";
 
-const excelDateToJS = (serial: any) => {
-  if (!serial || isNaN(serial)) return serial || "";
-  const date = new Date((parseFloat(serial) - 25569) * 86400 * 1000);
-  return date.toISOString().split('T')[0];
-};
-
 export default function AdminPage() {
   const { 
     masterData, updateMasterData, students, setStudents, 
@@ -35,6 +33,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"teachers" | "subjects" | "grades" | "courses" | "students" | "stats" | "users">("stats");
   const [isImporting, setIsImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<any>(null);
+  const [governanceIssues, setGovernanceIssues] = useState<StudentRowValidationIssue[] | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null); // Estudiante u objeto maestro
   const [editValue, setEditValue] = useState("");
@@ -75,7 +74,7 @@ export default function AdminPage() {
     e.preventDefault();
     
     // Política de Seguridad Institucional (Grado Militar)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8 }$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(newUser.pass)) {
       alert("⚠️ ERROR DE SEGURIDAD INSTITUCIONAL:\n\nLa contraseña debe tener al menos 8 caracteres, incluir una mayúscula y un número para garantizar la protección de datos.");
       return;
@@ -150,41 +149,40 @@ export default function AdminPage() {
         const rows = results.data as any[];
 
         if (activeTab === "students") {
-          const newStudents = rows.map((row, index) => {
-            // Normalizar llaves
-            const s: any = {};
-            Object.keys(row).forEach(k => {
-              const cleanKey = k.replace(/^\uFEFF/, "").toLowerCase().trim();
-              s[cleanKey] = row[k];
-            });
+          const { validRows, issues } = parseAndValidateStudentsCSV(rows, false);
 
-            // Mapeo inteligente con prioridad institucional IETABA
-            const docNum = s["nro documento"] || s.documento || s.nrodocumento || s.document || s.identificacion || `TMP-${Date.now()}-${index}`;
-            let rawCurso = (s["curso ietaba"] || s.curso || s.grupo || "1").toString().toUpperCase();
-            const rawGrado = (s.grado || s.nivel || "").toString();
+          // REGLA DE GOBERNANZA INSTITUCIONAL: Si existe cualquier novedad/error, NO cargar nada
+          if (issues.length > 0) {
+            setIsImporting(false);
+            setGovernanceIssues(issues);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+          }
 
-            if (rawCurso.includes("-")) {
-              rawCurso = rawCurso.split("-")[1];
-            }
-
-            return {
-              curso: rawCurso,
-              grado: normalizeGrade(rawGrado),
-              tipoDocumento: (s["tipo doc."] || s.tipo_doc || s.tipodoc || s.tipo || "T.I.").toUpperCase(),
-              nroDocumento: docNum.toString().trim(),
-              primerApellido: toTitleCase((s["primer apellido"] || s.apellido1 || s.primerapellido || s.apellido || "").toString().trim()),
-              segundoApellido: toTitleCase((s["segundo apellido"] || s.apellido2 || s.segundoapellido || "").toString().trim()),
-              primerNombre: toTitleCase((s["primer nombre"] || s.nombre1 || s.primernombre || s.nombre || "").toString().trim()),
-              segundoNombre: toTitleCase((s["segundo nombre"] || s.nombre2 || s.segundonombre || "").toString().trim()),
-              fechaNacimiento: excelDateToJS(s["fecha nacimiento"] || s.fecha_nac || s.fechanacimiento || s.nacimiento || ""),
-              genero: (s.genero || s.sexo || "F").toString().toUpperCase().charAt(0),
-              avgGrade: 0,
-              attendance: "100%",
-              present: true,
-              isActive: true };
-          }).filter(s => s.primerApellido && s.primerNombre);
+          const newStudents = validRows.map(st => ({
+            ...st,
+            avgGrade: 0,
+            attendance: "100%",
+            present: true,
+            isActive: true,
+          }));
 
           setIsImporting(false);
+          if (newStudents.length === 0) {
+            setGovernanceIssues([
+              {
+                rowNumber: 1,
+                nroDocumento: "—",
+                studentName: "Archivo sin datos",
+                field: "ARCHIVO",
+                level: "error",
+                message: "No se encontraron filas de estudiantes válidas en el archivo.",
+              },
+            ]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+          }
+
           // Batch write to Firestore
           importStudents(newStudents).then(() => {
             setImportSummary({ count: newStudents.length, type: "Estudiantes" });
@@ -248,9 +246,9 @@ export default function AdminPage() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("El archivo debe ser un CSV con las siguientes columnas en este orden exacto:", 20, 68);
+    doc.text("El archivo debe ser un CSV con las siguientes columnas estandarizadas SIMAT / IETABA:", 20, 68);
     
-    const headers = ["CURSO IETABA", "GRADO", "TIPO DOC.", "NRO DOCUMENTO", "APELLIDO 1", "APELLIDO 2", "NOMBRE 1", "NOMBRE 2", "F. NACIM.", "GÉNERO"];
+    const headers = ["GRADO", "CURSO IETABA", "TIPO DOC.", "NRO DOCUMENTO", "APELLIDO 1", "APELLIDO 2", "NOMBRE 1", "NOMBRE 2", "F. NACIM.", "GÉNERO"];
     doc.setFillColor(240, 240, 240);
     doc.rect(20, 75, 170, 8, "F");
     doc.setFont("helvetica", "bold");
@@ -259,11 +257,11 @@ export default function AdminPage() {
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("- CURSO IETABA: Identificador oficial (ej: '11-1', '6A', '01')", 20, 90);
-    doc.text("- GRADO: Nivel académico (ej: '6', '11', 'TRANSICION')", 20, 95);
-    doc.text("- NRO DOCUMENTO: Número de identificación sin puntos.", 20, 100);
-    doc.text("- NOMBRES/APELLIDOS: Cuatro columnas obligatorias.", 20, 105);
-    doc.text("- F. NACIM.: Fecha de nacimiento (AAAA-MM-DD).", 20, 110);
+    doc.text("- GRADO: Nivel académico (ej: '6°', '11°') y CURSO IETABA (ej: '1', '2')", 20, 90);
+    doc.text("- NRO DOCUMENTO: Número de identificación sin puntos.", 20, 95);
+    doc.text("- NOMBRES/APELLIDOS: Primer Apellido y Primer Nombre obligatorios.", 20, 100);
+    doc.text("- F. NACIM.: Fecha de nacimiento (AAAA-MM-DD).", 20, 105);
+    doc.text("- Opcionales CRM: ACUDIENTE NOMBRES, ACUDIENTE APELLIDOS, PARENTESCO, TELEFONO ACUDIENTE, VEREDA.", 20, 110);
 
     // Sección Otros Datos
     doc.setFont("helvetica", "bold");
@@ -274,7 +272,7 @@ export default function AdminPage() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("Para Materias, Docentes o Grados, suba un CSV con una sola columna sin encabezado.", 20, 133);
+    doc.text("Para Materias, Docentes o Grados, suba un CSV con una sola columna con encabezado NOMBRE.", 20, 133);
     doc.text("- Cada fila representará un nuevo elemento en el catálogo.", 20, 138);
 
     // Recomendación de Almacenamiento
@@ -288,20 +286,16 @@ export default function AdminPage() {
   };
 
   const downloadTemplate = () => {
-    let headers = "";
-    let fileName = "";
-    
     if (activeTab === 'students') {
-      headers = "CURSO IETABA,GRADO,TIPO DOC.,NRO DOCUMENTO,PRIMER APELLIDO,SEGUNDO APELLIDO,PRIMER NOMBRE,SEGUNDO NOMBRE,FECHA NACIMIENTO,GENERO\n";
-      headers += "1,6,T.I.,123456789,PEREZ,RODRIGUEZ,JUAN,CARLOS,2010-05-20,M";
-      fileName = "Cargue_Maestro_IETABA.csv";
-    } else {
-      headers = "NOMBRE\n";
-      headers += activeTab === 'teachers' ? "JUAN PEREZ" : activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
-      fileName = `Plantilla_${activeTab}_IETABA.csv`;
+      downloadStudentTemplate(true);
+      return;
     }
 
-    const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
+    let headers = "NOMBRE\n";
+    let fileName = `Plantilla_${activeTab}_IETABA.csv`;
+    headers += activeTab === 'teachers' ? "JUAN PEREZ" : activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
+
+    const blob = new Blob(["\uFEFF" + headers], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
@@ -791,6 +785,73 @@ export default function AdminPage() {
                     className="flex-1 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest bg-on-surface text-white hover:shadow-2xl transition-all"
                   >
                     Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE REGLA DE GOBERNANZA INSTITUCIONAL (CARGA BLOQUEADA POR NOVEDADES) */}
+          {governanceIssues && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-xl bg-slate-950/60">
+              <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl p-8 space-y-6 max-h-[90vh] flex flex-col border border-rose-200">
+                <div className="flex items-start justify-between border-b border-slate-100 pb-4 shrink-0">
+                  <div>
+                    <span className="inline-block text-[9px] font-black uppercase tracking-widest bg-rose-600 text-white px-3 py-1 rounded-full">
+                      Regla de Gobernanza Institucional · Carga Bloqueada
+                    </span>
+                    <h3 className="text-2xl font-black uppercase italic text-slate-900 mt-1.5">
+                      Novedades Detectadas en el Formato ({governanceIssues.length})
+                    </h3>
+                    <p className="text-xs text-rose-700 font-semibold mt-0.5">
+                      No se cargó ningún registro. Corrige las siguientes novedades en tu archivo CSV y vuelve a subirlo.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setGovernanceIssues(null)}
+                    className="p-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl min-h-0">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 font-black uppercase text-[10px] text-slate-600 sticky top-0">
+                      <tr>
+                        <th className="p-3">Fila CSV</th>
+                        <th className="p-3">Documento</th>
+                        <th className="p-3">Estudiante</th>
+                        <th className="p-3">Campo</th>
+                        <th className="p-3">Detalle de la Novedad</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {governanceIssues.map((iss, idx) => (
+                        <tr key={idx} className="hover:bg-rose-50/30">
+                          <td className="p-3 font-mono font-bold text-slate-500">#{iss.rowNumber}</td>
+                          <td className="p-3 font-mono font-bold text-slate-800">{iss.nroDocumento}</td>
+                          <td className="p-3 font-semibold text-slate-800">{iss.studentName}</td>
+                          <td className="p-3 font-black text-[10px] uppercase text-rose-700">{iss.field}</td>
+                          <td className="p-3 font-bold text-rose-800">{iss.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex justify-between items-center pt-3 border-t border-slate-100 shrink-0">
+                  <button
+                    onClick={() => downloadStudentNoveltiesCSV(governanceIssues)}
+                    className="flex items-center gap-2 px-5 py-3 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
+                  >
+                    <FileDown size={15} /> Descargar Reporte de Novedades CSV
+                  </button>
+                  <button
+                    onClick={() => setGovernanceIssues(null)}
+                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Entendido, Corregiré el Archivo
                   </button>
                 </div>
               </div>

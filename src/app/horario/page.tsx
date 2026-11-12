@@ -1,13 +1,25 @@
 "use client";
 
-
-
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
-import { useApp } from "@/context/AppContext";
-import { Calendar, Clock, BookOpen, GraduationCap, ArrowLeft, Printer, Download, Loader2 } from "lucide-react";
+import { useApp, ScheduleBlock } from "@/context/AppContext";
+import {
+  Calendar, Clock, BookOpen, GraduationCap, ArrowLeft,
+  Printer, Download, Upload, Loader2, X, CheckCircle2, AlertTriangle
+} from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import Papa from "papaparse";
+import {
+  downloadScheduleTemplate,
+  downloadScheduleNoveltiesCSV,
+  parseAndValidateScheduleCSV,
+  verifyScheduleCollisionsInFirestore,
+  ScheduleValidationIssue,
+  ScheduleCollisionItem,
+} from "@/lib/scheduleTemplate";
+import { normalizeGrade } from "@/lib/constants";
+import { printWeeklySchedule } from "@/lib/printService";
 
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 const TIME_SLOTS = [
@@ -21,12 +33,84 @@ const TIME_SLOTS = [
 ];
 
 export default function HorarioPage() {
-  const { schedule, profile } = useApp();
+  const { schedule, profile, updateProfile, masterData, user } = useApp();
   const [mounted, setMounted] = useState(false);
+  const [previewModal, setPreviewModal] = useState<{
+    validBlocks: ScheduleBlock[];
+    issues: ScheduleValidationIssue[];
+    collisions: ScheduleCollisionItem[];
+  } | null>(null);
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const parsed = parseAndValidateScheduleCSV(
+          results.data as any[],
+          masterData.subjects
+        );
+        const collisions = await verifyScheduleCollisionsInFirestore(
+          parsed.validBlocks,
+          user?.uid || ""
+        );
+        setPreviewModal({
+          validBlocks: parsed.validBlocks,
+          issues: parsed.issues,
+          collisions,
+        });
+        if (e.target) e.target.value = "";
+      },
+    });
+  };
+
+  const handleConfirmScheduleImport = async () => {
+    if (
+      !previewModal ||
+      previewModal.validBlocks.length === 0 ||
+      previewModal.issues.length > 0 ||
+      previewModal.collisions.length > 0
+    ) {
+      return;
+    }
+    setIsSavingSchedule(true);
+    try {
+      const blocks = previewModal.validBlocks;
+      const teachingGrades = [...new Set(blocks.map(b => normalizeGrade(b.grade)))];
+      const teachingCourses = [
+        ...new Set(
+          blocks.map(b => {
+            if (!b.course) return normalizeGrade(b.grade || "");
+            if (b.course.includes("-")) return b.course;
+            const cleanG = normalizeGrade(b.grade || "").replace("°", "").trim();
+            return cleanG ? `${cleanG}-${b.course}` : b.course;
+          })
+        ),
+      ].filter(Boolean);
+      const teachingSubjectsList = [
+        ...new Set(blocks.map(b => (b.subject || "").toUpperCase())),
+      ];
+
+      await updateProfile({
+        teachingGrades,
+        teachingCourses,
+        teachingSubjectsList,
+        weeklySchedule: blocks,
+        isProfileComplete: true,
+      });
+      setPreviewModal(null);
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  };
 
   if (!mounted) return (
     <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
@@ -52,12 +136,39 @@ export default function HorarioPage() {
                 </p>
              </div>
           </div>
-          <div className="flex gap-3">
-             <button onClick={() => window.print()} className="px-6 py-3 bg-white border border-outline-variant text-on-surface-variant rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-surface-container-low transition-all flex items-center gap-2">
-                <Printer size={18} /> Imprimir
+          <div className="flex flex-wrap gap-2.5">
+             <button
+               onClick={() => downloadScheduleTemplate("example")}
+               className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-2"
+             >
+                <Download size={16} /> Formato Ejemplo
              </button>
-             <button className="px-6 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
-                <Download size={18} /> Exportar PDF
+             <button
+               onClick={() => downloadScheduleTemplate("blank")}
+               className="px-4 py-3 bg-slate-100 border border-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+             >
+                <Download size={16} /> Formato en Blanco
+             </button>
+             <button
+               onClick={() => downloadScheduleTemplate("current", profile.weeklySchedule || [])}
+               className="px-4 py-3 bg-white border border-outline-variant text-on-surface-variant rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-surface-container-low transition-all flex items-center gap-2"
+             >
+                <Download size={16} /> Exportar CSV
+             </button>
+             <label className="px-5 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2 cursor-pointer">
+                <Upload size={16} /> Subir Horario CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleCSVUpload}
+                />
+             </label>
+             <button
+               onClick={() => printWeeklySchedule(profile.weeklySchedule || [], profile.name)}
+               className="px-5 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+             >
+                <Printer size={16} /> Imprimir PDF
              </button>
           </div>
         </div>
@@ -162,6 +273,135 @@ export default function HorarioPage() {
            </div>
         </div>
       </main>
+
+      {/* Modal de Vista Previa y Validación de Horario CSV */}
+      {previewModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-[2.5rem] max-w-2xl w-full p-8 shadow-2xl space-y-6 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
+                  Formato Estandarizado de Horario
+                </span>
+                <h3 className="text-xl font-black uppercase italic text-slate-900 mt-1">
+                  Confirmar Carga de Horario Semanal
+                </h3>
+              </div>
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="w-10 h-10 rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+              {(previewModal.issues.length > 0 || previewModal.collisions.length > 0) && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-black uppercase text-[10px] tracking-wider flex items-center gap-1.5 text-rose-800">
+                        <AlertTriangle size={14} /> Regla de Gobernanza Institucional · Carga Bloqueada ({previewModal.issues.length + previewModal.collisions.length} novedad{previewModal.issues.length + previewModal.collisions.length === 1 ? "" : "es"})
+                      </p>
+                      <p className="text-[11px] font-medium text-rose-700 mt-0.5">
+                        No se cargará ningún bloque horario hasta que todas las novedades de formato o cruces de salón sean corregidos en el archivo CSV.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => downloadScheduleNoveltiesCSV(previewModal.issues, previewModal.collisions)}
+                      className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Download size={12} /> Descargar Novedades CSV
+                    </button>
+                  </div>
+
+                  {previewModal.issues.length > 0 && (
+                    <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                      {previewModal.issues.map((iss, idx) => (
+                        <li key={idx}>
+                          <span className="font-black">Fila #{iss.rowNumber} ({iss.day} {iss.slot}){iss.field ? ` [${iss.field}]` : ""}:</span> {iss.message}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {previewModal.collisions.length > 0 && (
+                    <div className="pt-2 border-t border-rose-200/70 space-y-1">
+                      <p className="font-black uppercase text-[10px] tracking-wider text-rose-800">
+                        Cruces de salón detectados con otros docentes ({previewModal.collisions.length}):
+                      </p>
+                      <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                        {previewModal.collisions.map((c, idx) => (
+                          <li key={idx}>
+                            <span className="font-black">{c.block.day} {c.block.startTime} – {c.block.endTime} · Salón {c.block.course}:</span> ya asignado a <span className="font-black">{c.conflictWith}</span> ({c.block.subject})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {previewModal.validBlocks.length > 0 ? (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 font-black uppercase text-[10px] text-slate-600 sticky top-0">
+                      <tr>
+                        <th className="p-3">Día</th>
+                        <th className="p-3">Franja</th>
+                        <th className="p-3">Asignatura</th>
+                        <th className="p-3 text-center">Grado / Curso</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {previewModal.validBlocks.map((b, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-3 font-black text-slate-800">{b.day}</td>
+                          <td className="p-3 font-mono text-slate-600">{b.startTime} – {b.endTime}</td>
+                          <td className="p-3 font-bold text-indigo-700">{b.subject}</td>
+                          <td className="p-3 text-center font-bold text-slate-700">{b.grade} · {b.course}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-10 text-center text-xs font-bold uppercase text-slate-400">
+                  No se encontraron bloques válidos en el archivo. Descarga el Formato Ejemplo para ver la estructura requerida.
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 shrink-0">
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={
+                  previewModal.validBlocks.length === 0 ||
+                  previewModal.issues.length > 0 ||
+                  previewModal.collisions.length > 0 ||
+                  isSavingSchedule
+                }
+                onClick={handleConfirmScheduleImport}
+                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+              >
+                {isSavingSchedule ? (
+                  <><Loader2 size={14} className="animate-spin" /> Guardando...</>
+                ) : previewModal.issues.length > 0 || previewModal.collisions.length > 0 ? (
+                  <><AlertTriangle size={14} /> Corrige las Novedades para Guardar</>
+                ) : (
+                  <><CheckCircle2 size={14} /> Guardar Horario ({previewModal.validBlocks.length} clases)</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNavBar />
 

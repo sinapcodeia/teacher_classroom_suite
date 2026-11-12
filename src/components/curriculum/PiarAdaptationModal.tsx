@@ -4,6 +4,7 @@ import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constant
 import { useState, useMemo } from "react";
 import { X, Sparkles, User, HelpCircle, AlertCircle, Printer, CheckCircle } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { normalizeTopicForDisplay } from "@/lib/tejidoTemplate";
 
 interface PiarAdaptationModalProps {
   isOpen: boolean;
@@ -71,15 +72,17 @@ export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint, gr
   const effectivePlan = useMemo(() => {
     if (plan) return plan;
     if (!grade || !subject || !activeTopic) return null;
+    const norm = normalizeTopicForDisplay(activeTopic);
     return {
-      summary: `Planeación curricular para el tema: ${activeTopic.title}`,
-      lesson: `Clase detallada de ${subject} sobre ${activeTopic.title}. Tuh Putkamna: ${activeTopic.tuhPutkamna || ''}`,
-      workshop: `Taller de aplicación de ${activeTopic.title}`,
-      activity: `Actividad práctica: ${activeTopic.satIshkit || ''}`,
-      exam: `Evaluación de ${activeTopic.title}`,
+      summary: `Planeación curricular para la Higra: ${norm.higra}`,
+      lesson: `Clase detallada de ${subject} sobre la Higra "${norm.higra}" (Temas: ${norm.ejes.join(", ")}). SABER: ${norm.saber} | HACER: ${norm.hacer} | SER: ${norm.ser}`,
+      workshop: `Taller de aplicación sobre ${norm.higra}: ${norm.ejes.join(", ")}`,
+      activity: `Actividad práctica Tejiendo Aprendo: ${norm.satIshkit || ""}`,
+      exam: `Evaluación de los hilos Saber, Hacer y Ser de ${norm.higra}`,
       grade: grade,
       subject: subject,
-      topic: activeTopic.title };
+      topic: `${norm.higra} (${norm.ejes.join(", ")})`,
+    };
   }, [plan, grade, subject, activeTopic]);
 
   const filteredStudents = useMemo(() => {

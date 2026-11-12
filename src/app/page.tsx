@@ -12,11 +12,13 @@ import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
   CheckCircle2, AlertCircle, Activity, ClipboardList, AlertTriangle, FileText,
-  Trophy, CalendarDays, UploadCloud, Target, Sparkles, Filter, Loader2
+  Trophy, CalendarDays, UploadCloud, Target, Sparkles, Filter, Loader2, Eye, Printer, X
 } from "lucide-react";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { APP_VERSION_LABEL } from "@/lib/version";
+import StudentProfileModal from "@/components/shared/StudentProfileModal";
+import RecoveryPlanModal from "@/components/live-class/RecoveryPlanModal";
 
 const CriticalAlerts = nextDynamic(() => import("@/components/dashboard/CriticalAlerts"), { ssr: false });
 const EduAISentinel = nextDynamic(() => import("@/components/dashboard/EduAISentinel"), { ssr: false });
@@ -58,36 +60,7 @@ export default function Home() {
   } = useApp();
   
   
-  const [cleaningP3, setCleaningP3] = useState(false);
-  const runCleanup = async () => {
-    if (!confirm("¿Limpiar notas fantasma del Periodo 3 en Firestore?")) return;
-    setCleaningP3(true);
-    try {
-      const snap = await getDocs(collection(db, "students"));
-      let fixed = 0;
-      for (const studentDoc of snap.docs) {
-        const data = studentDoc.data();
-        if (!data.detailedGrades) continue;
-        const updates: Record<string, any> = {};
-        let hasP3 = false;
-        for (const subjectId of Object.keys(data.detailedGrades)) {
-          if (data.detailedGrades[subjectId]?.["p3"] !== undefined) {
-            updates[`detailedGrades.${subjectId}.p3`] = deleteField();
-            hasP3 = true;
-          }
-        }
-        if (hasP3) {
-          await updateDoc(doc(db, "students", studentDoc.id), updates);
-          fixed++;
-        }
-      }
-      if (typeof window !== "undefined") localStorage.removeItem("edu_students");
-      alert("✅ Limpieza completada. Se corrigieron " + fixed + " estudiantes.\nPor favor, recarga la página (F5).");
-    } catch (e) {
-      alert("❌ Error: " + (e as Error).message);
-    }
-    setCleaningP3(false);
-  };
+  
 
   const formattedDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long", day: "numeric", month: "long" });
@@ -146,21 +119,36 @@ export default function Home() {
   }, [todaySchedule, schedule]);
 
   // Memoize critical absences and high performance
-  const { criticalAbsences, highPerf, atRisk } = useMemo(() => {
-    const critical = filteredDashboardStudents.filter((s) => {
+  const { criticalAbsences, highPerfStudents, atRiskStudents, highPerf, atRisk } = useMemo(() => {
+    const activeFiltered = filteredDashboardStudents.filter(s => s.isActive !== false);
+    const critical = activeFiltered.filter((s) => {
       if (!s.attendanceRecord) return false;
       const absCount = Object.values(s.attendanceRecord).filter(v => v === 'absent').length;
-      return absCount >= 3 && s.isActive !== false;
+      return absCount >= 3;
     });
 
-    const high = filteredDashboardStudents.filter((s) => s.avgGrade >= 4.0).length;
+    const lowGrade = activeFiltered.filter((s) => (s.avgGrade || 0) > 0 && (s.avgGrade || 0) < 3.0);
+    const combinedAtRiskMap = new Map<string, any>();
+    critical.forEach(s => combinedAtRiskMap.set(s.id, s));
+    lowGrade.forEach(s => combinedAtRiskMap.set(s.id, s));
+    const combinedAtRisk = Array.from(combinedAtRiskMap.values());
+
+    const highList = activeFiltered
+      .filter((s) => (s.avgGrade || 0) >= 4.0)
+      .sort((a, b) => (b.avgGrade || 0) - (a.avgGrade || 0));
 
     return {
       criticalAbsences: critical,
-      highPerf: high,
-      atRisk: critical.length
+      highPerfStudents: highList,
+      atRiskStudents: combinedAtRisk,
+      highPerf: highList.length,
+      atRisk: combinedAtRisk.length
     };
   }, [filteredDashboardStudents]);
+
+  const [activeQuickStatModal, setActiveQuickStatModal] = useState<"estudiantes" | "materias" | "superior" | "alerta" | null>(null);
+  const [selectedQuickProfileStudent, setSelectedQuickProfileStudent] = useState<any>(null);
+  const [selectedQuickRecoveryStudent, setSelectedQuickRecoveryStudent] = useState<any>(null);
 
   // Tareas pendientes (filtradas por los cursos que dicta el docente)
   const pendingTasks = useMemo(() => {
@@ -249,43 +237,47 @@ export default function Home() {
 
   const quickStats = useMemo(() => [
     {
+      id: "estudiantes" as const,
       label: "Estudiantes",
-      value: activeStudentsCount || myStudents.length,
+      value: activeStudentsCount,
       icon: Users,
       color: "#3b82f6",
       bg: "rgba(59,130,246,0.1)",
       link: "/estudiantes",
-      trend: "Matrícula Activa" },
+      trend: "Matrícula Activa · Ver 360°" },
     {
+      id: "materias" as const,
       label: "Materias",
-      value: subjects.length,
+      value: subjectOptions.length || subjects.length,
       icon: BookOpen,
       color: "#8b5cf6",
       bg: "rgba(139,92,246,0.1)",
       link: "/curriculo",
-      trend: `${subjects.length} Planificadas`,
+      trend: `${subjectOptions.length || subjects.length} Planificadas · Ver Malla`,
       isNew: curriculum.some(c => {
         const created = parseInt(c.id?.split("-")[1] || "0");
-        return Date.now() - created < 60000; // Creado en el último minuto
+        return Date.now() - created < 60000;
       })
     },
     {
+      id: "superior" as const,
       label: "Nivel Superior",
       value: highPerf,
       icon: TrendingUp,
       color: "#10b981",
       bg: "rgba(16,185,129,0.1)",
-      link: "/reportes/asistencia",
-      trend: `${activeStudentsCount ? Math.round((highPerf / activeStudentsCount) * 100) : 0}% con 4.0+` },
+      link: "/estudiantes",
+      trend: `${activeStudentsCount ? Math.round((highPerf / activeStudentsCount) * 100) : 0}% con 4.0+ · Ver Cuadro` },
     {
+      id: "alerta" as const,
       label: "En Alerta",
       value: atRisk,
       icon: AlertCircle,
       color: "#f59e0b",
       bg: "rgba(245,158,11,0.1)",
       link: "/estudiantes",
-      trend: atRisk > 0 ? "Requiere Atención" : "Asistencia Óptima" },
-  ], [activeStudentsCount, students.length, subjects.length, highPerf, atRisk]);
+      trend: atRisk > 0 ? "Requiere Atención · Ver Casos" : "Asistencia y Notas Óptimas" },
+  ], [activeStudentsCount, subjectOptions.length, subjects.length, curriculum, highPerf, atRisk]);
 
   const quickActions = useMemo(() => QUICK_ACTIONS(!!profile.isSuperAdmin), [profile.isSuperAdmin]);
 
@@ -542,24 +534,27 @@ export default function Home() {
             <GovernanceKPIs grado={gradoFilter} curso={cursoFilter} subject={subjectFilter} />
           </section>
 
-          {/* ── KPI STATS ── */}
+          {/* ── KPI STATS INTERACTIVOS 360° ── */}
           <section className="mb-10">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full max-w-full">
               {quickStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                  <Link key={stat.label} href={stat.link}
-                    className="group relative overflow-hidden rounded-[1.75rem] p-6 transition-all hover:-translate-y-1"
+                  <button
+                    key={stat.label}
+                    type="button"
+                    onClick={() => setActiveQuickStatModal(stat.id)}
+                    className="text-left group relative overflow-hidden rounded-[1.75rem] p-6 transition-all hover:-translate-y-1 hover:shadow-xl cursor-pointer"
                     style={{
                       background: "#ffffff",
                       boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
                       border: "1px solid rgba(226,232,240,0.8)" }}>
                     <div className="flex items-start justify-between mb-4">
-                      <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
+                      <div className="w-11 h-11 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110"
                         style={{ background: stat.bg }}>
                         <Icon size={22} style={{ color: stat.color }} />
                       </div>
-                      <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0"
+                      <ArrowRight size={16} className="opacity-40 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0"
                         style={{ color: stat.color }} />
                     </div>
                     <p className="text-3xl font-black tracking-tighter" style={{ color: "#0f172a" }}>
@@ -568,7 +563,7 @@ export default function Home() {
                     <p className="text-[10px] font-bold uppercase tracking-wider mt-1" style={{ color: "#64748b" }}>
                       {stat.label}
                     </p>
-                    <p className="text-[9px] font-semibold mt-1" style={{ color: stat.color }}>
+                    <p className="text-[9px] font-semibold mt-1 underline decoration-dotted underline-offset-2" style={{ color: stat.color }}>
                       {stat.trend}
                     </p>
                     {stat.isNew && (
@@ -579,7 +574,7 @@ export default function Home() {
                     {/* Accent corner */}
                     <div className="absolute bottom-0 right-0 w-16 h-16 rounded-tl-[2rem] opacity-5 group-hover:opacity-10 transition-all"
                       style={{ background: stat.color }} />
-                  </Link>
+                  </button>
                 );
               })}
             </div>
@@ -952,6 +947,186 @@ export default function Home() {
             </p>
           </div>
         </main>
+
+        {/* MODAL 360° DE KPI RÁPIDOS DEL DASHBOARD */}
+        {activeQuickStatModal && (
+          <div
+            className="fixed inset-0 z-[140] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+            onClick={() => setActiveQuickStatModal(null)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              className="bg-white rounded-[2.5rem] max-w-3xl w-full p-6 md:p-8 shadow-2xl border border-slate-200 max-h-[88vh] flex flex-col space-y-5"
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 shrink-0">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                    Inspección 360° en Tiempo Real · {gradoFilter === "TODOS" ? "Todos los Grados" : `Grado ${gradoFilter}`} · {cursoFilter === "TODOS" ? "Todos los Cursos" : `Curso ${cursoFilter}`}
+                  </span>
+                  <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight mt-1">
+                    {activeQuickStatModal === "estudiantes" && `Matrícula Activa (${activeStudentsCount} Estudiantes)`}
+                    {activeQuickStatModal === "materias" && `Materias y Tejidos Planificados (${subjectOptions.length || subjects.length})`}
+                    {activeQuickStatModal === "superior" && `Cuadro de Nivel Superior ≥ 4.0 (${highPerfStudents.length} Estudiantes)`}
+                    {activeQuickStatModal === "alerta" && `Estudiantes en Alerta Pedagógica (${atRiskStudents.length} Casos)`}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveQuickStatModal(null)}
+                  className="w-10 h-10 rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+                {activeQuickStatModal === "materias" ? (
+                  <div className="space-y-3">
+                    {(subjectOptions.length > 0 ? subjectOptions : subjects.map(s => s.name)).map((subName) => {
+                      const subCurricula = curriculum.filter(c => (c.subjectId || "").toUpperCase() === subName.toUpperCase());
+                      const subUnits = subCurricula.flatMap(c => c.units || []);
+                      const totalTopics = subUnits.reduce((acc, u) => acc + (u.topics?.length || 0), 0);
+                      const coveredTopics = subUnits.reduce(
+                        (acc, u) => acc + (u.topics?.filter(t => t.status === "covered").length || 0),
+                        0
+                      );
+                      return (
+                        <div key={subName} className="p-4 rounded-2xl border border-slate-200 hover:border-indigo-300 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-slate-900 uppercase">{subName}</p>
+                            <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                              {subUnits.length} Periodo(s) configurados · {coveredTopics}/{totalTopics} Higras cubiertas
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Link
+                              href="/curriculo"
+                              onClick={() => setActiveQuickStatModal(null)}
+                              className="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black uppercase tracking-wider"
+                            >
+                              Abrir Currículo
+                            </Link>
+                            <Link
+                              href={`/clase-en-vivo?subject=${encodeURIComponent(subName)}`}
+                              onClick={() => setActiveQuickStatModal(null)}
+                              className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase tracking-wider"
+                            >
+                              Ir a Clase en Vivo
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  (() => {
+                    const listToRender =
+                      activeQuickStatModal === "estudiantes"
+                        ? filteredDashboardStudents.filter(s => s.isActive !== false)
+                        : activeQuickStatModal === "superior"
+                        ? highPerfStudents
+                        : atRiskStudents;
+
+                    if (listToRender.length === 0) {
+                      return (
+                        <div className="py-12 text-center text-slate-400">
+                          <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500 opacity-70" />
+                          <p className="text-xs font-black uppercase">Sin registros en esta categoría para el filtro seleccionado</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
+                        {listToRender.map(s => {
+                          const absCount = s.attendanceRecord
+                            ? Object.values(s.attendanceRecord).filter(v => v === "absent").length
+                            : 0;
+                          const avg = s.avgGrade || 0;
+                          return (
+                            <div key={s.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-black text-slate-900 uppercase">
+                                    {s.primerApellido} {s.segundoApellido} {s.primerNombre} {s.segundoNombre}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                                    avg >= 4.0 ? "bg-emerald-100 text-emerald-800" : avg >= 3.0 ? "bg-blue-100 text-blue-800" : "bg-rose-100 text-rose-800"
+                                  }`}>
+                                    Promedio: {avg.toFixed(1)}
+                                  </span>
+                                  {absCount >= 3 && (
+                                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[9px] font-black uppercase">
+                                      {absCount} Inasistencias
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                                  Doc: {s.nroDocumento} · Grado {normalizeGrade(s.grado)} · Curso {s.curso}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {avg < 3.0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedQuickRecoveryStudent(s)}
+                                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Printer size={11} /> Nivelación
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedQuickProfileStudent(s)}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-primary text-white text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Eye size={11} /> Ficha 360°
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0">
+                <Link
+                  href={activeQuickStatModal === "materias" ? "/curriculo" : "/estudiantes"}
+                  onClick={() => setActiveQuickStatModal(null)}
+                  className="text-[10px] font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1"
+                >
+                  Abrir Módulo Completo <ArrowRight size={12} />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setActiveQuickStatModal(null)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedQuickProfileStudent && (
+          <StudentProfileModal
+            student={selectedQuickProfileStudent}
+            onClose={() => setSelectedQuickProfileStudent(null)}
+          />
+        )}
+
+        {selectedQuickRecoveryStudent && (
+          <RecoveryPlanModal
+            isOpen={!!selectedQuickRecoveryStudent}
+            onClose={() => setSelectedQuickRecoveryStudent(null)}
+            student={selectedQuickRecoveryStudent}
+            subject={subjectFilter !== "TODOS" ? subjectFilter : (subjectOptions[0] || "TECNOLOGÍA")}
+          />
+        )}
 
         <BottomNavBar />
       </div>

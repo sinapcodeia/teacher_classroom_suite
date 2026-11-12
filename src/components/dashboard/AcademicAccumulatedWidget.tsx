@@ -6,10 +6,11 @@ import { calculateStudentAcademicSummary, calculateDetailedFinal } from "@/lib/g
 import { 
   Trophy, AlertTriangle, CheckCircle2, TrendingUp, 
   Search, ChevronDown, ChevronUp, UserCheck, UserX, Award,
-  HelpCircle, Info, Sparkles, Clock, Target, FileText, Printer
+  HelpCircle, Info, Sparkles, Clock, Target, FileText, Printer, Eye
 } from "lucide-react";
 import { normalizeGrade } from "@/lib/constants";
 import RecoveryPlanModal from "@/components/live-class/RecoveryPlanModal";
+import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
 interface AcademicAccumulatedWidgetProps {
   gradoFilter: string;
@@ -20,9 +21,11 @@ interface AcademicAccumulatedWidgetProps {
 export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, subjectFilter }: AcademicAccumulatedWidgetProps) {
   const { myStudents, masterData } = useApp();
   const [searchTerm, setSearchTerm] = useState("");
-  const [showOnlyFailing, setShowOnlyFailing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PASSING" | "FAILING">("ALL");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [isExpanded, setIsExpanded] = useState(true);
   const [selectedRecoveryStudent, setSelectedRecoveryStudent] = useState<any>(null);
+  const [selectedProfileStudent, setSelectedProfileStudent] = useState<any>(null);
 
   const activePeriod = masterData.activePeriod || "p2";
   const activeSubject = (subjectFilter && subjectFilter !== "TODOS") ? subjectFilter : ((masterData.subjects?.[0] as any)?.name || masterData.subjects?.[0] || "TECNOLOGÍA");
@@ -130,17 +133,23 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
     return { total, passing, failing, passRate };
   }, [studentSummaries]);
 
-  // Filtrado por búsqueda y toggle de reprobados
+  // Filtrado por búsqueda y estado seleccionado en las tarjetas KPI
   const displayedStudents = useMemo(() => {
-    return studentSummaries.filter(s => {
-      if (showOnlyFailing && s.isPassingNow) return false;
+    const list = studentSummaries.filter(s => {
+      if (statusFilter === "FAILING" && s.isPassingNow) return false;
+      if (statusFilter === "PASSING" && !s.isPassingNow) return false;
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
       const fullName = `${s.student.primerApellido || ""} ${s.student.segundoApellido || ""} ${s.student.primerNombre || ""} ${s.student.segundoNombre || ""}`.toLowerCase();
       const doc = (s.student.nroDocumento || "").toLowerCase();
       return fullName.includes(term) || doc.includes(term);
     });
-  }, [studentSummaries, showOnlyFailing, searchTerm]);
+    return [...list].sort((a, b) =>
+      sortOrder === "asc"
+        ? a.currentOverallAvg - b.currentOverallAvg
+        : b.currentOverallAvg - a.currentOverallAvg
+    );
+  }, [studentSummaries, statusFilter, searchTerm, sortOrder]);
 
   if (studentSummaries.length === 0) return null;
 
@@ -153,71 +162,138 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
             <Trophy size={24} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg md:text-xl font-black text-on-surface uppercase tracking-tight">
                 Estado Acumulado Multi-Período (Guía SIEEE)
               </h2>
-              <span className="text-[9px] font-black bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200 uppercase">
-                Período {activePeriod.replace("p", "")} Activo
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExpanded(true);
+                  setStatusFilter("ALL");
+                }}
+                className="text-[9px] font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200 uppercase transition-all cursor-pointer"
+                title="Haz clic para ver el listado completo del período activo"
+              >
+                Período {activePeriod.replace("p", "")} Activo · Ver Todos
+              </button>
             </div>
             <p className="text-xs font-bold text-on-surface-variant opacity-70">
-              Desglose Período a Período + Generador de Plan de Nivelación para Imprimir
+              Toca cualquier tarjeta superior para filtrar o toca un estudiante para abrir su Ficha 360° y Plan de Nivelación
             </p>
           </div>
         </div>
 
         <button 
           onClick={() => setIsExpanded(prev => !prev)}
-          className="flex items-center gap-2 px-4 py-2 bg-surface-container-low hover:bg-surface-container text-on-surface-variant rounded-xl text-xs font-bold transition-all self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2 bg-surface-container-low hover:bg-surface-container text-on-surface-variant rounded-xl text-xs font-bold transition-all self-start sm:self-auto cursor-pointer"
         >
           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           {isExpanded ? "Ocultar Detalle" : "Ver Guía por Estudiante"}
         </button>
       </div>
 
-      {/* KPI Cards de Resumen del Grupo */}
+      {/* KPI Cards Interactivas 360° de Resumen del Grupo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-emerald-50/60 border border-emerald-200/60 p-5 rounded-2xl flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            setIsExpanded(true);
+            setStatusFilter(prev => (prev === "PASSING" ? "ALL" : "PASSING"));
+            setSortOrder("desc");
+          }}
+          className={`text-left bg-emerald-50/60 hover:bg-emerald-50 p-5 rounded-2xl flex items-center justify-between transition-all cursor-pointer group ${
+            statusFilter === "PASSING"
+              ? "border-2 border-emerald-600 ring-4 ring-emerald-500/15 shadow-lg"
+              : "border border-emerald-200/60 hover:shadow-md hover:-translate-y-0.5"
+          }`}
+        >
           <div>
-            <p className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Aprobando Actualmente (≥ 3.0)</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Aprobando Actualmente (≥ 3.0)</p>
+              {statusFilter === "PASSING" && (
+                <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-600 text-white">Filtro Activo</span>
+              )}
+            </div>
             <p className="text-2xl md:text-3xl font-black text-emerald-700 mt-1">
               {stats.passing} <span className="text-xs font-bold opacity-70">/ {stats.total}</span>
             </p>
-            <p className="text-[9px] font-bold text-emerald-600 mt-0.5">{stats.passRate}% del grupo en proyección positiva</p>
+            <p className="text-[9px] font-bold text-emerald-600 mt-0.5 flex items-center gap-1">
+              {stats.passRate}% del grupo en proyección positiva · <span className="underline">Ver listado 360°</span>
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500 group-hover:scale-110 transition-transform text-white flex items-center justify-center shadow-md shrink-0">
             <UserCheck size={20} />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-rose-50/60 border border-rose-200/60 p-5 rounded-2xl flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            setIsExpanded(true);
+            setStatusFilter(prev => (prev === "FAILING" ? "ALL" : "FAILING"));
+            setSortOrder("asc");
+          }}
+          className={`text-left bg-rose-50/60 hover:bg-rose-50 p-5 rounded-2xl flex items-center justify-between transition-all cursor-pointer group ${
+            statusFilter === "FAILING"
+              ? "border-2 border-rose-600 ring-4 ring-rose-500/15 shadow-lg"
+              : "border border-rose-200/60 hover:shadow-md hover:-translate-y-0.5"
+          }`}
+        >
           <div>
-            <p className="text-[10px] font-black uppercase text-rose-800 tracking-wider">En Riesgo de Reprobar (&lt; 3.0)</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black uppercase text-rose-800 tracking-wider">En Riesgo de Reprobar (&lt; 3.0)</p>
+              {statusFilter === "FAILING" && (
+                <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white">Filtro Activo</span>
+              )}
+            </div>
             <p className="text-2xl md:text-3xl font-black text-rose-700 mt-1">
               {stats.failing} <span className="text-xs font-bold opacity-70">estudiantes</span>
             </p>
-            <p className="text-[9px] font-bold text-rose-600 mt-0.5">
-              {stats.failing > 0 ? "⚠️ Plan de nivelación listo para imprimir" : "¡Grupo 100% al día!"}
+            <p className="text-[9px] font-bold text-rose-600 mt-0.5 flex items-center gap-1">
+              {stats.failing > 0 ? (
+                <>⚠️ <span className="underline">Filtrar en riesgo e imprimir Plan de Nivelación</span></>
+              ) : (
+                "¡Grupo 100% al día!"
+              )}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-rose-500 group-hover:scale-110 transition-transform text-white flex items-center justify-center shadow-md shrink-0">
             <UserX size={20} />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-indigo-50/60 border border-indigo-200/60 p-5 rounded-2xl flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            setIsExpanded(true);
+            setStatusFilter("ALL");
+            setSortOrder(prev => (prev === "asc" ? "desc" : "asc"));
+          }}
+          className={`text-left bg-indigo-50/60 hover:bg-indigo-50 p-5 rounded-2xl flex items-center justify-between transition-all cursor-pointer group ${
+            statusFilter === "ALL"
+              ? "border-2 border-indigo-500/60 shadow-md"
+              : "border border-indigo-200/60 hover:shadow-md hover:-translate-y-0.5"
+          }`}
+        >
           <div>
-            <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider">Promedio Acumulado Grupo</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider">Promedio Acumulado Grupo</p>
+              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                Orden {sortOrder === "asc" ? "↑ Menor a Mayor" : "↓ Mayor a Menor"}
+              </span>
+            </div>
             <p className="text-2xl md:text-3xl font-black text-indigo-700 mt-1">
               {(studentSummaries.reduce((a, b) => a + b.currentOverallAvg, 0) / (stats.total || 1)).toFixed(2)}
             </p>
-            <p className="text-[9px] font-bold text-indigo-600 mt-0.5">Promedio de períodos cursados</p>
+            <p className="text-[9px] font-bold text-indigo-600 mt-0.5">
+              Promedio de períodos cursados · <span className="underline">Toca para ordenar / ver todos</span>
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 group-hover:scale-110 transition-transform text-white flex items-center justify-center shadow-md shrink-0">
             <TrendingUp size={20} />
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Contenido Detallado Expandible */}
@@ -230,23 +306,49 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar estudiante por nombre..."
+                placeholder="Buscar estudiante por nombre o documento..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary uppercase"
               />
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
 
-            <button
-              onClick={() => setShowOnlyFailing(prev => !prev)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
-                showOnlyFailing 
-                  ? "bg-rose-600 text-white shadow-md shadow-rose-600/20" 
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              <AlertTriangle size={14} />
-              {showOnlyFailing ? "Viendo solo los que pierden el año" : "Filtrar solo los que pierden el año"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("ALL")}
+                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  statusFilter === "ALL"
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Todos ({stats.total})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("PASSING")}
+                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "PASSING"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}
+              >
+                <CheckCircle2 size={13} />
+                Aprobando ({stats.passing})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("FAILING")}
+                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "FAILING"
+                    ? "bg-rose-600 text-white shadow-md shadow-rose-600/20"
+                    : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                }`}
+              >
+                <AlertTriangle size={13} />
+                En Riesgo ({stats.failing})
+              </button>
+            </div>
           </div>
 
           {/* Tabla de Desglose por Período y Pronóstico */}
@@ -254,21 +356,26 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
             <table className="w-full text-left border-collapse min-w-[760px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider sticky top-0 border-b border-slate-200">
-                  <th className="p-3 pl-4">Estudiante</th>
+                  <th className="p-3 pl-4">Estudiante (Toca para Ficha 360°)</th>
                   <th className="p-3 text-center">Período 1</th>
                   <th className="p-3 text-center">Período 2</th>
                   <th className="p-3 text-center">Período 3</th>
                   <th className="p-3 text-center">Acumulado Actual</th>
-                  <th className="p-3 pl-4">Guía Docente / Acciones Pedagógicas</th>
+                  <th className="p-3 pl-4">Guía Docente / Acciones 360°</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium">
                 {displayedStudents.map(({ student, periodNotes, currentOverallAvg, isPassingNow, guidanceStatus, guidanceText }) => {
                   return (
-                    <tr key={student.id} className={`hover:bg-slate-50 transition-colors ${!isPassingNow ? 'bg-rose-50/40' : ''}`}>
+                    <tr
+                      key={student.id}
+                      onClick={() => setSelectedProfileStudent(student)}
+                      className={`hover:bg-indigo-50/40 transition-colors cursor-pointer group ${!isPassingNow ? 'bg-rose-50/40' : ''}`}
+                    >
                       <td className="p-3 pl-4">
-                        <div className="font-black text-on-surface uppercase leading-tight">
-                          {student.primerApellido} {student.segundoApellido} {student.primerNombre} {student.segundoNombre}
+                        <div className="font-black text-on-surface group-hover:text-primary transition-colors uppercase leading-tight flex items-center gap-1.5">
+                          <span>{student.primerApellido} {student.segundoApellido} {student.primerNombre} {student.segundoNombre}</span>
+                          <Eye size={12} className="opacity-0 group-hover:opacity-100 text-primary transition-opacity shrink-0" />
                         </div>
                         <div className="text-[9px] font-bold text-slate-400">DOC: {student.nroDocumento} | Grado {normalizeGrade(student.grado)} - {student.curso}</div>
                       </td>
@@ -318,8 +425,8 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
                         </span>
                       </td>
 
-                      {/* Pronóstico / Guía Docente + Botón de Plan de Nivelación */}
-                      <td className="p-3 pl-4">
+                      {/* Pronóstico / Guía Docente + Botones 360° */}
+                      <td className="p-3 pl-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9.5px] font-black uppercase border ${
                             guidanceStatus === "passed" || guidanceStatus === "safe"
@@ -334,9 +441,19 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
                             {guidanceText}
                           </span>
 
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProfileStudent(student)}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                            title="Abrir Ficha Estudiantil 360° (Notas, Asistencia, Observador y Acudiente)"
+                          >
+                            <Eye size={11} /> Ficha 360°
+                          </button>
+
                           {/* Botón para generar el Plan de Nivelación listo para imprimir */}
                           {(!isPassingNow || guidanceStatus === "warning" || guidanceStatus === "danger") && (
                             <button
+                              type="button"
                               onClick={() => setSelectedRecoveryStudent(student)}
                               className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5 shrink-0 hover:scale-105 active:scale-95 cursor-pointer"
                               title="Generar Plan de Nivelación vinculado a la Malla Curricular listo para imprimir y entregar al estudiante"
@@ -362,6 +479,14 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
           onClose={() => setSelectedRecoveryStudent(null)}
           student={selectedRecoveryStudent}
           subject={activeSubject}
+        />
+      )}
+
+      {/* Modal 360° del Estudiante */}
+      {selectedProfileStudent && (
+        <StudentProfileModal
+          student={selectedProfileStudent}
+          onClose={() => setSelectedProfileStudent(null)}
         />
       )}
     </div>

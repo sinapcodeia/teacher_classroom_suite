@@ -4,6 +4,11 @@ import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useApp, Student } from "@/context/AppContext";
 import { DetailedGrades, calculateDetailedFinal, calculatePeriodGrades } from "@/lib/gradeUtils";
+import {
+  downloadGradebookTemplate,
+  downloadGradebookNoveltiesCSV,
+  validateGradebookCSV,
+} from "@/lib/gradeTemplate";
 import { 
   FileSpreadsheet, Download, Upload, Save, 
   Calculator, CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft, Lock, Unlock
@@ -81,9 +86,9 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
         sbh: Array(8).fill(null),
         sr: Array(5).fill(null),
         cv: Array(3).fill(null),
-          aut: null,
-          rec: null
-        };
+        aut: null,
+        rec: null
+      };
       return {
         ...s,
         grades,
@@ -92,46 +97,14 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
     });
   }, [filteredStudents, subject, selectedPeriod]);
 
-  const handleExport = () => {
-    const csvData = filteredStudents.map(s => {
-      const grades = s.detailedGrades?.[subject]?.[selectedPeriod] || {
-        sb: Array(8).fill(null),
-        sbh: Array(8).fill(null),
-        sr: Array(5).fill(null),
-        cv: Array(3).fill(null),
-          aut: null,
-          rec: null
-        };
+  // Validación previa en tiempo real antes de confirmar el periodo de destino
+  const pendingValidation = useMemo(() => {
+    if (!pendingImportData) return null;
+    return validateGradebookCSV(pendingImportData, filteredStudents, subject, selectedPeriod);
+  }, [pendingImportData, filteredStudents, subject, selectedPeriod]);
 
-      const row: any = {
-        CODIGO: s.nroDocumento,
-        PRIMER_APELLIDO: s.primerApellido,
-        SEGUNDO_APELLIDO: s.segundoApellido || "",
-        PRIMER_NOMBRE: s.primerNombre,
-        SEGUNDO_NOMBRE: s.segundoNombre || ""
-      };
-
-      const periodNotes = calculatePeriodGrades(grades);
-
-      grades.sb.forEach((v, i)  => row[`SB${i + 1}`]  = v != null ? v : "");
-      grades.sbh.forEach((v, i) => row[`SBH${i + 1}`] = v != null ? v : "");
-      grades.sr.forEach((v, i)  => row[`SR${i + 1}`]  = v != null ? v : "");
-      grades.cv.forEach((v, i)  => row[`CV${i + 1}`]  = v != null ? v : "");
-      row["AUT"]     = grades.aut != null ? grades.aut : "";
-      row["PARCIAL"] = periodNotes.parcial;
-      row["REC"]     = grades.rec != null ? grades.rec : "";
-      row["FINAL"]   = periodNotes.definitiva;
-
-      return row;
-    });
-
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Planilla_${subject}_${course}.csv`);
-    link.click();
+  const handleExport = (mode: "current" | "blank" | "example" = "current") => {
+    downloadGradebookTemplate(filteredStudents, subject, course, selectedPeriod, mode);
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +113,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
 
     Papa.parse(file, {
       header: true,
+      skipEmptyLines: true,
       complete: (results) => {
         setPendingImportData(results.data);
         setShowConfirmModal(true);
@@ -150,58 +124,28 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
 
   const processImport = async (targetPeriod: string) => {
     if (!pendingImportData) return;
+    const validation = validateGradebookCSV(pendingImportData, filteredStudents, subject, targetPeriod);
+    // REGLA DE GOBERNANZA INSTITUCIONAL: No cargar nada si existen novedades o errores
+    if (validation.hasBlockingErrors) return;
+
     setIsSaving(true);
     setImportProgress(0);
     
-    const rows = pendingImportData;
     const stats = {
-      total: rows.length,
-      success: 0,
+      total: validation.validItems.length,
+      success: validation.validItems.length,
       period: targetPeriod,
-      modified: [] as string[],
+      modified: validation.validItems.filter(v => v.isModified).map(v => v.studentName),
       errors: [] as string[],
       studentResults: [] as any[]
     };
 
-    const importData: { studentId: string, detailed: DetailedGrades }[] = [];
+    const importData: { studentId: string, detailed: DetailedGrades }[] = validation.validItems.map(item => ({
+      studentId: item.studentId,
+      detailed: item.detailed,
+    }));
 
     try {
-      // 1. Preparar datos
-      for (const row of rows) {
-        if (!row.CODIGO) continue;
-        const student = filteredStudents.find(s => s.nroDocumento === row.CODIGO);
-        
-        if (!student) {
-          stats.errors.push(row.CODIGO || "SIN CÓDIGO");
-          continue;
-        }
-
-        const parseVal = (v: any): number | null => {
-          if (v === "" || v === undefined || v === null) return null;
-          const n = parseFloat(String(v).replace(",", "."));
-          if (isNaN(n)) return null;
-          // Clamp estricto de rango institucional 0.0 – 5.0
-          return Math.max(0, Math.min(5, n));
-        };
-
-        const detailed: DetailedGrades = {
-          sb: Array(8).fill(0).map((_, i) => parseVal(row[`SB${i + 1}`])),
-          sbh: Array(8).fill(0).map((_, i) => parseVal(row[`SBH${i + 1}`])),
-          sr: Array(5).fill(0).map((_, i) => parseVal(row[`SR${i + 1}`])),
-          cv: Array(3).fill(0).map((_, i) => parseVal(row[`CV${i + 1}`])),
-          aut: parseVal(row["AUT"])
-        };
-
-        importData.push({ studentId: student.id, detailed });
-        
-        const currentGrades = student.detailedGrades?.[subject]?.[targetPeriod];
-        if (JSON.stringify(currentGrades) !== JSON.stringify(detailed)) {
-          stats.modified.push(`${student.primerApellido} ${student.primerNombre}`);
-        }
-        
-        stats.success++;
-      }
-      
       setImportProgress(20); // Iniciando carga
 
       // 2. Ejecutar importación masiva
@@ -352,22 +296,31 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           <button 
-            onClick={handleExport}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-white border border-outline-variant text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            onClick={() => handleExport("current")}
+            title="Descargar planilla oficial del curso con las notas actuales"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3.5 bg-white border border-outline-variant text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
           >
-            <Download size={16} /> <span className="hidden sm:inline">Descargar Plantilla</span><span className="sm:hidden">EXPORTAR</span>
+            <Download size={16} /> <span className="hidden sm:inline">Planilla del Curso</span><span className="sm:hidden">PLANILLA</span>
+          </button>
+
+          <button 
+            onClick={() => handleExport("example")}
+            title="Descargar plantilla estandarizada con fila de ejemplo (SB, SBH, SR, CV, AUT, REC)"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
+          >
+            <Download size={15} /> <span className="hidden sm:inline">Formato Ejemplo</span><span className="sm:hidden">EJEMPLO</span>
           </button>
           
           <input type="file" ref={fileInputRef} className="hidden" onChange={handleImport} accept=".csv" />
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={isSaving || (masterData.periodStatus[selectedPeriod] === "closed" && !isTransientOpen)}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-on-surface text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-on-surface text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
           >
             {isSaving ? <Calculator size={16} className="animate-spin" /> : <Upload size={16} />}
-            <span className="hidden sm:inline">Subir Notas</span><span className="sm:hidden">IMPORTAR</span>
+            <span className="hidden sm:inline">Subir Notas CSV</span><span className="sm:hidden">IMPORTAR</span>
           </button>
         </div>
       </div>
@@ -520,23 +473,38 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
             </div>
          </div>
       </div>
-      {/* Import Confirmation Modal */}
+
+      {/* Import Confirmation Modal con Validación Previa */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 backdrop-blur-md bg-on-surface/60 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 space-y-8 animate-in zoom-in-95 duration-300 border border-white/20">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-                <Upload size={32} />
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 backdrop-blur-md bg-on-surface/60 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-6 md:p-10 space-y-6 animate-in zoom-in-95 duration-300 border border-white/20 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                  <Upload size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase italic tracking-tighter">
+                    Validación y Destino de Planilla
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    {subject} · Curso {course} · Rango SIEEE 1.0 – 5.0
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Confirmar Destino</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronización de Archivo Maestro</p>
-              </div>
+              {!isSaving && (
+                <button
+                  onClick={() => { setShowConfirmModal(false); setPendingImportData(null); }}
+                  className="w-9 h-9 rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </div>
 
-            <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1 min-h-0">
               {isSaving ? (
-                <div className="py-10 space-y-6 text-center">
+                <div className="py-10 space-y-6 text-center bg-slate-50 p-6 rounded-3xl border border-slate-100">
                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-blue-600 mb-2">
                       <span>Sincronizando...</span>
                       <span>{importProgress}%</span>
@@ -553,46 +521,169 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                 </div>
               ) : (
                 <>
-                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                    Detectamos una planilla de notas completa. Selecciona el periodo institucional donde deseas consolidar esta información:
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {PERIODS.map(p => {
-                      const isClosed = masterData.periodStatus[p.id] === "closed";
-                      const isSuggested = masterData.activePeriod === p.id;
-                      const isUnlocked = isTransientOpen && selectedPeriod === p.id;
-                      
-                      return (
-                        <button
-                          key={p.id}
-                          disabled={isClosed && !isUnlocked}
-                          onClick={() => processImport(p.id)}
-                          className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all group ${
-                            isSuggested 
-                              ? "border-blue-500 bg-blue-50/50" 
-                              : "border-outline-variant bg-white hover:border-slate-400"
-                          } ${isClosed && !isUnlocked ? 'opacity-50 grayscale' : 'active:scale-95'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${isSuggested ? 'bg-blue-500' : isUnlocked ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">{p.label}</span>
+                  {/* Resumen de validación previa */}
+                  {pendingValidation && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="p-3 bg-blue-50/70 border border-blue-200/70 rounded-2xl text-center">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-blue-600 block">Válidos</span>
+                          <span className="text-lg font-black text-blue-950">{pendingValidation.validItems.length}</span>
+                        </div>
+                        <div className="p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-2xl text-center">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 block">Aprobados (≥3.0)</span>
+                          <span className="text-lg font-black text-emerald-950">{pendingValidation.passingCount}</span>
+                        </div>
+                        <div className="p-3 bg-amber-50/70 border border-amber-200/70 rounded-2xl text-center">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-amber-700 block">En Riesgo (&lt;3.0)</span>
+                          <span className="text-lg font-black text-amber-950">{pendingValidation.riskCount}</span>
+                        </div>
+                        <div className={`p-3 rounded-2xl text-center border ${
+                          pendingValidation.novelties.length > 0
+                            ? "bg-rose-100 border-rose-300"
+                            : "bg-slate-50 border-slate-200"
+                        }`}>
+                          <span className="text-[9px] font-black uppercase tracking-wider text-rose-700 block">Novedades</span>
+                          <span className="text-lg font-black text-rose-950">{pendingValidation.novelties.length}</span>
+                        </div>
+                      </div>
+
+                      {pendingValidation.novelties.length > 0 ? (
+                        <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-xs text-rose-900 space-y-3 shadow-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-rose-200 pb-2.5">
+                            <div>
+                              <span className="inline-block text-[9px] font-black uppercase tracking-widest bg-rose-600 text-white px-2.5 py-0.5 rounded-full mb-1">
+                                Regla de Gobernanza Institucional · Carga Bloqueada
+                              </span>
+                              <p className="font-black uppercase text-xs text-rose-900 flex items-center gap-1.5">
+                                <AlertCircle size={15} /> Se detectaron {pendingValidation.novelties.length} novedad(es) en la planilla
+                              </p>
+                              <p className="text-[11px] text-rose-800 mt-0.5">
+                                Por regla de gobernanza, <strong>no se cargará ninguna nota</strong> hasta corregir las novedades en el archivo CSV.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => downloadGradebookNoveltiesCSV(pendingValidation.novelties, subject, course)}
+                              className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                            >
+                              <Download size={13} /> Descargar Novedades CSV
+                            </button>
                           </div>
-                          {isSuggested && <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded-lg">RECOMENDADO</span>}
-                          {isClosed && !isUnlocked && <span className="text-[8px] font-black text-rose-600 uppercase bg-rose-100 px-2 py-1 rounded-lg">CERRADO</span>}
-                          {isUnlocked && <span className="text-[8px] font-black text-amber-600 uppercase bg-amber-100 px-2 py-1 rounded-lg">DESBLOQUEADO</span>}
-                        </button>
-                      );
-                    })}
+
+                          <div className="border border-rose-200 bg-white rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                            <table className="w-full text-left text-[10px] border-collapse">
+                              <thead className="bg-rose-100/80 font-black uppercase text-rose-900 sticky top-0">
+                                <tr>
+                                  <th className="p-2">Fila</th>
+                                  <th className="p-2">Código</th>
+                                  <th className="p-2">Estudiante</th>
+                                  <th className="p-2">Columna</th>
+                                  <th className="p-2">Detalle de la Novedad</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-rose-100">
+                                {pendingValidation.novelties.map((nov, idx) => (
+                                  <tr key={idx} className="hover:bg-rose-50/40">
+                                    <td className="p-2 font-mono font-bold text-slate-500">#{nov.rowNumber}</td>
+                                    <td className="p-2 font-mono font-bold text-slate-800">{nov.codigo}</td>
+                                    <td className="p-2 font-semibold text-slate-800">{nov.studentName}</td>
+                                    <td className="p-2 font-black text-rose-700">{nov.column} ({nov.valueFound})</td>
+                                    <td className="p-2 font-bold text-rose-800">{nov.reason}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] font-bold text-emerald-800 flex items-center gap-2">
+                          <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                          <span>Validación de Gobernanza aprobada (0 novedades). Puedes seleccionar el periodo para consolidar.</span>
+                        </div>
+                      )}
+
+                      {pendingValidation.validItems.length > 0 && pendingValidation.novelties.length === 0 && (
+                        <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-44 overflow-y-auto">
+                          <table className="w-full text-left text-[10px] border-collapse">
+                            <thead className="bg-slate-100 font-black uppercase text-slate-600 sticky top-0">
+                              <tr>
+                                <th className="p-2.5">Código</th>
+                                <th className="p-2.5">Estudiante</th>
+                                <th className="p-2.5 text-center">Parcial</th>
+                                <th className="p-2.5 text-center">Rec.</th>
+                                <th className="p-2.5 text-center">Definitiva</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {pendingValidation.validItems.map((it) => (
+                                <tr key={it.studentId} className="hover:bg-slate-50">
+                                  <td className="p-2 font-mono text-slate-500">{it.codigo}</td>
+                                  <td className="p-2 font-bold text-slate-800">{it.studentName}</td>
+                                  <td className="p-2 text-center font-semibold text-slate-600">{it.parcial.toFixed(1)}</td>
+                                  <td className="p-2 text-center font-semibold text-amber-700">{it.rec != null ? it.rec.toFixed(1) : "—"}</td>
+                                  <td className={`p-2 text-center font-black ${it.definitiva < 3 ? "text-rose-600" : "text-emerald-700"}`}>
+                                    {it.definitiva.toFixed(1)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 space-y-3">
+                    <p className="text-[11px] text-slate-600 font-bold leading-relaxed">
+                      {pendingValidation?.hasBlockingErrors
+                        ? "🔒 Consolidación bloqueada hasta corregir las novedades reportadas arriba:"
+                        : `Selecciona el periodo institucional donde deseas consolidar esta planilla (${pendingValidation?.validItems.length || 0} estudiantes válidos):`}
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {PERIODS.map(p => {
+                        const isClosed = masterData.periodStatus[p.id] === "closed";
+                        const isSuggested = masterData.activePeriod === p.id;
+                        const isUnlocked = isTransientOpen && selectedPeriod === p.id;
+                        const isBlockedByGovernance = !pendingValidation || pendingValidation.hasBlockingErrors;
+                        
+                        return (
+                          <button
+                            key={p.id}
+                            disabled={(isClosed && !isUnlocked) || isBlockedByGovernance}
+                            onClick={() => processImport(p.id)}
+                            className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all group ${
+                              isSuggested 
+                                ? "border-blue-500 bg-blue-50/50" 
+                                : "border-outline-variant bg-white hover:border-slate-400"
+                            } ${(isClosed && !isUnlocked) || isBlockedByGovernance ? 'opacity-50 grayscale cursor-not-allowed' : 'active:scale-95'}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${isSuggested ? 'bg-blue-500' : isUnlocked ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                              <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">{p.label}</span>
+                            </div>
+                            {isBlockedByGovernance ? (
+                              <span className="text-[8px] font-black text-rose-700 uppercase bg-rose-100 px-2 py-1 rounded-lg">BLOQUEADO POR NOVEDADES</span>
+                            ) : (
+                              <>
+                                {isSuggested && <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded-lg">RECOMENDADO</span>}
+                                {isClosed && !isUnlocked && <span className="text-[8px] font-black text-rose-600 uppercase bg-rose-100 px-2 py-1 rounded-lg">CERRADO</span>}
+                                {isUnlocked && <span className="text-[8px] font-black text-amber-600 uppercase bg-amber-100 px-2 py-1 rounded-lg">DESBLOQUEADO</span>}
+                              </>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </>
               )}
             </div>
 
             {!isSaving && (
-              <div className="flex gap-3">
+              <div className="flex gap-3 shrink-0">
                 <button 
                   onClick={() => { setShowConfirmModal(false); setPendingImportData(null); }}
-                  className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
                 >
                   Cancelar
                 </button>

@@ -76,7 +76,15 @@ export interface Topic {
   nanpaskas?: string;   // Competencias Sabidurías: Saberes Interculturales
   katkinAizpa?: string; // Ayudas Pedagógicas
   satIshkit?: string;   // Metodología (Tejiendo Aprendo)
-  hijosSaber?: string;  // Hijos del Saber (Subtemas específicos)
+  hijosSaber?: string;  // Hilos del Saber combinados (compatibilidad)
+
+  // Formato estandarizado v2: la Higra es el título; de ella salen los hilos
+  ejes?: string[];          // Temas de la Higra del Conocimiento
+  completedEjes?: string[]; // Temas de la Higra ya cubiertos en clase
+  saber?: string;           // Hilo del Saber: SABER
+  hacer?: string;           // Hilo del Saber: HACER
+  ser?: string;             // Hilo del Saber: SER
+  semanas?: string;         // No. de semanas del periodo
   
   // Novedad: Presentación Interactiva
   slides?: Slide[];
@@ -349,6 +357,7 @@ interface AppContextType {
   // CURRICULUM
   curriculum: Curriculum[];
   updateTopicStatus: (curriculumId: string, unitId: string, topicId: string, status: Topic["status"]) => Promise<void>;
+  toggleTopicEje: (curriculumId: string, unitId: string, topicId: string, eje: string, allEjes?: string[]) => Promise<void>;
   updateTopicSlides: (curriculumId: string, unitId: string, topicId: string, slides: Slide[]) => Promise<void>;
   saveCurriculumLocal: (data: Curriculum) => void;
 }
@@ -608,6 +617,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+  }, []);
+
+  // 🛡️ Actualiza agenda y asegura persistencia inmediata en localStorage
+  const updateAgendaAndCache = React.useCallback((updater: AgendaNote[] | ((prev: AgendaNote[]) => AgendaNote[])) => {
+    setAgendaNotes(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("edu_agendaNotes", JSON.stringify(next));
+        } catch (e) {
+          console.warn("Error guardando caché edu_agendaNotes:", e);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // ⚡ Sincronización Offline-First no bloqueante con Firestore (0ms offline, máx 1.8s en red lenta)
+  const syncFirestoreNonBlocking = React.useCallback(async (promise: Promise<unknown>, label: string) => {
+    const wrapped = promise.catch(err => {
+      console.warn(`[Offline-First Sync] ${label} en cola local:`, err);
+    });
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+    await Promise.race([
+      wrapped,
+      new Promise<void>(resolve => setTimeout(resolve, 1800))
+    ]);
   }, []);
 
   // ── GOBERNANZA DE DATOS (Governance) ─────────────────────────────────────────
@@ -933,9 +971,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               curso: (data.curso || "").toString().trim().toUpperCase(),
             } as Student;
           });
-          setStudents(firestoreStudents);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("edu_students", JSON.stringify(firestoreStudents));
+          if (firestoreStudents.length > 0 || !snap.metadata.fromCache) {
+            setStudents(firestoreStudents);
+            if (typeof window !== "undefined") {
+              try { localStorage.setItem("edu_students", JSON.stringify(firestoreStudents)); } catch (_) {}
+            }
           }
           setStudentsLoading(false);
         }, (err) => {
@@ -954,9 +994,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
         const unsubscribeAgenda = onSnapshot(agendaQuery, (snap) => {
           const notes = snap.docs.map(d => ({ id: d.id, ...d.data() } as AgendaNote));
-          setAgendaNotes(notes);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("edu_agendaNotes", JSON.stringify(notes));
+          if (notes.length > 0 || !snap.metadata.fromCache) {
+            setAgendaNotes(notes);
+            if (typeof window !== "undefined") {
+              try { localStorage.setItem("edu_agendaNotes", JSON.stringify(notes)); } catch (_) {}
+            }
           }
         }, (err) => {
           console.warn("Error en tiempo real (agenda):", err);
@@ -966,9 +1008,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Currículo
         const unsubscribeCurriculum = onSnapshot(collection(db, "curriculum"), (snap) => {
           const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Curriculum));
-          setCurriculum(items);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("edu_curriculum", JSON.stringify(items));
+          if (items.length > 0 || !snap.metadata.fromCache) {
+            setCurriculum(items);
+            if (typeof window !== "undefined") {
+              try { localStorage.setItem("edu_curriculum", JSON.stringify(items)); } catch (_) {}
+            }
           }
         }, (err) => {
           console.warn("Error en tiempo real (currículo):", err);
@@ -1107,17 +1151,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setProfile(merged);
 
-      await updateDoc(doc(db, "users", user.uid), {
-        firstName: merged.firstName,
-        lastName: merged.lastName,
-        phone: merged.phone,
-        teachingGrades: merged.teachingGrades,
-        teachingCourses: merged.teachingCourses,
-        teachingSubjectsList: merged.teachingSubjectsList,
-        weeklySchedule: merged.weeklySchedule,
-        isProfileComplete: merged.isProfileComplete,
-        displayName: merged.name,
-      });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("offline_profile", JSON.stringify(merged));
+          if (merged.email) {
+            localStorage.setItem(`edu_profile_${merged.email.toLowerCase()}`, JSON.stringify(merged));
+          }
+        } catch (_) {}
+      }
+
+      if (user.uid && !user.uid.startsWith("offline-") && !user.uid.startsWith("mock-")) {
+        await syncFirestoreNonBlocking(
+          updateDoc(doc(db, "users", user.uid), {
+            firstName: merged.firstName,
+            lastName: merged.lastName,
+            phone: merged.phone,
+            teachingGrades: merged.teachingGrades,
+            teachingCourses: merged.teachingCourses,
+            teachingSubjectsList: merged.teachingSubjectsList,
+            weeklySchedule: merged.weeklySchedule,
+            isProfileComplete: merged.isProfileComplete,
+            displayName: merged.name,
+          }),
+          "updateProfile"
+        );
+      }
     } catch (err) {
       console.error("Error al actualizar perfil:", err);
       throw err;
@@ -1419,8 +1477,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateStudent = async (id: string, updates: Partial<Student>) => {
     try {
-      await updateDoc(doc(db, "students", id), updates);
       updateStudentsAndCache(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "students", id), updates), "updateStudent");
     } catch (err) {
       console.error("Error al actualizar estudiante:", err);
     }
@@ -1520,12 +1578,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString()
         }
       } as Student;
-      await setDoc(doc(db, "students", studentId), withAudit);
       updateStudentsAndCache(prev => {
         const mapa = new Map(prev.map(s => [s.id, s]));
         mapa.set(studentId, withAudit);
         return Array.from(mapa.values());
       });
+      await syncFirestoreNonBlocking(setDoc(doc(db, "students", studentId), withAudit), "addStudent");
     } catch (err) {
       console.error("Error al añadir estudiante en Firestore:", err);
       throw err;
@@ -1650,19 +1708,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       for (const estudiante of porcion) {
         lote.set(doc(db, "students", estudiante.id), estudiante, { merge: true });
       }
-      await lote.commit();
+      await syncFirestoreNonBlocking(lote.commit(), "importStudents batch");
     }
     return { novelties, notFound };
   };
 
   /** Mark a student as inactive in Firestore */
   const removeStudent = async (id: string) => {
-    try {
-      await updateDoc(doc(db, "students", id), { isActive: false });
-    } catch {
-      // doc may not exist in Firestore if it was only local
-    }
     updateStudentsAndCache(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
+    await syncFirestoreNonBlocking(updateDoc(doc(db, "students", id), { isActive: false }), "removeStudent");
   };
 
   const updateDetailedGrades = async (studentId: string, subjectId: string, periodId: string, detailed: DetailedGrades) => {
@@ -1687,8 +1741,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         avgGrade: summary.periodAvg 
       };
 
-      await updateDoc(doc(db, "students", studentId), firestoreUpdates);
-      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, detailedGrades: newDetailedGrades, avgGrade: summary.periodAvg } : s));
+      updateStudentsAndCache(prev => prev.map(s => s.id === studentId ? { ...s, detailedGrades: newDetailedGrades, avgGrade: summary.periodAvg } : s));
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "students", studentId), firestoreUpdates), "updateDetailedGrades");
     } catch (err) {
       console.error("Error al actualizar notas detalladas:", err);
     }
@@ -1726,18 +1780,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         allUpdates.push({ studentId: item.studentId, updates: firestoreUpdates, firestoreUpdates, localUpdates });
       }
 
-      // Execute in batches
-      for (let i = 0; i < allUpdates.length; i += LIMITE_LOTE) {
-        const batch = writeBatch(db);
-        const chunk = allUpdates.slice(i, i + LIMITE_LOTE);
-        for (const up of chunk) {
-          batch.update(doc(db, "students", up.studentId), up.firestoreUpdates);
-        }
-        await batch.commit();
-      }
-
-      // Update local state
-      setStudents(prev => {
+      // 1. Update local state & localStorage immediately (0ms offline-first)
+      updateStudentsAndCache(prev => {
         const mapa = new Map(prev.map(s => [s.id, s]));
         for (const up of allUpdates) {
           const s = mapa.get(up.studentId);
@@ -1745,6 +1789,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return Array.from(mapa.values());
       });
+
+      // 2. Execute in batches non-blockingly when offline
+      for (let i = 0; i < allUpdates.length; i += LIMITE_LOTE) {
+        const batch = writeBatch(db);
+        const chunk = allUpdates.slice(i, i + LIMITE_LOTE);
+        for (const up of chunk) {
+          batch.update(doc(db, "students", up.studentId), up.firestoreUpdates);
+        }
+        await syncFirestoreNonBlocking(batch.commit(), "importDetailedGrades batch");
+      }
     } catch (err) {
       console.error("Error en importación masiva de notas:", err);
       throw err;
@@ -1764,12 +1818,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sr:  existingPeriodData?.sr  ? [...existingPeriodData.sr]  : Array(5).fill(null),
         cv:  existingPeriodData?.cv  ? [...existingPeriodData.cv]  : Array(3).fill(null),
         aut: existingPeriodData?.aut !== undefined ? existingPeriodData.aut : null,
-          rec: existingPeriodData?.rec !== undefined ? existingPeriodData.rec : null,
-        };
+        rec: existingPeriodData?.rec !== undefined ? existingPeriodData.rec : null,
+      };
 
-      if (category === 'aut' || category === 'rec') {
-        // aut es un valor escalar (no array)
+      if (category === 'aut') {
         currentSubjectGrades.aut = score;
+      } else if (category === 'rec') {
+        currentSubjectGrades.rec = score;
       } else {
         // Asegurar que el array tiene suficiente longitud para el slot solicitado
         const arr = currentSubjectGrades[category] as (number | null)[];
@@ -1846,14 +1901,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const updates = { grades: newGrades, avgGrade: Number(newAvg.toFixed(2)) };
 
-      // 1. Optimistic update local (instantáneo, sin esperar red)
-      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
+      // 1. Optimistic update local + localStorage (instantáneo, sin esperar red)
+      updateStudentsAndCache(prev => prev.map(s => s.id === studentId ? { ...s, ...updates } : s));
 
-      // 2. Sincronizar a Firestore (no bloquea el flujo si falla)
-      await updateDoc(doc(db, "students", studentId), updates);
+      // 2. Sincronizar a Firestore (no bloquea el flujo si falla u offline)
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "students", studentId), updates), "addGrade");
     } catch (err) {
       console.error("Error al añadir o actualizar nota:", err);
-      // No re-throw: el estado local ya es correcto; se reintentará en próximo onSnapshot
     }
   };
 
@@ -1926,8 +1980,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       allUpdates.push({ studentId, updates: { grades: newGrades, avgGrade: Number(newAvg.toFixed(2)) } });
     }
 
-    // Optimistic update masivo local (instantáneo)
-    setStudents(prev => {
+    // Optimistic update masivo local + localStorage (instantáneo)
+    updateStudentsAndCache(prev => {
       const map = new Map(prev.map(s => [s.id, s]));
       for (const { studentId, updates } of allUpdates) {
         const existing = map.get(studentId);
@@ -1945,11 +1999,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           lote.update(doc(db, "students", studentId), updates);
           successIds.push(studentId);
         }
-        await lote.commit();
+        await syncFirestoreNonBlocking(lote.commit(), "addGradesBatch");
       }
     } catch (err) {
       console.error("Error en batch de notas:", err);
-      // Los datos locales ya son correctos; Firestore se reconciliará en el próximo onSnapshot
     }
 
     return successIds;
@@ -1958,7 +2011,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveDailyAttendance = async (dateStr: string, records: Record<string, string>) => {
     try {
       const LIMITE_LOTE = 500;
-      // Build a Map<id, updatedRecord> to avoid O(n²) lookup later
       const updatesMap = new Map<string, Record<string, string>>();
 
       // 1. Preparar las actualizaciones
@@ -1971,8 +2023,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (updatesMap.size === 0) return;
 
-      // 1.5 Optimistic update local (instantáneo, no requiere esperar red)
-      setStudents(prev => {
+      // 1.5 Optimistic update local + localStorage (instantáneo, no requiere esperar red)
+      updateStudentsAndCache(prev => {
         const map = new Map(prev.map(s => [s.id, s]));
         for (const [id, record] of updatesMap.entries()) {
           const s = map.get(id);
@@ -1981,25 +2033,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return Array.from(map.values());
       });
 
-      // 2. Ejecutar en lotes de Firestore
+      // 2. Ejecutar en lotes de Firestore sin bloquear si está offline
       const entries = Array.from(updatesMap.entries());
       for (let i = 0; i < entries.length; i += LIMITE_LOTE) {
         const batch = writeBatch(db);
         entries.slice(i, i + LIMITE_LOTE).forEach(([id, record]) => {
           batch.update(doc(db, "students", id), { attendanceRecord: record });
         });
-        await batch.commit();
+        await syncFirestoreNonBlocking(batch.commit(), "saveDailyAttendance");
       }
-
-      // 3. Actualizar estado local en O(n) usando el Map
-      setStudents(prev => prev.map(s => {
-        const newRecord = updatesMap.get(s.id);
-        return newRecord ? { ...s, attendanceRecord: newRecord } : s;
-      }));
-
     } catch (err) {
       console.error("Error al guardar asistencia masiva:", err);
-      throw err; // Propagar para que la UI pueda manejarlo
+      throw err;
     }
   };
 
@@ -2007,10 +2052,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const newNote = { 
         ...note, 
-        id: `note-${Date.now()}` 
+        id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 5)}` 
       };
-      await setDoc(doc(db, "agendaNotes", newNote.id), newNote);
-      setAgendaNotes(prev => [...prev, newNote as AgendaNote]);
+      updateAgendaAndCache(prev => [...prev, newNote as AgendaNote]);
+      await syncFirestoreNonBlocking(setDoc(doc(db, "agendaNotes", newNote.id), newNote), "addAgendaNote");
     } catch (err) {
       console.error("Error al añadir nota a la agenda:", err);
     }
@@ -2018,8 +2063,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateAgendaNote = async (id: string, updates: Partial<AgendaNote>) => {
     try {
-      await updateDoc(doc(db, "agendaNotes", id), updates);
-      setAgendaNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
+      updateAgendaAndCache(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "agendaNotes", id), updates), "updateAgendaNote");
     } catch (err) {
       console.error("Error al actualizar nota de agenda:", err);
     }
@@ -2027,12 +2072,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateAgendaNotesBatch = async (ids: string[], updates: Partial<AgendaNote>) => {
     try {
+      updateAgendaAndCache(prev => prev.map(n => ids.includes(n.id) ? { ...n, ...updates } : n));
       const batch = writeBatch(db);
       ids.forEach(id => {
         batch.update(doc(db, "agendaNotes", id), updates);
       });
-      await batch.commit();
-      setAgendaNotes(prev => prev.map(n => ids.includes(n.id) ? { ...n, ...updates } : n));
+      await syncFirestoreNonBlocking(batch.commit(), "updateAgendaNotesBatch");
     } catch (err) {
       console.error("Error al actualizar notas en lote:", err);
     }
@@ -2040,12 +2085,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAgendaNotesBatch = async (ids: string[]) => {
     try {
+      updateAgendaAndCache(prev => prev.filter(n => !ids.includes(n.id)));
       const batch = writeBatch(db);
       ids.forEach(id => {
         batch.delete(doc(db, "agendaNotes", id));
       });
-      await batch.commit();
-      setAgendaNotes(prev => prev.filter(n => !ids.includes(n.id)));
+      await syncFirestoreNonBlocking(batch.commit(), "deleteAgendaNotesBatch");
     } catch (err) {
       console.error("Error al eliminar notas en lote:", err);
     }
@@ -2053,13 +2098,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearPendingTasks = async () => {
     try {
-      const batch = writeBatch(db);
       const pendingTasks = agendaNotes.filter(n => n.type === "TASK" && !n.isCompleted);
+      updateAgendaAndCache(prev => prev.filter(n => !(n.type === "TASK" && !n.isCompleted)));
+      const batch = writeBatch(db);
       pendingTasks.forEach(note => {
         batch.delete(doc(db, "agendaNotes", note.id));
       });
-      await batch.commit();
-      setAgendaNotes(prev => prev.filter(n => !(n.type === "TASK" && !n.isCompleted)));
+      await syncFirestoreNonBlocking(batch.commit(), "clearPendingTasks");
     } catch (err) {
       console.error("Error al limpiar tareas pendientes:", err);
     }
@@ -2067,12 +2112,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearAllAgendaNotes = async () => {
     try {
+      const currentNotes = [...agendaNotes];
+      updateAgendaAndCache([]);
       const batch = writeBatch(db);
-      agendaNotes.forEach(note => {
+      currentNotes.forEach(note => {
         batch.delete(doc(db, "agendaNotes", note.id));
       });
-      await batch.commit();
-      setAgendaNotes([]);
+      await syncFirestoreNonBlocking(batch.commit(), "clearAllAgendaNotes");
     } catch (err) {
       console.error("Error al limpiar agenda completa:", err);
     }
@@ -2080,13 +2126,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearAllTasks = async () => {
     try {
-      const batch = writeBatch(db);
       const allTasks = agendaNotes.filter(n => n.type === "TASK");
+      updateAgendaAndCache(prev => prev.filter(n => n.type !== "TASK"));
+      const batch = writeBatch(db);
       allTasks.forEach(note => {
         batch.delete(doc(db, "agendaNotes", note.id));
       });
-      await batch.commit();
-      setAgendaNotes(prev => prev.filter(n => n.type !== "TASK"));
+      await syncFirestoreNonBlocking(batch.commit(), "clearAllTasks");
     } catch (err) {
       console.error("Error al eliminar todas las tareas:", err);
     }
@@ -2108,22 +2154,97 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const cur = curriculum.find(c => c.id === curriculumId);
       if (!cur) return;
 
+      const todayStr = new Date().toLocaleDateString("es-CO");
       const newUnits = cur.units.map(u => {
         if (u.id === unitId) {
           return {
             ...u,
-            topics: u.topics.map(t => t.id === topicId ? { ...t, status } : t)
+            topics: u.topics.map(t => {
+              if (t.id !== topicId) return t;
+              const nextCompleted = status === "covered"
+                ? (Array.isArray(t.ejes) && t.ejes.length > 0 ? [...t.ejes] : t.completedEjes || [])
+                : status === "not_started"
+                  ? []
+                  : (t.completedEjes || []);
+              return {
+                ...t,
+                status,
+                completedEjes: nextCompleted,
+                date: status === "covered" ? todayStr : (status === "active" ? "En curso" : "Pendiente"),
+              };
+            })
           };
         }
         return u;
       });
 
       // Optimistic update for fluid local interaction
-      setCurriculum(prev => prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c));
+      setCurriculum(prev => {
+        const next = prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c);
+        if (typeof window !== "undefined") {
+          try { localStorage.setItem("edu_curriculum", JSON.stringify(next)); } catch (_) {}
+        }
+        return next;
+      });
 
-      await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits }), "updateTopicStatus");
     } catch (err) {
       console.error("Error al actualizar estado del tema:", err);
+    }
+  };
+
+  const toggleTopicEje = async (curriculumId: string, unitId: string, topicId: string, eje: string, allEjes?: string[]) => {
+    try {
+      const cur = curriculum.find(c => c.id === curriculumId);
+      if (!cur) return;
+
+      const todayStr = new Date().toLocaleDateString("es-CO");
+      const newUnits = cur.units.map(u => {
+        if (u.id === unitId) {
+          return {
+            ...u,
+            topics: u.topics.map(t => {
+              if (t.id !== topicId) return t;
+              const effectiveEjes = allEjes && allEjes.length > 0 ? allEjes : (t.ejes || []);
+              const currentCompleted = t.status === "covered" && (!t.completedEjes || t.completedEjes.length === 0)
+                ? [...effectiveEjes]
+                : [...(t.completedEjes || [])];
+              const exists = currentCompleted.includes(eje);
+              const nextCompleted = exists
+                ? currentCompleted.filter(x => x !== eje)
+                : [...currentCompleted, eje];
+
+              let nextStatus: Topic["status"] = "not_started";
+              if (effectiveEjes.length > 0 && nextCompleted.length >= effectiveEjes.length) {
+                nextStatus = "covered";
+              } else if (nextCompleted.length > 0) {
+                nextStatus = "active";
+              }
+
+              return {
+                ...t,
+                ejes: effectiveEjes.length > 0 ? effectiveEjes : t.ejes,
+                completedEjes: nextCompleted,
+                status: nextStatus,
+                date: nextStatus === "covered" ? todayStr : nextStatus === "active" ? `Avance ${nextCompleted.length}/${effectiveEjes.length}` : "Pendiente",
+              };
+            })
+          };
+        }
+        return u;
+      });
+
+      setCurriculum(prev => {
+        const next = prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c);
+        if (typeof window !== "undefined") {
+          try { localStorage.setItem("edu_curriculum", JSON.stringify(next)); } catch (_) {}
+        }
+        return next;
+      });
+
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits }), "toggleTopicEje");
+    } catch (err) {
+      console.error("Error al actualizar tema de la Higra:", err);
     }
   };
 
@@ -2142,14 +2263,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return u;
       });
 
-      // Optimistic local update
-      setCurriculum(prev => prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c));
+      // Optimistic local update + localStorage
+      setCurriculum(prev => {
+        const next = prev.map(c => c.id === curriculumId ? { ...c, units: newUnits } : c);
+        if (typeof window !== "undefined") {
+          try { localStorage.setItem("edu_curriculum", JSON.stringify(next)); } catch (_) {}
+        }
+        return next;
+      });
       
-      try {
-        await updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits });
-      } catch (dbErr) {
-        console.warn("Advertencia: No se pudo sincronizar en la nube (modo offline activo):", dbErr);
-      }
+      await syncFirestoreNonBlocking(updateDoc(doc(db, "curriculum", curriculumId), { units: newUnits }), "updateTopicSlides");
     } catch (err) {
       console.error("Error al guardar slides del tema:", err);
     }
@@ -2158,10 +2281,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveCurriculumLocal = (data: Curriculum) => {
     setCurriculum(prev => {
       const idx = prev.findIndex(c => c.id === data.id);
-      if (idx >= 0) {
-        return prev.map(c => c.id === data.id ? data : c);
+      const next = idx >= 0 ? prev.map(c => c.id === data.id ? data : c) : [...prev, data];
+      if (typeof window !== "undefined") {
+        try { localStorage.setItem("edu_curriculum", JSON.stringify(next)); } catch (_) {}
       }
-      return [...prev, data];
+      return next;
     });
   };
 
@@ -2220,15 +2344,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newStudents = students.map(s => s.id === studentId ? updatedStudent : s);
     updateStudentsAndCache(newStudents);
 
-    try {
-      if (db) {
-        await updateDoc(doc(db, "students", studentId), {
+    if (db) {
+      await syncFirestoreNonBlocking(
+        updateDoc(doc(db, "students", studentId), {
           behavioralRecords: updatedRecords,
           ...(updatedStudent.detailedGrades ? { detailedGrades: updatedStudent.detailedGrades } : {}),
-        });
-      }
-    } catch (e) {
-      console.warn("Offline fallback para registro conductual:", e);
+        }),
+        "addBehavioralRecord"
+      );
     }
   };
 
@@ -2245,14 +2368,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newStudents = students.map(s => s.id === studentId ? updatedStudent : s);
     updateStudentsAndCache(newStudents);
 
-    try {
-      if (db) {
-        await updateDoc(doc(db, "students", studentId), {
+    if (db) {
+      await syncFirestoreNonBlocking(
+        updateDoc(doc(db, "students", studentId), {
           behavioralRecords: updatedRecords,
-        });
-      }
-    } catch (e) {
-      console.warn("Offline fallback para eliminar registro conductual:", e);
+        }),
+        "deleteBehavioralRecord"
+      );
     }
   };
 
@@ -2325,7 +2447,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       agendaNotes, addAgendaNote, updateAgendaNote, updateAgendaNotesBatch, deleteAgendaNotesBatch, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,
       allUsers, refreshUsers, updateUserRole,
       createEmailUser, loginWithEmail, loginOffline, resetPassword, acceptTerms,
-      curriculum, updateTopicStatus, updateTopicSlides, saveCurriculumLocal,
+      curriculum, updateTopicStatus, toggleTopicEje, updateTopicSlides, saveCurriculumLocal,
       governanceStats,
       studentsLoading,
       isOnline,

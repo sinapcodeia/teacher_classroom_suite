@@ -5,6 +5,117 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [Sin publicar] — En desarrollo
+
+---
+
+## [2.13.0] — 2026-11-12 · Interactividad Total 360°, Gobernanza "Todo o Nada", Formatos Institucionales y Motor Offline-First 0ms
+
+### ⚡ Optimización Offline-First, Rendimiento Ulrarrápido y Auditoría Responsive
+- **Arquitectura 100% Offline-First sin bloqueos de red (`src/context/AppContext.tsx`)**:
+  - Implementado helper `syncFirestoreNonBlocking` con un límite estricto de timeout (0ms si `!navigator.onLine`, máx 1.8s en redes lentas/USB).
+  - Todas las mutaciones de datos del docente (`updateProfile`, `addStudent`, `updateStudent`, `removeStudent`, `importStudents`, `updateDetailedGrades`, `importDetailedGrades`, `updateSingleDetailedGrade`, `addGrade`, `addGradesBatch`, `saveDailyAttendance`, `addAgendaNote`, `updateAgendaNote`, `updateAgendaNotesBatch`, `deleteAgendaNotesBatch`, `clearAllAgendaNotes`, `clearPendingTasks`, `clearAllTasks`, `updateTopicStatus`, `toggleTopicEje`, `updateTopicSlides`, `saveCurriculumLocal`, `addBehavioralRecord`, `deleteBehavioralRecord`) aplican una actualización optimista inmediata en memoria (React state) y sincronizan de inmediato a `localStorage` (`edu_students`, `edu_agendaNotes`, `edu_curriculum`, `edu_masterData`, `offline_profile`), garantizando que la aplicación responda a 0ms y funcione 100% desconectada sin congelar la UI esperando a Firebase.
+  - **Corrección de Bug Crítico en Calificador**: En `updateSingleDetailedGrade`, la categoría de recuperación `rec` ahora guarda correctamente sobre `currentSubjectGrades.rec` en vez de sobreescribir `currentSubjectGrades.aut`.
+  - **Página de Fallback Offline (`src/app/~offline/page.tsx`)**: Integrada y verificada para la PWA de Next.js (`fallbacks: { document: "/~offline" }`).
+- **Limpieza de Código Muerto y Carga Rápida (`src/app/page.tsx`)**:
+  - Eliminado el script y estado muerto `runCleanup` / `cleaningP3` que realizaba lecturas innecesarias en Firestore y aumentaba el bundle del Dashboard.
+  - Verificación de tipos TypeScript estricta (`tsc --noEmit --incremental false`) superada con **0 errores**.
+- **Diseño Adaptativo Responsive (Móvil, Tablet y Escritorio)**:
+  - Verificado el cumplimiento de contenedores sin desbordamiento horizontal (`overflow-x-hidden`), modales centrados y scrolleables (`max-h-[90vh] overflow-y-auto`, `p-4 sm:p-6 md:p-8`), botones táctiles con área de toque ergonómica (`min-h-[44px]` o `p-2 sm:p-3`), scroll horizontal suave en tablas de datos (`overflow-x-auto`) y rejillas flexibles `grid-cols-1 md:grid-cols-2 xl:grid-cols-4` en todos los componentes del Dashboard, Estudiantes, Clase en Vivo y Currículo.
+
+### 🔄 Interactividad Total 360° en Tarjetas KPI, Sentinel IA, Estudiantes y Clase en Vivo (Cero Datos Quemados o Estáticos)
+- **1. Estado Acumulado Multi-Período SIEEE (`src/components/dashboard/AcademicAccumulatedWidget.tsx`)**:
+  - Las 3 tarjetas de resumen (**`Aprobando Actualmente ≥ 3.0`**, **`En Riesgo de Reprobar < 3.0`** y **`Promedio Acumulado Grupo`**) ahora son botones interactivos que filtran y ordenan en vivo la tabla inferior (`Todos`, `Aprobando`, `En Riesgo`).
+  - Al tocar cualquier estudiante o el botón **`Ficha 360°`** se abre directamente su expediente integral (`StudentProfileModal`) además del generador de **`Plan de Nivelación`** (`RecoveryPlanModal`).
+- **2. KPIs de Gobernanza y Resumen Rápido en Dashboard (`src/components/dashboard/GovernanceKPIs.tsx`, `src/app/page.tsx`)**:
+  - Las 4 tarjetas de Gobernanza (**`Pedagogía del Afecto`**, **`Equidad Institucional`**, **`Alerta Pedagógica`** y **`Gobernanza Activa`**) ahora abren modales interactivos 360° con la lista real de cumpleañeros del mes (con envío directo de felicitación por WhatsApp), desglose de paridad por salón y filtro Masculino/Femenino, listado de estudiantes con extraedad (con acceso a Plan de Nivelación y Ficha 360°) y auditoría de cobertura por curso.
+  - Las 4 tarjetas inferiores (**`Estudiantes`**, **`Materias`**, **`Nivel Superior`** y **`En Alerta`**) abren modales de inspección 360° en tiempo real con acceso inmediato a la Ficha 360° y Plan de Nivelación de cada estudiante o a la malla curricular de cada materia.
+- **3. EduAI Sentinel v4.0 PRO (`src/components/dashboard/EduAISentinel.tsx`)**:
+  - Eliminados todos los textos quemados/simulados (`daysLeft = 12`, mensajes estáticos de Grado 9°/10° y motor simulado): ahora calcula en tiempo real la distribución SIEEE (`Superior`, `Alto`, `Básico`, `Bajo`), los promedios reales por Hilo del Saber (`Saber 30%`, `Saber-Hacer 40%`, `Ser 20%`, `Convivencia 5%`, `Autoevaluación 5%`), los casos de ausentismo/reprobación y la cobertura real de las Higras del Conocimiento.
+  - Las 3 tarjetas (**`Detección de Abandono y Riesgo`**, **`Optimización de Rendimiento SIEEE`** y **`Tejido Curricular y Gestión de Aula`**) y el panel **`Explorar Insights`** son 100% interactivos con modales 360° para citar acudientes, generar nivelaciones, abrir aulas o imprimir el reporte analítico PDF.
+- **4. Módulo de Estudiantes (`src/app/estudiantes/page.tsx`, `src/components/students/PerformanceStats.tsx`, `src/components/students/StudentList.tsx`)**:
+  - Las 4 tarjetas superiores (**`Promedio Grupal`**, **`Estudiantes Activos`**, **`En Riesgo Académico`** y **`Desempeño Superior`**) ahora filtran en vivo la tabla de estudiantes (`ALL`, `PASSING`, `RISK`, `SUPERIOR`) y autoseleccionan el primer estudiante del filtro en la Ficha 360° lateral.
+  - La barra **`Ficha Estudiantil & Calificador de Saberes | Docente de Asignatura`** ahora es interactiva para todos los docentes, permitiendo alternar entre la **Ficha Individual 360°** y la **Matriz 360° del Grupo**, filtrar con un clic por cualquiera de los cursos del docente o saltar directamente a **Clase en Vivo**.
+  - Eliminado el bloqueo en blanco al entrar con filtro `TODOS`, mostrando desde el inicio la matrícula activa del docente.
+- **5. Clase en Vivo (`src/components/live-class/AttendanceList.tsx`, `src/components/live-class/ClassInsights.tsx`, `src/components/live-class/EvaluatedActivitiesSummary.tsx`, `src/app/clase-en-vivo/page.tsx`)**:
+  - El panel **`Selecciona un Curso`** ahora incluye botones interactivos con cada uno de los cursos y grados del docente (con conteo de estudiantes) para iniciar la clase con un solo clic.
+  - El **`Asistente IA IETABA`** abre un **Modal 360° de Diagnóstico de Aula** al tocar **`Alerta de Deserción`**, **`Refuerzo Necesario`**, **`IA Sugiere`** o **`Ver Reporte de IA Completo 360°`**, permitiendo citar acudientes por WhatsApp, abrir Fichas 360°, generar Planes de Nivelación o aplicar el taller sugerido directamente al calificador de actividades.
+  - Cada tarjeta en **`Resumen de Saberes y Actividades Evaluadas`** ahora abre el **Modal 360° de Notas por Actividad** (mostrando quién ya tiene nota y quién está pendiente con acceso a su Ficha 360°) o salta directamente al calificador seleccionando automáticamente el curso correspondiente.
+
+### 🛡️ Regla de Gobernanza Institucional de Datos ("Todo o Nada" + Reporte Descargable de Novedades CSV)
+- **Validación atómica pre-carga en los 4 Formatos Estandarizados Institucionales**:
+  - Antes de persistir cualquier registro en la base de datos o estado de la aplicación, se audita el 100% del archivo CSV cargado. Si se detecta **al menos 1 error o novedad** (campo obligatorio vacío, clave duplicada, estudiante ajeno al curso, nota fuera del rango SIEEE `0.0 – 5.0`, valor no numérico, fecha inválida o colisión de salón/hora con otro docente), **se bloquea el 100% de la carga** (*0 registros modificados hasta corregir el archivo*) y se habilita la descarga inmediata de un **Reporte de Novedades CSV** con fila, columna, valor detectado y motivo exacto.
+- **1. Tejidos de Aprendizaje (`src/lib/tejidoTemplate.ts`, `src/components/curriculum/CSVImporter.tsx`)**:
+  - Ahora exige obligatoriamente `Temas de la Higra` (`ejes`), `Higra del Conocimiento`, `Hilos del Saber (SABER, HACER, SER)`, `Grado`, `Materia` y `Periodo (1–3)`, además de detectar Higras duplicadas dentro del mismo periodo.
+  - Incluye el banner **Regla de Gobernanza Institucional · Carga Bloqueada**, botón **Descargar Novedades CSV** (`downloadTejidoNoveltiesCSV`) y bloqueo total del botón `Confirmar carga` hasta que existan `0` errores.
+- **2. Matrícula y Directorio Estudiantil SIMAT / IETABA (`src/lib/studentTemplate.ts`, `src/app/estudiantes/page.tsx`, `src/app/admin/page.tsx`)**:
+  - Valida campos obligatorios (`NRO DOCUMENTO`, `GRADO`, `CURSO IETABA`, `PRIMER APELLIDO`, `PRIMER NOMBRE`), duplicados de documento en el mismo archivo, formato válido de `FECHA NACIMIENTO` (`AAAA-MM-DD`, `DD/MM/AAAA` o serial Excel), `GENERO` (`M`/`F`), `PARENTESCO` y `ESTADO MATRICULA`.
+  - Si existen novedades, abre automáticamente la vista de alertas con el botón **Descargar Novedades CSV** (`downloadStudentNoveltiesCSV`) y deshabilita por completo la sincronización/importación tanto en `/estudiantes` como en `/admin`.
+- **3. Planilla de Calificaciones SIEEE (`src/lib/gradeTemplate.ts`, `src/components/live-class/GradebookManager.tsx`)**:
+  - Eliminado el recorte silencioso de notas fuera de rango y la omisión silenciosa de códigos no encontrados: ahora cualquier código vacío, duplicado, no perteneciente al curso activo, texto no numérico o calificación fuera de `0.0 – 5.0` se registra como novedad bloqueante (`GradebookGovernanceNovelty`).
+  - Bloquea los botones de consolidación de los Periodos 1, 2 y 3 (`BLOQUEADO POR NOVEDADES`) y ofrece el botón **Descargar Novedades CSV** (`downloadGradebookNoveltiesCSV`).
+- **4. Carga de Horarios y Asignación Académica (`src/lib/scheduleTemplate.ts`, `src/app/configuracion/page.tsx`, `src/app/horario/page.tsx`)**:
+  - Valida días hábiles, franjas oficiales (`07:30`, `08:30`, `09:30`, `11:00`, `11:50`, `12:40`), reporta la franja de descanso institucional (`10:30 – 11:00`) como novedad si tiene asignatura asignada, detecta franjas duplicadas en el archivo y audita colisiones de salón/hora en Firestore (`verifyScheduleCollisionsInFirestore`) tanto en `/configuracion` como en `/horario`.
+  - Bloquea los botones `Cargar en Malla` y `Guardar Horario` ante cualquier novedad o cruce de salón y permite descargar el reporte con `downloadScheduleNoveltiesCSV`.
+
+### 📋 Formatos Estandarizados Institucionales (Estudiantes SIMAT, Planilla de Calificaciones SIEEE y Carga de Horarios)
+- **1. Formato Estandarizado de Matrícula y Directorio Estudiantil SIMAT / IETABA (`src/lib/studentTemplate.ts`, `src/app/estudiantes/page.tsx`, `src/app/admin/page.tsx`)**:
+  - **Descarga de plantillas oficiales**: botones dedicados para **Formato Ejemplo** (`Formato_Estudiantes_SIMAT_IETABA_Ejemplo.csv`) y **Formato en Blanco** (`Formato_Estudiantes_SIMAT_IETABA_EnBlanco.csv`) con codificación UTF-8 BOM para apertura directa en Excel.
+  - **16 columnas institucionales estandarizadas**: `GRADO`, `CURSO IETABA`, `TIPO DOC.`, `NRO DOCUMENTO`, `PRIMER APELLIDO`, `SEGUNDO APELLIDO`, `PRIMER NOMBRE`, `SEGUNDO NOMBRE`, `FECHA NACIMIENTO` (con conversión automática de seriales de Excel y formatos `DD/MM/AAAA`), `GENERO`, más campos CRM opcionales (`ACUDIENTE NOMBRES`, `ACUDIENTE APELLIDOS`, `PARENTESCO`, `TELEFONO ACUDIENTE`, `VEREDA / COMUNIDAD`, `ESTADO MATRICULA`).
+  - **Validador fila por fila (`parseAndValidateStudentsCSV`)**: nueva pestaña **Alertas / Validación** dentro del modal de sincronización interactiva para reportar documentos faltantes, duplicados dentro del mismo archivo o nombres/grados incompletos sin detener las filas válidas.
+- **2. Formato Estandarizado de Planilla de Calificaciones SIEEE (`src/lib/gradeTemplate.ts`, `src/components/live-class/GradebookManager.tsx`)**:
+  - **Descarga en dos modalidades**: **Planilla del Curso** (pre-llenada con los estudiantes activos del curso y sus notas actuales) y **Formato Ejemplo** (con guía de notas `1.0 – 5.0` en `SB1..8`, `SBH1..8`, `SR1..5`, `CV1..3`, `AUT`, `REC`).
+  - **Soporte de Nivelación (`REC`) en importación masiva**: corregida la lectura de la columna `REC` / `REC1` al subir el CSV de notas.
+  - **Modal de Validación y Vista Previa antes de consolidar**: muestra conteo de estudiantes reconocidos, aprobados (`≥ 3.0`), en riesgo (`< 3.0`), códigos no pertenecientes al curso, ajustes automáticos al rango `0.0 – 5.0` y tabla previa con cálculo de Parcial, Recuperación y Definitiva antes de elegir el periodo destino.
+- **3. Formato Estandarizado de Carga de Horarios y Asignación Académica (`src/lib/scheduleTemplate.ts`, `src/app/configuracion/page.tsx`, `src/app/horario/page.tsx`)**:
+  - **Plantillas descargables**: **Formato Ejemplo**, **Formato en Blanco** (pre-estructurado con las 30 franjas semanales de Lunes a Viernes excluyendo el descanso `10:30 – 11:00` para que el docente solo rellene sus horas de clase) y **Exportar Horario Actual**.
+  - **Importador y Validador de Malla Horaria CSV**: valida días, franjas oficiales (`07:30`, `08:30`, `09:30`, `11:00`, `11:50`, `12:40`), asignaturas, grados/cursos y verifica colisiones de salón/hora contra otros docentes en Firestore antes de guardar.
+
+### 🤖 Currículo, Clase en Vivo e IA · Preparación sobre la Higra y Control de Cumplimiento por Periodos
+- **Corrección de lo señalado en la captura de Currículo (`TopicTree.tsx`, `UnitSidebar.tsx`, `UnitProgress.tsx`, `tejidoTemplate.ts`)**:
+  - **Normalizador institucional retrocompatible (`normalizeTopicForDisplay`)**: corrige automáticamente también los tejidos guardados con la estructura anterior (donde el Hilo SABER aparecía como título principal y los temas de la Higra aparecían bajo "Hijos del Saber"), asegurando que **la Higra del Conocimiento (`Tuh Putkamna`) sea siempre el título y eje central de preparación de la clase**, seguida de sus **Temas de la Higra (`ejes`)** y sus tres **Hilos del Saber (`Piankammu Mi`: SABER, HACER y SER)**.
+  - Eliminado el recuadro vacío `"Katkin Aizpa Saina: No definido"` cuando el formato no incluye esa columna adicional, e integrada la visualización limpia de **Pianaizpa (Sabidurías: Pañapain Propias y Ñanpaskas Interculturales)** y **Sat Ishkit Kamtana (Tejiendo Aprendo)**.
+  - Corregida la etiqueta de la barra lateral de periodos (`UnitSidebar.tsx`), que antes mostraba `PERIODO UNIT-PERIODO-1` y ahora muestra `Periodo 1 · X/Y temas`, `Periodo 2`, `Periodo 3` con navegación directa al periodo y alerta de temas pendientes.
+- **Verificación de cumplimiento a cabalidad de todos los temas de la Higra en todos los periodos (`computeCurriculumCoverage` y `toggleTopicEje` en `AppContext.tsx`)**:
+  - Cada tema interno (`eje`) de la Higra ahora se puede marcar individualmente como cumplido/pendiente tanto en **Currículo (`TopicTree.tsx`)** como en **Clase en Vivo (`TopicSelector.tsx`)**.
+  - El estado de la Higra (`Pendiente` → `En curso` → `Cubierta`) y los porcentajes de **Cumplimiento por Periodo (Maza T+T, Pas T+T, Kutña T+T)** se actualizan automáticamente según los temas impartidos.
+- **Selector de Temas de Clase en Vivo (`TopicSelector.tsx`), Copiloto (`LessonCopilotModal.tsx`) y Presentaciones (`GeniallyWizard.tsx`, `SlideViewer.tsx`)**:
+  - Muestra la **Higra del Conocimiento**, la lista interactiva de sus **Temas de la Higra**, y los tres **Hilos del Saber (SABER, HACER, SER)** por separado.
+  - La **Recomendación Pedagógica IA** en Clase en Vivo sugiere el próximo tema pendiente de la Higra articulado con el Hilo SABER, HACER, SER y la metodología Tejiendo Aprendo.
+- **Asistente Curricular IA, Recursos Sugeridos y Adaptación PIAR (`src/app/curriculo/page.tsx`, `PiarAdaptationModal.tsx`, `PDFCurriculumImporter.tsx`)**:
+  - Selector de Higra dentro del Asistente Curricular IA y generación completa (Desarrollo de Clase, Taller Integral, Actividad Tejiendo Aprendo, Evaluación por Hilos y Guía Docente) estructurada sobre la **Higra del Conocimiento**, todos sus **Temas**, sus tres **Hilos (Saber, Hacer, Ser)**, **Sabidurías (Pañapain y Ñanpaskas)**, **Recursos Sugeridos** y el reporte de cumplimiento de los 3 periodos.
+  - **Recursos Sugeridos dinámicos en PDF**: genera `Material_Apoyo`, `Guia_Presentacion` y el nuevo `Control_Cumplimiento_Higra` con los temas, hilos y estado real de avance en todos los periodos.
+  - Plantillas de `Restaurar Tejido IA` y `PDFCurriculumImporter` actualizadas con la jerarquía oficial.
+
+### 📚 Currículo · Carga estandarizada del Tejido de Aprendizaje
+- **Estructura institucional corregida**: Periodo → **Higra del Conocimiento** (Tuh Putkamna, lo que se dicta y sobre lo que se preparan las clases) → **Hilos del Saber** (SABER · HACER · SER) → Sabidurías Propias/Interculturales → Tejiendo Aprendo.
+  - Antes el importador usaba "Piankammu Mi" como título del tema y mezclaba los hilos en un solo campo ("Hijos del Saber").
+  - Ahora el título del tema **es la Higra**, con sus temas (`ejes`) y los campos separados `saber`, `hacer`, `ser`, `semanas`.
+- **Nuevo módulo** `src/lib/tejidoTemplate.ts`: columnas oficiales, alias de encabezados (acepta formatos anteriores), validación y generador de plantilla.
+- **Formato descargable** (CSV separado por `;` con UTF-8, abre directo en Excel en español):
+  - "Formato en blanco" y "Formato con ejemplo" (Matemáticas grado 6, primer periodo).
+  - Una fila = una Higra; temas y estrategias separados por `|`.
+- **Importador reescrito** (`CSVImporter.tsx`, botón "Cargar Tejido"):
+  - Validación por fila (campos obligatorios, periodo 1–3, un solo grado y materia por archivo) con mensajes claros.
+  - Vista previa Higra → Temas / Saber / Hacer / Ser.
+  - Solo reemplaza los periodos incluidos en el archivo y **conserva el avance** (estado/fecha) de higras existentes.
+- **Vista del currículo** (`TopicTree.tsx`): muestra la Higra con sus temas y los tres hilos por separado; mantiene compatibilidad con datos antiguos.
+- Tipo `Topic` ampliado en `AppContext.tsx` (`ejes`, `saber`, `hacer`, `ser`, `semanas`).
+
+### 📝 Clase en Vivo · Borradores pendientes (sesiones sin guardar)
+- **Corregido el parseo de claves de borrador** en `src/app/clase-en-vivo/page.tsx`:
+  - Asistencia: `draft_attendance_{fecha}_{materia}_{grado}_{curso}` (antes se tomaba la fecha como grado).
+  - Calificación: `draft_activity_{materia}_{grado}_{curso}_{categoría}_{slot}` (antes se tomaba la materia como grado).
+- **Nuevo modal "Clases sin guardar"** al tocar el aviso de borrador pendiente:
+  - Lista cada borrador con tipo (Asistencia/Calificación), materia, grado, curso, categoría y número de actividad, fecha y cantidad de estudiantes con datos pendientes.
+  - Botón **Abrir**: cierra el modal, selecciona materia/grado/curso y, si es calificación, abre directamente la actividad.
+  - Botón **Descartar**: elimina el borrador previa confirmación.
+  - Se cierra automáticamente cuando no quedan borradores.
+- **Contador reactivo**: revisión cada 1,5 s (antes 4 s) y al recuperar foco o cambiar `localStorage`; disminuye a medida que se guarda.
+- **Mensaje más claro**: "Tienes N registros sin guardar. Toca aquí para ver cuáles son y cerrarlos."
+
+---
+
 ## [2.12.4] — 2026-09-11 · Modo 100% Offline Real y Corrección de Desborde Móvil en Inicio
 
 ### ⚡ Offline-First y Carga Autónoma

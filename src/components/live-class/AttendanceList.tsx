@@ -13,9 +13,10 @@ interface AttendanceListProps {
   subjectId: string;
   grade: string;
   course: string;
+  onSelectCourse?: (grade: string, course: string) => void;
 }
 
-export default function AttendanceList({ subjectId, grade, course }: AttendanceListProps) {
+export default function AttendanceList({ subjectId, grade, course, onSelectCourse }: AttendanceListProps) {
   const { myStudents, subjects, profile, addGrade, saveDailyAttendance, addAgendaNote, agendaNotes, updateAgendaNote } = useApp();
   const [isAlreadySaved, setIsAlreadySaved] = useState(false);
   const [existingNoteId, setExistingNoteId] = useState<string | null>(null);
@@ -220,14 +221,53 @@ export default function AttendanceList({ subjectId, grade, course }: AttendanceL
   return (
     <div className="space-y-6">
       {grade === "TODOS" || course === "TODOS" ? (
-        <div className="bg-white border border-outline-variant rounded-[3rem] p-16 flex flex-col items-center justify-center text-center shadow-2xl">
-           <div className="w-24 h-24 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center mb-6">
-             <Filter size={48} />
-           </div>
-           <h3 className="text-xl font-black uppercase tracking-tighter italic text-on-surface mb-2">Selecciona un Curso</h3>
-           <p className="text-[11px] font-bold text-on-surface-variant max-w-md mx-auto uppercase tracking-widest leading-relaxed">
-             Para tomar asistencia y registrar notas de clase, debes seleccionar un grado y un curso específico en los filtros superiores.
-           </p>
+        <div className="bg-white border border-outline-variant rounded-[3rem] p-8 md:p-14 flex flex-col items-center justify-center text-center shadow-2xl space-y-6">
+          <div className="w-20 h-20 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center">
+            <Filter size={40} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black uppercase tracking-tighter italic text-on-surface mb-2">
+              Selecciona un Curso para Iniciar
+            </h3>
+            <p className="text-[11px] font-bold text-on-surface-variant max-w-md mx-auto uppercase tracking-widest leading-relaxed">
+              Toca cualquiera de tus cursos asignados aquí abajo (o en los filtros superiores) para abrir la asistencia y el calificador en vivo 360°:
+            </p>
+          </div>
+
+          {/* Botones interactivos 360° de todos los cursos disponibles del docente */}
+          <div className="flex flex-wrap items-center justify-center gap-3 max-w-2xl">
+            {Array.from(
+              new Map(
+                myStudents
+                  .filter(s => s.isActive !== false && (grade === "TODOS" || normalizeGrade(s.grado) === normalizeGrade(grade)))
+                  .map(s => {
+                    const g = normalizeGrade(s.grado);
+                    const c = s.curso;
+                    return [`${g}|${c}`, { grade: g, course: c }];
+                  })
+              ).values()
+            )
+              .sort((a, b) => a.grade.localeCompare(b.grade, undefined, { numeric: true }) || a.course.localeCompare(b.course))
+              .map(pair => {
+                const count = myStudents.filter(
+                  s => s.isActive !== false && normalizeGrade(s.grado) === pair.grade && s.curso === pair.course
+                ).length;
+                return (
+                  <button
+                    key={`${pair.grade}-${pair.course}`}
+                    type="button"
+                    onClick={() => onSelectCourse && onSelectCourse(pair.grade, pair.course)}
+                    className="px-5 py-3.5 rounded-2xl bg-surface-container-low hover:bg-primary hover:text-white border-2 border-outline-variant hover:border-primary text-on-surface font-black text-xs uppercase tracking-wider transition-all shadow-sm hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2.5 cursor-pointer group"
+                  >
+                    <GraduationCap size={16} className="text-primary group-hover:text-white transition-colors" />
+                    <span>Grado {pair.grade}° · Curso {pair.course}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] bg-primary/10 text-primary group-hover:bg-white/20 group-hover:text-white">
+                      {count} est.
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
         </div>
       ) : (
       <>

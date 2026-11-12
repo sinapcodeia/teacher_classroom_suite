@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, Maximize, Minimize, CheckCircle } from "lucide-react";
 import { Topic, Slide } from "@/context/AppContext";
+import { normalizeTopicForDisplay } from "@/lib/tejidoTemplate";
 
 interface SlideViewerProps {
   topic: Topic;
@@ -17,7 +18,9 @@ export default function SlideViewer({ topic, customSlides, onClose }: SlideViewe
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Usa las diapositivas personalizadas pasadas directamente, las guardadas en topic, o el fallback contextual
+  const norm = normalizeTopicForDisplay(topic);
+
+  // Usa las diapositivas personalizadas pasadas directamente, las guardadas en topic, o el fallback contextual basado en la Higra y sus 3 hilos
   let slides: Slide[] = [];
   if (customSlides && customSlides.length > 0) {
     slides = customSlides;
@@ -28,38 +31,40 @@ export default function SlideViewer({ topic, customSlides, onClose }: SlideViewe
       {
         id: `${topic.id}-slide-title`,
         type: "title",
-        title: topic.title,
-        content: topic.tuhPutkamna
-          ? `Hilo del Saber: ${topic.tuhPutkamna}`
-          : `¡Bienvenidos a la clase! Exploraremos "${topic.title}" tejiendo saberes e innovación.`,
+        title: `Higra: ${norm.higra}`,
+        content: `Temas de la Higra: ${norm.ejes.join(" · ")}`,
+      },
+      {
+        id: `${topic.id}-slide-hilos`,
+        type: "split",
+        title: "Hilos del Saber (Piankammu Mi)",
+        content: `• SABER: ${norm.saber}\n• HACER: ${norm.hacer}\n• SER: ${norm.ser}`,
+        imageUrl: "/mock-isometric.png",
+        imagePrompt: `Infografía técnica isométrica sobre la Higra "${norm.higra}" y sus temas (${norm.ejes.join(", ")}).`,
       },
       {
         id: `${topic.id}-slide-split`,
         type: "split",
-        title: "Sabidurías y Competencias",
-        content: topic.panapain
-          ? `🌿 Saberes Propios: ${topic.panapain}. ${topic.nanpaskas ? `💡 Conocimientos Interculturales: ${topic.nanpaskas}` : ''}`
-          : `Exploraremos "${topic.title}" desde la metodología Tejiendo Aprendo, conectando los conocimientos de nuestro territorio con aprendizajes significativos.`,
+        title: "Sabidurías (Pianaizpa)",
+        content: `🌿 Propia (Pañapain): ${norm.panapain || "Saberes propios del territorio."}\n💡 Intercultural (Ñanpaskas): ${norm.nanpaskas || "Diálogo de saberes universales."}`,
         imageUrl: "/mock-isometric.png",
-        imagePrompt: `Infografía técnica isométrica CGI fotorrealista sobre el concepto: "${topic.title}".`,
+        imagePrompt: `Convergencia biocultural Awá para "${norm.higra}".`,
       },
       {
         id: `${topic.id}-slide-flip`,
         type: "flipcard",
-        title: "Reto de Comprensión y Vida",
-        content: `¿Cómo se manifiesta el saber de "${topic.title}" en nuestra vida diaria y en nuestra comunidad?`,
-        flipContent: topic.katkinAizpa
-          ? `Herramienta Pedagógica: ${topic.katkinAizpa}`
-          : (topic.satIshkit || `"${topic.title}" nos enseña a resolver problemas con lógica, respeto por la naturaleza y colaboración activa entre compañeros.`),
+        title: "Tejiendo Aprendo (Sat Ishkit Kamtana)",
+        content: `¿Cómo ponemos en práctica los temas (${norm.ejes.join(", ")}) durante la clase de hoy?`,
+        flipContent: norm.satIshkit || `Mediante trabajo colaborativo, aplicando el Hilo HACER: ${norm.hacer}`,
       },
       {
         id: `${topic.id}-slide-quiz`,
         type: "quiz",
         title: "Tejiendo Aprendo: ¡Reto Final!",
-        content: `¿Cómo podemos aplicar mejor lo aprendido en "${topic.title}"?`,
+        content: `En la Higra "${norm.higra}", ¿cómo articulamos el SABER, el HACER y el SER?`,
         quizOptions: [
-          { text: "Compartiendo ideas y construyendo conocimiento en comunidad", isCorrect: true },
-          { text: "Trabajando de forma aislada sin escuchar a los demás", isCorrect: false }
+          { text: "Comprendiendo los conceptos (Saber), resolviendo problemas reales (Hacer) y trabajando con respeto comunitario (Ser)", isCorrect: true },
+          { text: "Trabajando de forma aislada sin aplicar los temas en la comunidad", isCorrect: false }
         ]
       }
     ];

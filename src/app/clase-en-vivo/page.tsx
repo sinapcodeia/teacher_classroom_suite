@@ -31,8 +31,12 @@ function LiveClassPageContent() {
   const [viewMode, setViewMode] = useState<"live" | "gradebook">("live");
   const [selectedActivityForGrading, setSelectedActivityForGrading] = useState<{ category: "sb" | "sbh" | "sr" | "cv" | "aut" | "rec"; slotIndex: number; title: string; ts: number } | null>(null);
   const [initialSyncDone, setInitialSyncDone] = useState(false);
-  type DraftInfo = { key: string, type: "attendance" | "activity", grade: string, course: string, subject: string };
+  type DraftInfo = { key: string, type: "attendance" | "activity", grade: string, course: string, subject: string, date?: string, category?: string, slot?: number, count: number };
   const [drafts, setDrafts] = useState<DraftInfo[]>([]);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [draftsTick, setDraftsTick] = useState(0);
+
+  const CATEGORY_LABELS: Record<string, string> = { sb: "Saber", sbh: "Saber Hacer", sr: "Saber Ser", cv: "Convivencia", aut: "Autoevaluación", rec: "Recuperación" };
 
   useEffect(() => {
     const checkDrafts = () => {
@@ -42,7 +46,8 @@ function LiveClassPageContent() {
           const key = localStorage.key(i);
           if (key && (key.startsWith('draft_attendance_') || key.startsWith('draft_activity_'))) {
             const parts = key.split('_');
-            if (parts.length >= 5) {
+            const isAtt = key.startsWith('draft_attendance_');
+            if (parts.length >= (isAtt ? 6 : 7)) {
               try {
                 const raw = localStorage.getItem(key);
                 if (raw) {
@@ -52,13 +57,15 @@ function LiveClassPageContent() {
                     (parsed.attendance && Object.values(parsed.attendance).some((v: any) => v && v.toString().trim() !== ""))
                   );
                   if (hasItems) {
-                    newDrafts.push({
-                      key,
-                      type: key.includes('attendance') ? 'attendance' : 'activity',
-                      grade: parts[2],
-                      course: parts[3],
-                      subject: parts.slice(4).join('_')
-                    });
+                    const src = parsed.grades || parsed.attendance || {};
+                    const count = Object.values(src).filter((v: any) => v && v.toString().trim() !== "").length;
+                    if (isAtt) {
+                      // draft_attendance_{fecha}_{materia}_{grado}_{curso}
+                      newDrafts.push({ key, type: 'attendance', date: parts[2], subject: parts.slice(3, -2).join('_'), grade: parts[parts.length - 2], course: parts[parts.length - 1], count });
+                    } else {
+                      // draft_activity_{materia}_{grado}_{curso}_{categoria}_{slot}
+                      newDrafts.push({ key, type: 'activity', subject: parts.slice(2, -4).join('_'), grade: parts[parts.length - 4], course: parts[parts.length - 3], category: parts[parts.length - 2], slot: Number(parts[parts.length - 1]), count });
+                    }
                   } else {
                     localStorage.removeItem(key);
                   }
@@ -71,9 +78,37 @@ function LiveClassPageContent() {
       } catch (_) {}
     };
     checkDrafts();
-    const interval = setInterval(checkDrafts, 4000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(checkDrafts, 1500);
+    window.addEventListener('storage', checkDrafts);
+    window.addEventListener('focus', checkDrafts);
+    return () => { clearInterval(interval); window.removeEventListener('storage', checkDrafts); window.removeEventListener('focus', checkDrafts); };
+  }, [draftsTick]);
+
+  const goToDraft = (d: DraftInfo) => {
+    const matchedSub = subjects.find(s => s.id === d.subject || s.name.toUpperCase() === d.subject.toUpperCase());
+    if (matchedSub) setSelectedSubject(matchedSub.id);
+    if (d.grade) setSelectedGrado(d.grade === "TODOS" ? "TODOS" : normalizeGrade(d.grade));
+    if (d.course) setSelectedCurso(d.course);
+    setViewMode("live");
+    if (d.type === 'activity' && d.category && !isNaN(d.slot as number)) {
+      setTimeout(() => setSelectedActivityForGrading({ category: d.category as any, slotIndex: d.slot as number, title: CATEGORY_LABELS[d.category as string] || d.category as string, ts: Date.now() }), 300);
+    }
+    setShowDraftsModal(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const discardDraft = (d: DraftInfo) => {
+    if (!window.confirm("¿Descartar este borrador? Los datos no guardados se perderán.")) return;
+    localStorage.removeItem(d.key);
+    setDrafts(prev => prev.filter(x => x.key !== d.key));
+    setDraftsTick(t => t + 1);
+  };
+
+  const subjectLabel = (id: string) => subjects.find(s => s.id === id || s.name.toUpperCase() === id.toUpperCase())?.name || id;
+
+  useEffect(() => {
+    if (showDraftsModal && drafts.length === 0) setShowDraftsModal(false);
+  }, [drafts.length, showDraftsModal]);
 
   useEffect(() => {
     setMounted(true);
@@ -246,15 +281,7 @@ function LiveClassPageContent() {
 
           {drafts.length > 0 && (
             <button 
-              onClick={() => {
-                const first = drafts[0];
-                if (first.grade) setSelectedGrado(normalizeGrade(first.grade));
-                if (first.course) setSelectedCurso(first.course);
-                const matchedSub = subjects.find(s => s.name.toUpperCase() === first.subject.toUpperCase() || s.id === first.subject);
-                if (matchedSub) setSelectedSubject(matchedSub.id);
-                setViewMode("live");
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onClick={() => setShowDraftsModal(true)}
               className="w-full text-left mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all animate-in fade-in cursor-pointer group"
             >
               <div className="flex items-center gap-3">
@@ -264,7 +291,7 @@ function LiveClassPageContent() {
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-wider">Borrador Pendiente</p>
                   <p className="text-[9px] font-bold opacity-80 uppercase">
-                    Tienes {drafts.length} clase(s) sin guardar. <span className="underline decoration-amber-400 decoration-2 underline-offset-2">Haz clic aquí</span> para ir a grado {drafts[0].grade} curso {drafts[0].course} y guardarlo.
+                    Tienes {drafts.length} {drafts.length === 1 ? "registro sin guardar" : "registros sin guardar"}. <span className="underline decoration-amber-400 decoration-2 underline-offset-2">Toca aquí</span> para ver cuáles son y cerrarlos.
                   </p>
                 </div>
               </div>
@@ -314,6 +341,10 @@ function LiveClassPageContent() {
                 subjectId={selectedSubject}
                 grade={selectedGrado}
                 course={selectedCurso}
+                onSelectCourse={(g, c) => {
+                  setSelectedGrado(g);
+                  setSelectedCurso(c);
+                }}
               />
 
               {/* Resumen Ejecutivo de Saberes y Actividades Evaluadas */}
@@ -323,22 +354,41 @@ function LiveClassPageContent() {
                 periodId={activePeriodId}
                 grade={selectedGrado}
                 course={selectedCurso}
-                onSelectActivity={(category, slotIndex, title) => {
+                onSelectActivity={(category, slotIndex, title, inferredGrade, inferredCourse) => {
+                  if (selectedGrado === "TODOS" && inferredGrade) {
+                    setSelectedGrado(inferredGrade);
+                  }
+                  if (selectedCurso === "TODOS" && inferredCourse) {
+                    setSelectedCurso(inferredCourse);
+                  }
                   setSelectedActivityForGrading({ category, slotIndex, title, ts: Date.now() });
                 }}
               />
 
-              <ActivityGrader 
-                subject={currentSubjectName}
-                course={selectedCurso}
-                grade={selectedGrado}
-                externalSelection={selectedActivityForGrading}
-              />
+              <div id="activity-grader-section">
+                <ActivityGrader 
+                  subject={currentSubjectName}
+                  course={selectedCurso}
+                  grade={selectedGrado}
+                  externalSelection={selectedActivityForGrading}
+                />
+              </div>
             </div>
 
             <aside className="lg:col-span-4 flex flex-col gap-8">
               <SessionReminders course={selectedCurso} subject={currentSubjectName} grade={selectedGrado} />
-              <ClassInsights course={selectedCurso} subject={currentSubjectName} grade={selectedGrado} />
+              <ClassInsights
+                course={selectedCurso}
+                subject={currentSubjectName}
+                grade={selectedGrado}
+                onApplyWorkshopTitle={(title) => {
+                  setSelectedActivityForGrading({ category: "sbh", slotIndex: 0, title, ts: Date.now() });
+                  setTimeout(() => {
+                    const el = document.getElementById("activity-grader-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 150);
+                }}
+              />
               <TopicSelector subjectId={currentSubjectName} grade={normalizedGradeForCurriculum} />
               <SessionNotes subject={currentSubjectName} course={selectedCurso} />
               
@@ -370,6 +420,40 @@ function LiveClassPageContent() {
           </div>
         ))}
       </main>
+
+      {showDraftsModal && (
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-slate-900/50 backdrop-blur-sm p-0 md:p-6 animate-in fade-in" onClick={() => setShowDraftsModal(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="drafts-modal-title" onClick={e => e.stopPropagation()} className="w-full md:max-w-lg max-h-[85vh] bg-white rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="p-5 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="drafts-modal-title" className="text-sm font-black uppercase tracking-wider text-amber-900">Clases sin guardar ({drafts.length})</h2>
+                <p className="text-[11px] text-amber-800/80 mt-1">Toca una para abrirla y guardarla. El contador baja a medida que guardas.</p>
+              </div>
+              <button id="close-drafts-modal" onClick={() => setShowDraftsModal(false)} className="w-9 h-9 rounded-xl bg-white border border-amber-200 text-amber-800 font-black hover:bg-amber-100" aria-label="Cerrar">✕</button>
+            </div>
+            <ul className="overflow-y-auto divide-y divide-slate-100">
+              {drafts.map(d => (
+                <li key={d.key} className="p-4 flex items-center gap-3 hover:bg-amber-50/50 transition-colors">
+                  <button onClick={() => goToDraft(d)} className="flex-1 text-left min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${d.type === 'attendance' ? 'bg-sky-100 text-sky-800' : 'bg-violet-100 text-violet-800'}`}>{d.type === 'attendance' ? 'Asistencia' : 'Calificación'}</span>
+                      <span className="text-xs font-black uppercase text-slate-800 truncate">{subjectLabel(d.subject)}</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-600 mt-1">
+                      Grado {d.grade === "TODOS" ? "(todos)" : d.grade} · Curso {d.course === "TODOS" ? "(todos)" : d.course}
+                      {d.type === 'activity' && d.category ? ` · ${CATEGORY_LABELS[d.category] || d.category} #${(d.slot ?? 0) + 1}` : ''}
+                      {d.date ? ` · ${d.date}` : ''}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{d.count} {d.count === 1 ? 'estudiante con datos' : 'estudiantes con datos'} pendientes</p>
+                  </button>
+                  <button onClick={() => goToDraft(d)} className="px-3 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600">Abrir</button>
+                  <button onClick={() => discardDraft(d)} className="px-3 py-2 rounded-xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase hover:bg-red-50 hover:text-red-600" title="Descartar borrador">Descartar</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <BottomNavBar />
     </div>

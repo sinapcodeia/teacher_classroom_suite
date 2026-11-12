@@ -1,18 +1,27 @@
 "use client";
 
-
-
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp, ScheduleBlock } from "@/context/AppContext";
 import { printStudentsByCourse, printStudentsByGrade, printAttendanceSheet, printWeeklySchedule } from "@/lib/printService";
-import { User, Calendar, Printer, Save, Plus, Trash2, ChevronRight, AlertTriangle, Sun, CheckCircle2, Loader2, Database, Trash } from "lucide-react";
+import {
+  User, Calendar, Printer, Save, Plus, Trash2, ChevronRight,
+  AlertTriangle, Sun, CheckCircle2, Loader2, Database, Trash,
+  Download, Upload, X
+} from "lucide-react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import DatabaseBackup from "@/components/shared/DatabaseBackup";
 import { normalizeGrade } from "@/lib/constants";
+import Papa from "papaparse";
+import {
+  downloadScheduleTemplate,
+  downloadScheduleNoveltiesCSV,
+  parseAndValidateScheduleCSV,
+  ScheduleValidationIssue,
+} from "@/lib/scheduleTemplate";
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────────
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] as const;
@@ -314,6 +323,14 @@ export default function ConfiguracionPage() {
   const [saved, setSaved] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // Estado para carga estandarizada de Horario CSV
+  const [scheduleImportPreview, setScheduleImportPreview] = useState<{
+    validBlocks: ScheduleBlock[];
+    issues: ScheduleValidationIssue[];
+    collisions: { block: ScheduleBlock; conflictWith: string }[];
+  } | null>(null);
+  const [isValidatingScheduleCSV, setIsValidatingScheduleCSV] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -396,6 +413,36 @@ export default function ConfiguracionPage() {
   const removeBlock = useCallback((id: string) => {
     setBlocks(prev => prev.filter(b => b.id !== id));
   }, []);
+
+  const handleScheduleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsValidatingScheduleCSV(true);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const parsed = parseAndValidateScheduleCSV(results.data as any[], masterData.subjects);
+        const collisions: { block: ScheduleBlock; conflictWith: string }[] = [];
+
+        for (const blk of parsed.validBlocks) {
+          const check = await checkCollision(blk.day, blk.startTime, blk.course, user?.uid || "");
+          if (check.hasCollision && check.conflictWith) {
+            collisions.push({ block: blk, conflictWith: check.conflictWith });
+          }
+        }
+
+        setScheduleImportPreview({
+          validBlocks: parsed.validBlocks,
+          issues: parsed.issues,
+          collisions,
+        });
+        setIsValidatingScheduleCSV(false);
+        if (e.target) e.target.value = "";
+      },
+    });
+  };
 
   if (!mounted) return (
     <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center">
@@ -506,11 +553,53 @@ export default function ConfiguracionPage() {
             {/* ── HORARIO ── */}
             {tab === "horario" && !profile.isSuperAdmin && (
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-sm font-black uppercase tracking-widest text-gray-700">Malla Horaria Semanal</h2>
-                  <div className="flex items-center gap-2">
-                    <Sun size={14} className="text-amber-500" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">IETABA · 7:30 – 13:30</span>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-widest text-gray-700">Malla Horaria Semanal</h2>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Sun size={14} className="text-amber-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">IETABA · 7:30 – 13:30 (Descanso 10:30 – 11:00)</span>
+                    </div>
+                  </div>
+
+                  {/* Barra de Formatos Estandarizados de Horario CSV */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => downloadScheduleTemplate("example")}
+                      title="Descargar formato estandarizado con bloques de ejemplo"
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all"
+                    >
+                      <Download size={14} /> Formato Ejemplo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadScheduleTemplate("blank")}
+                      title="Descargar malla semanal en blanco con todas las franjas listas para llenar"
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+                    >
+                      <Download size={14} /> Formato en Blanco
+                    </button>
+                    {blocks.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => downloadScheduleTemplate("current", blocks)}
+                        title="Exportar mi horario configurado a CSV"
+                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-blue-700 border border-blue-200 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-blue-50 transition-all"
+                      >
+                        <Download size={14} /> Exportar Actual
+                      </button>
+                    )}
+                    <label className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-all cursor-pointer shadow-md">
+                      {isValidatingScheduleCSV ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                      <span>Subir Horario CSV</span>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={handleScheduleCSVUpload}
+                      />
+                    </label>
                   </div>
                 </div>
 
@@ -522,6 +611,164 @@ export default function ConfiguracionPage() {
                   onAdd={addBlock}
                   onRemove={removeBlock}
                 />
+
+                {/* Modal de Validación y Vista Previa de Horario CSV */}
+                {scheduleImportPreview && (
+                  <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                    <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl space-y-5 max-h-[90vh] flex flex-col border border-slate-100">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+                        <div>
+                          <span className="text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full">
+                            Formato Estandarizado de Horario
+                          </span>
+                          <h3 className="text-xl font-black uppercase italic text-slate-900 mt-1">
+                            Validación de Malla Horaria CSV
+                          </h3>
+                        </div>
+                        <button
+                          onClick={() => setScheduleImportPreview(null)}
+                          className="w-9 h-9 rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-center">
+                            <span className="text-[9px] font-black uppercase text-blue-700 block">Clases Válidas</span>
+                            <span className="text-lg font-black text-blue-950">{scheduleImportPreview.validBlocks.length}</span>
+                          </div>
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+                            <span className="text-[9px] font-black uppercase text-amber-700 block">Observaciones CSV</span>
+                            <span className="text-lg font-black text-amber-950">{scheduleImportPreview.issues.length}</span>
+                          </div>
+                          <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-center">
+                            <span className="text-[9px] font-black uppercase text-rose-700 block">Choques Salón</span>
+                            <span className="text-lg font-black text-rose-950">{scheduleImportPreview.collisions.length}</span>
+                          </div>
+                        </div>
+
+                        {(scheduleImportPreview.issues.length > 0 || scheduleImportPreview.collisions.length > 0) && (
+                          <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-xs text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <span className="inline-block text-[9px] font-black uppercase tracking-widest bg-rose-600 text-white px-2.5 py-0.5 rounded-full mb-1">
+                                Regla de Gobernanza Institucional · Carga Bloqueada
+                              </span>
+                              <p className="font-black uppercase text-xs text-rose-900">
+                                No se cargará ningún bloque horario hasta corregir las novedades o choques reportados.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadScheduleNoveltiesCSV(
+                                  scheduleImportPreview.issues,
+                                  scheduleImportPreview.collisions
+                                )
+                              }
+                              className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                            >
+                              <Download size={13} /> Descargar Novedades CSV
+                            </button>
+                          </div>
+                        )}
+
+                        {scheduleImportPreview.collisions.length > 0 && (
+                          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 space-y-1">
+                            <p className="font-black uppercase text-[10px] tracking-wider">
+                              ⚠ Choques detectados con otros docentes:
+                            </p>
+                            <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                              {scheduleImportPreview.collisions.map((c, idx) => (
+                                <li key={idx}>
+                                  <strong>{c.block.day} ({c.block.startTime})</strong> · Curso <strong>{c.block.course}</strong> ya asignado a <strong>{c.conflictWith}</strong>.
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {scheduleImportPreview.issues.length > 0 && (
+                          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 space-y-1">
+                            <p className="font-black uppercase text-[10px] tracking-wider">
+                              ✕ Novedades encontradas en el archivo CSV:
+                            </p>
+                            <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                              {scheduleImportPreview.issues.map((iss, idx) => (
+                                <li key={idx}>
+                                  <strong>Fila #{iss.rowNumber}</strong> ({iss.day} {iss.slot} · Campo <code>{iss.field}</code>): {iss.message}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {scheduleImportPreview.validBlocks.length > 0 && scheduleImportPreview.issues.length === 0 && scheduleImportPreview.collisions.length === 0 ? (
+                          <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-56 overflow-y-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead className="bg-slate-100 font-black uppercase text-[10px] text-slate-600 sticky top-0">
+                                <tr>
+                                  <th className="p-2.5">Día</th>
+                                  <th className="p-2.5">Franja</th>
+                                  <th className="p-2.5">Asignatura</th>
+                                  <th className="p-2.5 text-center">Grado / Curso</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {scheduleImportPreview.validBlocks.map((b, idx) => (
+                                  <tr key={idx} className="hover:bg-slate-50">
+                                    <td className="p-2.5 font-black text-slate-800">{b.day}</td>
+                                    <td className="p-2.5 font-mono text-slate-600">{b.startTime} – {b.endTime}</td>
+                                    <td className="p-2.5 font-bold text-blue-700">{b.subject}</td>
+                                    <td className="p-2.5 text-center font-bold text-slate-700">{b.grade} · {b.course}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : scheduleImportPreview.issues.length === 0 && scheduleImportPreview.collisions.length === 0 ? (
+                          <div className="py-8 text-center text-xs font-bold uppercase text-slate-400">
+                            No se encontraron bloques de clase válidos en el archivo.
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setScheduleImportPreview(null)}
+                          className="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            scheduleImportPreview.validBlocks.length === 0 ||
+                            scheduleImportPreview.issues.length > 0 ||
+                            scheduleImportPreview.collisions.length > 0
+                          }
+                          onClick={() => {
+                            if (
+                              scheduleImportPreview.issues.length > 0 ||
+                              scheduleImportPreview.collisions.length > 0
+                            ) {
+                              return;
+                            }
+                            setBlocks(scheduleImportPreview.validBlocks);
+                            setScheduleImportPreview(null);
+                          }}
+                          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20"
+                        >
+                          {scheduleImportPreview.issues.length > 0 || scheduleImportPreview.collisions.length > 0
+                            ? "Bloqueado hasta Corregir Novedades"
+                            : `Cargar en Malla (${scheduleImportPreview.validBlocks.length} clases)`}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -600,7 +847,6 @@ export default function ConfiguracionPage() {
               </div>
             )}
 
-            
             {/* ── SISTEMA Y BACKUP ── */}
             {tab === "sistema" && (
               <div className="animate-in fade-in zoom-in-95 duration-300">
