@@ -37,7 +37,7 @@ const D = {
 };
 
 export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
-  const { user, authLoading, profile, logout, acceptTerms, isOnline } = useApp();
+  const { user, authLoading, profile, logout, acceptTerms } = useApp();
   const router = useRouter();
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,7 +110,6 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       const timer = setTimeout(checkScrollability, 600);
       return () => clearTimeout(timer);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.acceptedTerms, user]);
 
   const handleScroll = () => {

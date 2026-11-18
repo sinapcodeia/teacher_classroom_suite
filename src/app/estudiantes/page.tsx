@@ -9,11 +9,11 @@ const PerformanceStats = nextDynamic(() => import("@/components/students/Perform
 const ImportSummaryModal = nextDynamic(() => import("@/components/students/ImportSummaryModal"), { ssr: false });
 const DirectorGrupoCockpit = nextDynamic(() => import("@/components/students/DirectorGrupoCockpit"), { ssr: false });
 import { FileDown, FileText, UserPlus, X, CheckCircle, Loader2, AlertTriangle, ArrowRight, Check, Trash2, Users } from "lucide-react";
-import Papa from "papaparse";
+import { parseSpreadsheetFileToObjects, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 import {
   downloadStudentTemplate,
   downloadStudentNoveltiesCSV,
@@ -265,82 +265,81 @@ export default function StudentsPage() {
               <UserPlus size={16} /> Nueva Matrícula
             </button>
             <label className="flex items-center justify-center gap-2 flex-1 md:flex-none px-4 py-3 md:px-6 md:py-3 bg-indigo-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all cursor-pointer shadow-lg active:scale-95 min-w-[140px]">
-              <FileDown size={16} /> Carga Masiva CSV
+              <FileDown size={16} /> Carga Masiva Excel
               <input 
                 type="file" 
-                accept=".csv" 
+                accept={SPREADSHEET_ACCEPT} 
                 className="hidden" 
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
+                  if (e.target) e.target.value = "";
 
-                  Papa.parse(file, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: async (results) => {
-                      const rows = results.data as any[];
-                      const { validRows: incoming, issues } = parseAndValidateStudentsCSV(rows, true);
+                  try {
+                    const rows = await parseSpreadsheetFileToObjects(file);
+                    const { validRows: incoming, issues } = parseAndValidateStudentsCSV(rows, true);
 
-                      // Comparar
-                      const newStudents: any[] = [];
-                      const modifiedStudents: any[] = [];
-                      const unchangedStudents: any[] = [];
-                      const incomingDocs = new Set(incoming.map(i => i.nroDocumento));
+                    // Comparar
+                    const newStudents: any[] = [];
+                    const modifiedStudents: any[] = [];
+                    const unchangedStudents: any[] = [];
+                    const incomingDocs = new Set(incoming.map(i => i.nroDocumento));
 
-                      incoming.forEach(inc => {
-                        const existing = myStudents.find(ex => ex.nroDocumento === inc.nroDocumento);
-                        if (!existing) {
-                          newStudents.push(inc);
-                        } else {
-                          const changes: { field: string; old: string; newVal: string }[] = [];
-                          const checkField = (label: string, incVal: string | undefined, extVal: string | undefined, optional = false) => {
-                            const cleanInc = (incVal || "").trim().toUpperCase();
-                            const cleanExt = (extVal || "").trim().toUpperCase();
-                            if (optional && !cleanInc) return;
-                            if (cleanInc !== cleanExt) {
-                              changes.push({ field: label, old: extVal || "—", newVal: incVal || "—" });
-                            }
-                          };
-
-                          checkField("Primer Nombre", inc.primerNombre, existing.primerNombre);
-                          checkField("Segundo Nombre", inc.segundoNombre, existing.segundoNombre);
-                          checkField("Primer Apellido", inc.primerApellido, existing.primerApellido);
-                          checkField("Segundo Apellido", inc.segundoApellido, existing.segundoApellido);
-                          checkField("Grado", inc.grado, existing.grado);
-                          checkField("Curso", inc.curso, existing.curso);
-                          checkField("Tipo Doc.", inc.tipoDocumento, existing.tipoDocumento);
-                          checkField("F. Nacimiento", inc.fechaNacimiento, existing.fechaNacimiento);
-                          checkField("Género", inc.genero, existing.genero);
-                          checkField("Acudiente Nombres", inc.acudienteNombres, existing.acudienteNombres, true);
-                          checkField("Acudiente Apellidos", inc.acudienteApellidos, existing.acudienteApellidos, true);
-                          checkField("Parentesco", inc.acudienteParentesco, existing.acudienteParentesco, true);
-                          checkField("Tel. Acudiente", inc.acudienteTelefono, existing.acudienteTelefono, true);
-                          checkField("Vereda", inc.acudienteVereda, existing.acudienteVereda, true);
-                          checkField("Estado Matrícula", inc.estadoMatricula, existing.estadoMatricula || "MATRICULADO", true);
-
-                          if (changes.length > 0) {
-                            modifiedStudents.push({ student: inc, id: existing.id, changes });
-                          } else {
-                            unchangedStudents.push(inc);
+                    incoming.forEach(inc => {
+                      const existing = myStudents.find(ex => ex.nroDocumento === inc.nroDocumento);
+                      if (!existing) {
+                        newStudents.push(inc);
+                      } else {
+                        const changes: { field: string; old: string; newVal: string }[] = [];
+                        const checkField = (label: string, incVal: string | undefined, extVal: string | undefined, optional = false) => {
+                          const cleanInc = (incVal || "").trim().toUpperCase();
+                          const cleanExt = (extVal || "").trim().toUpperCase();
+                          if (optional && !cleanInc) return;
+                          if (cleanInc !== cleanExt) {
+                            changes.push({ field: label, old: extVal || "—", newVal: incVal || "—" });
                           }
+                        };
+
+                        checkField("Primer Nombre", inc.primerNombre, existing.primerNombre);
+                        checkField("Segundo Nombre", inc.segundoNombre, existing.segundoNombre);
+                        checkField("Primer Apellido", inc.primerApellido, existing.primerApellido);
+                        checkField("Segundo Apellido", inc.segundoApellido, existing.segundoApellido);
+                        checkField("Grado", inc.grado, existing.grado);
+                        checkField("Curso", inc.curso, existing.curso);
+                        checkField("Tipo Doc.", inc.tipoDocumento, existing.tipoDocumento);
+                        checkField("F. Nacimiento", inc.fechaNacimiento, existing.fechaNacimiento);
+                        checkField("Género", inc.genero, existing.genero);
+                        checkField("Acudiente Nombres", inc.acudienteNombres, existing.acudienteNombres, true);
+                        checkField("Acudiente Apellidos", inc.acudienteApellidos, existing.acudienteApellidos, true);
+                        checkField("Parentesco", inc.acudienteParentesco, existing.acudienteParentesco, true);
+                        checkField("Tel. Acudiente", inc.acudienteTelefono, existing.acudienteTelefono, true);
+                        checkField("Vereda", inc.acudienteVereda, existing.acudienteVereda, true);
+                        checkField("Estado Matrícula", inc.estadoMatricula, existing.estadoMatricula || "MATRICULADO", true);
+
+                        if (changes.length > 0) {
+                          modifiedStudents.push({ student: inc, id: existing.id, changes });
+                        } else {
+                          unchangedStudents.push(inc);
                         }
-                      });
+                      }
+                    });
 
-                      const missingStudents = myStudents.filter(ex => !incomingDocs.has(ex.nroDocumento));
+                    const missingStudents = myStudents.filter(ex => !incomingDocs.has(ex.nroDocumento));
 
-                      setSyncData({
-                        newStudents,
-                        modifiedStudents,
-                        missingStudents,
-                        unchangedStudents,
-                        issues,
-                      });
-                      setDeleteMissing(true);
-                      setActiveSyncTab(issues.length > 0 ? "issues" : "new");
-                      setShowSyncModal(true);
-                      if (e.target) e.target.value = "";
-                    }
-                  });
+                    setSyncData({
+                      newStudents,
+                      modifiedStudents,
+                      missingStudents,
+                      unchangedStudents,
+                      issues,
+                    });
+                    setDeleteMissing(true);
+                    setActiveSyncTab(issues.length > 0 ? "issues" : "new");
+                    setShowSyncModal(true);
+                  } catch (err) {
+                    console.error("Error leyendo archivo Excel/CSV de estudiantes:", err);
+                    alert("No se pudo leer el archivo. Sube un archivo Excel (.xlsx) o CSV válido.");
+                  }
                 }}
               />
             </label>
@@ -570,6 +569,12 @@ export default function StudentsPage() {
               </div>
             </div>
 
+            {modalToast && (
+              <div className={`p-3 rounded-xl text-xs font-bold text-center ${modalToast.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
+                {modalToast.msg}
+              </div>
+            )}
+
             <button 
               onClick={handleAddStudent}
               disabled={!formData.nombre || !formData.grado || isAddingStudent}
@@ -661,7 +666,7 @@ export default function StudentsPage() {
                           <AlertTriangle size={16} /> Se encontraron {syncData.issues.length} novedad(es) en el archivo
                         </h4>
                         <p className="text-[11px] text-rose-800 mt-0.5">
-                          Por regla de gobernanza institucional, <strong>no se cargará ningún estudiante</strong> hasta que las siguientes novedades sean corregidas en el archivo CSV.
+                          Por regla de gobernanza institucional, <strong>no se cargará ningún estudiante</strong> hasta que las siguientes novedades sean corregidas en el archivo Excel/CSV.
                         </p>
                       </div>
                       <button
@@ -669,7 +674,7 @@ export default function StudentsPage() {
                         onClick={() => downloadStudentNoveltiesCSV(syncData.issues)}
                         className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm"
                       >
-                        <FileDown size={14} /> Descargar Novedades CSV
+                        <FileDown size={14} /> Descargar Novedades Excel
                       </button>
                     </div>
                   </div>
@@ -677,7 +682,7 @@ export default function StudentsPage() {
                     <table className="w-full border-collapse text-left text-xs">
                       <thead className="bg-slate-50 border-b border-slate-100 font-bold text-slate-600">
                         <tr>
-                          <th className="p-3">Fila CSV</th>
+                          <th className="p-3">Fila</th>
                           <th className="p-3">Documento</th>
                           <th className="p-3">Estudiante</th>
                           <th className="p-3">Campo</th>

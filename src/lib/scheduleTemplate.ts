@@ -1,8 +1,8 @@
-import Papa from "papaparse";
 import { ScheduleBlock } from "@/context/AppContext";
 import { normalizeGrade } from "./constants";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
+import { downloadRowsAsExcel } from "./spreadsheetUtils";
 
 export const SCHEDULE_DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] as const;
 export type OfficialDay = typeof SCHEDULE_DAYS[number];
@@ -75,17 +75,27 @@ function normalizeDayName(raw: string): OfficialDay | null {
 function normalizeTimeToken(raw: string): string {
   const clean = (raw || "").trim();
   if (!clean) return "";
-  const match = clean.match(/(\d{1,2}):(\d{2})/);
+  const num = Number(clean.replace(",", "."));
+  if (!isNaN(num) && num > 0 && num < 1) {
+    const totalMins = Math.round(num * 24 * 60);
+    const hh = Math.floor(totalMins / 60) % 24;
+    const mm = totalMins % 60;
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  }
+  const match = clean.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
   if (!match) return clean;
-  const hh = match[1].padStart(2, "0");
+  let hhNum = parseInt(match[1], 10);
   const mm = match[2];
-  return `${hh}:${mm}`;
+  const meridiem = match[3]?.toUpperCase();
+  if (meridiem === "PM" && hhNum < 12) hhNum += 12;
+  if (meridiem === "AM" && hhNum === 12) hhNum = 0;
+  return `${String(hhNum).padStart(2, "0")}:${mm}`;
 }
 
-export function buildScheduleTemplateCSV(
+export function buildScheduleTemplateRows(
   mode: "example" | "blank" | "current",
   currentBlocks: ScheduleBlock[] = []
-): string {
+): Record<string, string>[] {
   const rows: Record<string, string>[] = [];
 
   if (mode === "current" && currentBlocks.length > 0) {
@@ -138,32 +148,21 @@ export function buildScheduleTemplateCSV(
     });
   }
 
-  const csv = Papa.unparse(rows, {
-    columns: [...SCHEDULE_CSV_HEADERS],
-  });
-  return "\uFEFF" + csv;
+  return rows;
 }
 
 export function downloadScheduleTemplate(
   mode: "example" | "blank" | "current",
   currentBlocks: ScheduleBlock[] = []
 ): void {
-  const content = buildScheduleTemplateCSV(mode, currentBlocks);
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const rows = buildScheduleTemplateRows(mode, currentBlocks);
   const filename =
     mode === "example"
-      ? "Formato_Horario_Docente_IETABA_Ejemplo.csv"
+      ? "Formato_Horario_Docente_IETABA_Ejemplo.xlsx"
       : mode === "blank"
-      ? "Formato_Horario_Docente_IETABA_EnBlanco.csv"
-      : "Mi_Horario_Docente_IETABA.csv";
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+      ? "Formato_Horario_Docente_IETABA_EnBlanco.xlsx"
+      : "Mi_Horario_Docente_IETABA.xlsx";
+  downloadRowsAsExcel(rows, filename, "Horario Docente", SCHEDULE_CSV_HEADERS);
 }
 
 export function downloadScheduleNoveltiesCSV(
@@ -172,32 +171,23 @@ export function downloadScheduleNoveltiesCSV(
 ): void {
   const rows: Record<string, any>[] = [
     ...issues.map(iss => ({
-      FILA_CSV: iss.rowNumber,
+      FILA_ARCHIVO: iss.rowNumber,
       DIA: iss.day,
       FRANJA_HORARIA: iss.slot,
       CAMPO: iss.field,
       NOVEDAD_GOBERNANZA: iss.message,
-      ACCION_REQUERIDA: "Corregir en el archivo CSV antes de volver a subir",
+      ACCION_REQUERIDA: "Corregir en el archivo Excel/CSV antes de volver a subir",
     })),
     ...collisions.map((c, idx) => ({
-      FILA_CSV: `CHOQUE-${idx + 1}`,
+      FILA_ARCHIVO: `CHOQUE-${idx + 1}`,
       DIA: c.block.day,
       FRANJA_HORARIA: `${c.block.startTime} - ${c.block.endTime}`,
       CAMPO: "CHOQUE DE SALÓN",
       NOVEDAD_GOBERNANZA: `El curso ${c.block.course} ya está asignado a ${c.conflictWith} en esa misma franja (${c.block.day} ${c.block.startTime}).`,
-      ACCION_REQUERIDA: "Cambiar el curso o la franja horaria en el archivo CSV",
+      ACCION_REQUERIDA: "Cambiar el curso o la franja horaria en el archivo Excel/CSV",
     })),
   ];
-  const csv = "\uFEFF" + Papa.unparse(rows);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", "Reporte_Novedades_Horario_IETABA.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadRowsAsExcel(rows, "Reporte_Novedades_Horario_IETABA.xlsx", "Novedades Horario");
 }
 
 export async function verifyScheduleCollisionsInFirestore(

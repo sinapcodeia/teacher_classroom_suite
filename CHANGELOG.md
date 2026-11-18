@@ -5,7 +5,41 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
-## [Sin publicar] — En desarrollo
+## [2.17.0] — 2026-11-18 · Conector SAPRED 360° (`.xls` Multi-Hoja), Orden SAPRED Persistente y Regla "Todo o Nada"
+
+### 🔗 Conector SAPRED 360° (`src/lib/sapredConnector.ts`, `src/components/reports/SapredConnectorModal.tsx`, `src/app/reportes/calificaciones/page.tsx`)
+- **Flujo 1 — Llenar Plantilla SAPRED (`.xls` BIFF8 Multi-Hoja)**:
+  - Lee libros `.xls` descargados de SAPRED con 1 o múltiples hojas (`<GRADO>-<CURSO>__<MATERIA>`), reparando codificación Latin1/UTF-8 (`fixSapredMojibake`) y emparejando asignaturas (`TPI/60`, `FIS/36`, `MATE/4`, `ETIC/9`).
+  - Empareja cada estudiante por la llave `CODIGO` (`nroDocumento`) y rellena exclusivamente hasta la columna `AUT` (`SB1..SB8`, `SBH1..SBH8`, `SR1..SR5`, `CV1..CV3`, `AUT`, preservando `0.0` real) sin alterar el orden de filas ni las convenciones de SAPRED.
+  - **Validación Institucional "Todo o Nada"**: audita todas las hojas antes de escribir o descargar; bloquea la descarga si detecta ingresos nuevos faltantes en SAPRED (`FALTA_EN_SAPRED`), retiros/inexistentes (`NO_EXISTE_EN_EDUMANAGER`), traslados de salón (`CAMBIO_DE_SALON`) o códigos duplicados, y permite descargar el **Reporte de Novedades (.xlsx)**.
+- **Flujo 2 — Exportar `.XLS` Multi-Hoja (SAPRED)**:
+  - Genera directamente libros `.xls` (BIFF8) por materia actual o para todos los cursos y materias del horario docente, omitiendo `PARC`, `REC` y `DEF` y respetando el orden SAPRED guardado.
+- **Ordenamiento SAPRED Persistente (`src/context/AppContext.tsx`)**:
+  - Guarda `sapredOrder` y `sapredMeta` por curso en `masterData` (`localStorage` + Firestore) y agrega el selector **`Orden: SAPRED` / `Orden: A-Z`** en la sábana de `/reportes/calificaciones`.
+- **Responsive Proyector/PWA, Auditoría y Gráficos de Vanguardia (`src/app/globals.css`, `src/components/analytics/PredictiveTrends.tsx`, `src/components/reports/SapredConnectorModal.tsx`)**:
+  - Escala proporcional automática para pantallas de proyector (`<= 1366px` / `<= 820px` alto) y PWA standalone (`@media (display-mode: standalone)`), `:focus-visible` WCAG, `prefers-reduced-motion`, validación de tamaño máximo (15 MB) en subida de archivos y cierre con `Escape`.
+  - Centro de Analítica 360° afinado con **Barras con Gradientes + Etiquetas directas + Meta 3.0**, **Curva**, **Radar SIEEE de 5 pilares** (`Saber`, `Hacer`, `Ser`, `Convivencia`, `Autoevaluación`) y **Dona SIEEE** con promedio central y porcentajes exactos.
+
+---
+
+## [2.16.0] — 2026-11-18 · Motor Unificado Excel (`.xlsx`) con SheetJS, Carga Diferida y Auditoría Integral
+
+### 📊 Motor Unificado de Hojas de Cálculo con SheetJS (`xlsx@0.20.3`) (`src/lib/spreadsheetUtils.ts`)
+- **Exportación Nativa a Excel (`.xlsx`) con Ancho de Columnas Automático y Carga Diferida**:
+  - `downloadRowsAsExcel`, `downloadAOAAsExcel`, `parseSpreadsheetFileToObjects` y `parseSpreadsheetFileToAOA` ahora importan dinámicamente `xlsx` y `papaparse` bajo demanda, reduciendo el bundle inicial de todas las vistas de gestión.
+  - Todas las plantillas oficiales, exportaciones y reportes de novedades institucionales se descargan como libros Excel reales (`.xlsx`) generados con **SheetJS (`xlsx`)**:
+    - **Matrícula y Directorio Estudiantil SIMAT** (`src/lib/studentTemplate.ts`, `src/app/estudiantes/page.tsx`, `src/app/admin/page.tsx`, `src/lib/reports.ts`)
+    - **Planilla de Calificaciones SIEEE y Sábana Oficial** (`src/lib/gradeTemplate.ts`, `src/components/live-class/GradebookManager.tsx`, `src/app/reportes/calificaciones/page.tsx`, con soporte completo para `REC`)
+    - **Malla Horaria y Asignación Académica** (`src/lib/scheduleTemplate.ts`, `src/app/configuracion/page.tsx`, `src/app/horario/page.tsx`)
+    - **Tejidos de Aprendizaje** (`src/lib/tejidoTemplate.ts`, `src/components/curriculum/CSVImporter.tsx`)
+- **Importación Universal Multi-Formato (`.xlsx`, `.xls` y `.csv`) y Blindaje de Fechas/Horas**:
+  - Añadido `dateNF: "yyyy-mm-dd"` en la lectura de SheetJS, soporte en `excelSerialToISODate` para formatos `YYYY/MM/DD`, `D/M/YYYY` y `M/D/YY`, y soporte en `normalizeTimeToken` para fracciones decimales de Excel y horas `AM`/`PM`.
+  - Mantiene intacta la **Regla de Gobernanza Institucional ("Todo o Nada")** con textos y descargas unificadas a Excel/CSV.
+
+### 🛡️ Auditoría, Limpieza de Código Muerto y Seguridad
+- **Carga Diferida Adicional y Limpieza**: `jsPDF` en `src/app/admin/page.tsx` ahora se carga bajo demanda; eliminados builders CSV obsoletos (`buildStudentTemplateCSV`, `buildGradebookCSV`, `buildScheduleTemplateCSV`, `buildTemplateCSV`), imports estáticos muertos y estados sin uso en `page.tsx`, `GradebookManager.tsx`, `configuracion/page.tsx`, `estudiantes/page.tsx`, `calificaciones/page.tsx` y `RoleGuard.tsx`.
+- **Feedback UI y Bloqueo de Acciones**: `modalToast` ahora se renderiza en el modal de Nueva Matrícula (`estudiantes/page.tsx`) y el botón `Importar Excel Maestro` se deshabilita con spinner mientras `isImporting` está activo (`admin/page.tsx`).
+- **Blindaje de Ruta `/clean-p3`**: protegida con `<RoleGuard allowedRoles={["RECTOR"]}>` y confirmación explícita antes de modificar Firestore.
 
 ---
 

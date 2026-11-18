@@ -45,3 +45,6 @@ backups/
 
 # scripts de depuración y prueba temporal
 scratch/
+
+# configuración local de agentes
+.agents/

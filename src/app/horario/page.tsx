@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import Papa from "papaparse";
+import { parseSpreadsheetFileToObjects, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
 import {
   downloadScheduleTemplate,
   downloadScheduleNoveltiesCSV,
@@ -46,30 +46,30 @@ export default function HorarioPage() {
     setMounted(true);
   }, []);
 
-  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (e.target) e.target.value = "";
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const parsed = parseAndValidateScheduleCSV(
-          results.data as any[],
-          masterData.subjects
-        );
-        const collisions = await verifyScheduleCollisionsInFirestore(
-          parsed.validBlocks,
-          user?.uid || ""
-        );
-        setPreviewModal({
-          validBlocks: parsed.validBlocks,
-          issues: parsed.issues,
-          collisions,
-        });
-        if (e.target) e.target.value = "";
-      },
-    });
+    try {
+      const rows = await parseSpreadsheetFileToObjects(file);
+      const parsed = parseAndValidateScheduleCSV(
+        rows,
+        masterData.subjects
+      );
+      const collisions = await verifyScheduleCollisionsInFirestore(
+        parsed.validBlocks,
+        user?.uid || ""
+      );
+      setPreviewModal({
+        validBlocks: parsed.validBlocks,
+        issues: parsed.issues,
+        collisions,
+      });
+    } catch (err) {
+      console.error("Error leyendo archivo de horario Excel/CSV:", err);
+      alert("No se pudo leer el archivo de horario. Sube un archivo Excel (.xlsx) o CSV válido.");
+    }
   };
 
   const handleConfirmScheduleImport = async () => {
@@ -153,13 +153,13 @@ export default function HorarioPage() {
                onClick={() => downloadScheduleTemplate("current", profile.weeklySchedule || [])}
                className="px-4 py-3 bg-white border border-outline-variant text-on-surface-variant rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-surface-container-low transition-all flex items-center gap-2"
              >
-                <Download size={16} /> Exportar CSV
+                <Download size={16} /> Exportar Excel
              </button>
              <label className="px-5 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2 cursor-pointer">
-                <Upload size={16} /> Subir Horario CSV
+                <Upload size={16} /> Subir Horario Excel
                 <input
                   type="file"
-                  accept=".csv"
+                  accept={SPREADSHEET_ACCEPT}
                   className="hidden"
                   onChange={handleCSVUpload}
                 />
@@ -304,7 +304,7 @@ export default function HorarioPage() {
                         <AlertTriangle size={14} /> Regla de Gobernanza Institucional · Carga Bloqueada ({previewModal.issues.length + previewModal.collisions.length} novedad{previewModal.issues.length + previewModal.collisions.length === 1 ? "" : "es"})
                       </p>
                       <p className="text-[11px] font-medium text-rose-700 mt-0.5">
-                        No se cargará ningún bloque horario hasta que todas las novedades de formato o cruces de salón sean corregidos en el archivo CSV.
+                        No se cargará ningún bloque horario hasta que todas las novedades de formato o cruces de salón sean corregidos en el archivo Excel/CSV.
                       </p>
                     </div>
                     <button
@@ -312,7 +312,7 @@ export default function HorarioPage() {
                       onClick={() => downloadScheduleNoveltiesCSV(previewModal.issues, previewModal.collisions)}
                       className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 flex items-center gap-1.5 shadow-sm"
                     >
-                      <Download size={12} /> Descargar Novedades CSV
+                      <Download size={12} /> Descargar Novedades Excel
                     </button>
                   </div>
 

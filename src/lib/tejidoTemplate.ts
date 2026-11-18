@@ -12,6 +12,8 @@
  * Cada FILA del archivo = una Higra del Conocimiento de un periodo.
  */
 
+import { downloadRowsAsExcel } from "./spreadsheetUtils";
+
 export const TEJIDO_COLUMNS = [
   { key: "grado", label: "Grado", required: true, help: "Número del grado: 6, 7, 8..." },
   { key: "materia", label: "Materia", required: true, help: "Nombre exacto de la materia" },
@@ -125,19 +127,13 @@ export function normalizeRows(raw: Record<string, any>[]): ParsedTejido {
 }
 
 export function downloadTejidoNoveltiesCSV(errors: string[], fileName = "Tejido"): void {
-  const header = "NRO_NOVEDAD;DETALLE_DEL_ERROR;ACCION_REQUERIDA\n";
-  const body = errors
-    .map((err, idx) => `${idx + 1};"${err.replace(/"/g, '""')}";"Corregir la fila indicada en el archivo CSV antes de volver a subirlo"`)
-    .join("\n");
-  const blob = new Blob(["\uFEFF" + header + body], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `Reporte_Novedades_Tejido_${fileName.replace(/\.csv$/i, "")}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const rows = errors.map((err, idx) => ({
+    NRO_NOVEDAD: idx + 1,
+    DETALLE_DEL_ERROR: err,
+    ACCION_REQUERIDA: "Corregir la fila indicada en el archivo Excel/CSV antes de volver a subirlo",
+  }));
+  const cleanName = fileName.replace(/\.(csv|xlsx|xls)$/i, "");
+  downloadRowsAsExcel(rows, `Reporte_Novedades_Tejido_${cleanName}.xlsx`, "Novedades Tejido");
 }
 
 /** Construye el Topic institucional a partir de una fila. */
@@ -399,13 +395,10 @@ export function computeCurriculumCoverage(activeCurriculum: any): {
   return { periods, totalHigras, coveredHigras, totalEjes, completedEjes, overallPercentage };
 }
 
-const csvCell = (v: string) => `"${(v || "").replace(/"/g, '""')}"`;
-
-/** Genera el formato CSV (separado por ; para Excel en español) con ejemplo real. */
-export function buildTemplateCSV(grade?: string, subject?: string, withExample = true): string {
+export function downloadTemplate(grade?: string, subject?: string, withExample = true) {
   const g = grade && grade !== "TODOS" ? grade : "6";
   const m = subject || "MATEMÁTICAS";
-  const header = TEJIDO_COLUMNS.map(c => csvCell(c.label + (c.required ? " *" : ""))).join(";");
+  const headers = TEJIDO_COLUMNS.map(c => c.label + (c.required ? " *" : ""));
   const examples: string[][] = withExample
     ? [
         [g, m, "1", "10", "Numérico variacional",
@@ -428,20 +421,16 @@ export function buildTemplateCSV(grade?: string, subject?: string, withExample =
           "Recta numérica, guías"],
       ]
     : [[g, m, "1", "", "", "", "", "", "", "", "", "", ""]];
-  const body = examples.map(r => r.map(csvCell).join(";")).join("\r\n");
-  return "\uFEFF" + header + "\r\n" + body + "\r\n";
-}
 
-export function downloadTemplate(grade?: string, subject?: string, withExample = true) {
-  const csv = buildTemplateCSV(grade, subject, withExample);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const rows = examples.map(arr => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => {
+      obj[h] = arr[idx] ?? "";
+    });
+    return obj;
+  });
+
   const safe = (s: string) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_");
-  a.href = url;
-  a.download = `Formato_Tejido_${safe(subject || "Materia")}_Grado_${safe(grade && grade !== "TODOS" ? grade : "X")}${withExample ? "_ejemplo" : ""}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const filename = `Formato_Tejido_${safe(subject || "Materia")}_Grado_${safe(grade && grade !== "TODOS" ? grade : "X")}${withExample ? "_ejemplo" : ""}.xlsx`;
+  downloadRowsAsExcel(rows, filename, "Tejido Aprendizaje", headers);
 }

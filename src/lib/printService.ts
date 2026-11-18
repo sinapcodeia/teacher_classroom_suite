@@ -2419,6 +2419,41 @@ export function printAnalyticsReport(
   
   const genderStats = { M: { count: 0, sum: 0 }, F: { count: 0, sum: 0 } };
   const studentAverages = new Map<string, { st: any, totalDef: number, count: number }>();
+
+  const gradeBI: Record<string, {
+    grado: string;
+    totalActive: number;
+    withAbsences: number;
+    totalAbsences: number;
+    totalEvents: number;
+    extraedadCount: number;
+    normativeAgeCount: number;
+    extraedadFailing: number;
+    failingCount: number;
+    absentAndFailingCount: number;
+  }> = {};
+
+  const criticalBiCases: {
+    name: string;
+    room: string;
+    absences: number;
+    minScore: number;
+    failedSubjects: string[];
+    isExtraedad: boolean;
+    age: number | null;
+    absentAndFailing: boolean;
+  }[] = [];
+
+  const computeAgeYears = (fecha?: string): number | null => {
+    if (!fecha) return null;
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - d.getFullYear();
+    const m = now.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+    return age >= 3 && age <= 30 ? age : null;
+  };
   
   const detailedCourseSubjectBI: Record<string, {
     key: string;
@@ -2455,9 +2490,36 @@ export function printAnalyticsReport(
       stAbsences = records.filter(v => v === 'absent').length;
     }
 
+    const stAge = computeAgeYears(st.fechaNacimiento);
+    const gNum = parseInt(g, 10);
+    const isExtraedad = stAge !== null && !isNaN(gNum) && stAge > gNum + 8;
+
+    if (!gradeBI[g]) {
+      gradeBI[g] = {
+        grado: g,
+        totalActive: 0,
+        withAbsences: 0,
+        totalAbsences: 0,
+        totalEvents: 0,
+        extraedadCount: 0,
+        normativeAgeCount: 0,
+        extraedadFailing: 0,
+        failingCount: 0,
+        absentAndFailingCount: 0,
+      };
+    }
+    gradeBI[g].totalActive++;
+    gradeBI[g].totalAbsences += stAbsences;
+    gradeBI[g].totalEvents += stEvents;
+    if (stAbsences > 0) gradeBI[g].withAbsences++;
+    if (isExtraedad) gradeBI[g].extraedadCount++;
+    else gradeBI[g].normativeAgeCount++;
+
     const gen = st.genero?.toUpperCase().startsWith('F') ? 'F' : 'M';
     let stDefSum = 0;
     let stDefCount = 0;
+    const failedSubjects: string[] = [];
+    let minSubjScore = 5.0;
 
     if (st.detailedGrades) {
       Object.keys(st.detailedGrades).forEach(subject => {
@@ -2499,6 +2561,10 @@ export function printAnalyticsReport(
             sumGrades += def;
             stDefSum += def;
             stDefCount++;
+            if (def < 3.0) {
+              failedSubjects.push(`${subject} (${def.toFixed(1)})`);
+              if (def < minSubjScore) minSubjScore = def;
+            }
 
             genderStats[gen].count++;
             genderStats[gen].sum += def;
@@ -2524,7 +2590,127 @@ export function printAnalyticsReport(
     if (stDefCount > 0) {
       studentAverages.set(st.id, { st, totalDef: stDefSum, count: stDefCount });
     }
+
+    const hasFailing = failedSubjects.length > 0;
+    const absentAndFailing = stAbsences > 0 && hasFailing;
+    if (hasFailing) gradeBI[g].failingCount++;
+    if (absentAndFailing) gradeBI[g].absentAndFailingCount++;
+    if (isExtraedad && hasFailing) gradeBI[g].extraedadFailing++;
+
+    if (absentAndFailing || (isExtraedad && (hasFailing || stAbsences >= 2))) {
+      criticalBiCases.push({
+        name: `${st.primerApellido || ""} ${st.segundoApellido || ""} ${st.primerNombre || ""} ${st.segundoNombre || ""}`.replace(/\s+/g, " ").trim(),
+        room: `${g}-${c}`,
+        absences: stAbsences,
+        minScore: hasFailing ? minSubjScore : Number((stDefCount > 0 ? stDefSum / stDefCount : 0).toFixed(1)),
+        failedSubjects,
+        isExtraedad,
+        age: stAge,
+        absentAndFailing,
+      });
+    }
   });
+
+  criticalBiCases.sort((a, b) => {
+    if (a.absentAndFailing !== b.absentAndFailing) return a.absentAndFailing ? -1 : 1;
+    if (b.absences !== a.absences) return b.absences - a.absences;
+    return a.minScore - b.minScore;
+  });
+
+  const gradeBIList = Object.values(gradeBI).sort((a, b) =>
+    a.grado.localeCompare(b.grado, undefined, { numeric: true })
+  );
+  const totalActivePop = gradeBIList.reduce((s, x) => s + x.totalActive, 0);
+  const totalAbsentEvents = gradeBIList.reduce((s, x) => s + x.totalAbsences, 0);
+  const totalTrackedEvents = gradeBIList.reduce((s, x) => s + x.totalEvents, 0);
+  const globalAbsRate = totalTrackedEvents > 0 ? ((totalAbsentEvents / totalTrackedEvents) * 100).toFixed(1) : "0.0";
+  const totalAbsentAndFailing = gradeBIList.reduce((s, x) => s + x.absentAndFailingCount, 0);
+  const totalExtraedad = gradeBIList.reduce((s, x) => s + x.extraedadCount, 0);
+  const totalExtraedadPct = totalActivePop > 0 ? Math.round((totalExtraedad / totalActivePop) * 100) : 0;
+  const totalExtraedadFailing = gradeBIList.reduce((s, x) => s + x.extraedadFailing, 0);
+
+  // Generadores SVG vectoriales nítidos para PDF / Impresión
+  const buildAbsenceChartSvg = () => {
+    if (gradeBIList.length === 0) return '<p style="font-size:10px;color:#64748b;text-align:center;">Sin datos por grado.</p>';
+    const w = 740;
+    const h = 210;
+    const padL = 36;
+    const padR = 16;
+    const padT = 24;
+    const padB = 34;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+    const maxVal = Math.max(1, ...gradeBIList.map(g => Math.max(g.withAbsences, g.failingCount, g.absentAndFailingCount)));
+    const groupW = plotW / gradeBIList.length;
+    const barW = Math.min(20, Math.max(8, (groupW - 14) / 3));
+
+    const barsSvg = gradeBIList.map((g, idx) => {
+      const cx = padL + idx * groupW + groupW / 2;
+      const h1 = (g.withAbsences / maxVal) * plotH;
+      const h2 = (g.failingCount / maxVal) * plotH;
+      const h3 = (g.absentAndFailingCount / maxVal) * plotH;
+      const x1 = cx - barW * 1.5 - 2;
+      const x2 = cx - barW * 0.5;
+      const x3 = cx + barW * 0.5 + 2;
+      const yBase = padT + plotH;
+      const absPct = g.totalEvents > 0 ? ((g.totalAbsences / g.totalEvents) * 100).toFixed(0) : "0";
+      return `
+        <rect x="${x1}" y="${yBase - h1}" width="${barW}" height="${h1}" rx="3" fill="#0284c7" />
+        ${g.withAbsences > 0 ? `<text x="${x1 + barW / 2}" y="${yBase - h1 - 4}" text-anchor="middle" font-size="9" font-weight="800" fill="#0369a1">${g.withAbsences}</text>` : ''}
+        <rect x="${x2}" y="${yBase - h2}" width="${barW}" height="${h2}" rx="3" fill="#d97706" />
+        ${g.failingCount > 0 ? `<text x="${x2 + barW / 2}" y="${yBase - h2 - 4}" text-anchor="middle" font-size="9" font-weight="800" fill="#b45309">${g.failingCount}</text>` : ''}
+        <rect x="${x3}" y="${yBase - h3}" width="${barW}" height="${h3}" rx="3" fill="#e11d48" />
+        ${g.absentAndFailingCount > 0 ? `<text x="${x3 + barW / 2}" y="${yBase - h3 - 4}" text-anchor="middle" font-size="9" font-weight="800" fill="#be123c">${g.absentAndFailingCount}</text>` : ''}
+        <text x="${cx}" y="${yBase + 13}" text-anchor="middle" font-size="10" font-weight="800" fill="#0f172a">${escapeHtml(g.grado)}</text>
+        <text x="${cx}" y="${yBase + 24}" text-anchor="middle" font-size="8" font-weight="700" fill="#64748b">${absPct}% aus.</text>
+      `;
+    }).join("");
+
+    return `
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
+        <line x1="${padL}" y1="${padT + plotH}" x2="${w - padR}" y2="${padT + plotH}" stroke="#cbd5e1" stroke-width="1" />
+        <line x1="${padL}" y1="${padT + plotH * 0.5}" x2="${w - padR}" y2="${padT + plotH * 0.5}" stroke="#f1f5f9" stroke-dasharray="4 4" />
+        ${barsSvg}
+      </svg>
+    `;
+  };
+
+  const buildExtraedadChartSvg = () => {
+    if (gradeBIList.length === 0) return '<p style="font-size:10px;color:#64748b;text-align:center;">Sin datos de edad.</p>';
+    const w = 740;
+    const h = 190;
+    const padL = 36;
+    const padR = 16;
+    const padT = 22;
+    const padB = 30;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+    const maxVal = Math.max(1, ...gradeBIList.map(g => g.totalActive));
+    const groupW = plotW / gradeBIList.length;
+    const barW = Math.min(34, Math.max(14, groupW * 0.48));
+
+    const barsSvg = gradeBIList.map((g, idx) => {
+      const cx = padL + idx * groupW + groupW / 2;
+      const x = cx - barW / 2;
+      const yBase = padT + plotH;
+      const hNorm = (g.normativeAgeCount / maxVal) * plotH;
+      const hExtra = (g.extraedadCount / maxVal) * plotH;
+      const pct = g.totalActive > 0 ? Math.round((g.extraedadCount / g.totalActive) * 100) : 0;
+      return `
+        <rect x="${x}" y="${yBase - hNorm}" width="${barW}" height="${hNorm}" fill="#cbd5e1" />
+        <rect x="${x}" y="${yBase - hNorm - hExtra}" width="${barW}" height="${hExtra}" rx="3" fill="#f59e0b" />
+        ${g.extraedadCount > 0 ? `<text x="${cx}" y="${yBase - hNorm - hExtra - 4}" text-anchor="middle" font-size="9" font-weight="800" fill="#b45309">${g.extraedadCount} (${pct}%)</text>` : ''}
+        <text x="${cx}" y="${yBase + 14}" text-anchor="middle" font-size="10" font-weight="800" fill="#0f172a">${escapeHtml(g.grado)}</text>
+      `;
+    }).join("");
+
+    return `
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
+        <line x1="${padL}" y1="${padT + plotH}" x2="${w - padR}" y2="${padT + plotH}" stroke="#cbd5e1" stroke-width="1" />
+        ${barsSvg}
+      </svg>
+    `;
+  };
 
   const globalAvg = totalGrades > 0 ? (sumGrades / totalGrades).toFixed(2) : "0.00";
   const avgM = genderStats.M.count > 0 ? (genderStats.M.sum / genderStats.M.count).toFixed(2) : "0.00";
@@ -2953,22 +3139,37 @@ export function printAnalyticsReport(
           </p>
         </div>
 
-        <!-- KPI BENTO -->
-        <div class="bi-kpi-grid">
+        <!-- KPI BENTO (6 TARJETAS BI) -->
+        <div class="bi-kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
           <div class="bi-kpi-card teal">
             <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #0f766e; letter-spacing: 0.05em;">Promedio Institucional</div>
-            <div style="font-size: 30px; font-weight: 900; color: #0f172a; margin: 2px 0;">${globalAvg}</div>
+            <div style="font-size: 28px; font-weight: 900; color: #0f172a; margin: 2px 0;">${globalAvg}</div>
             <div style="font-size: 9px; color: #0d9488; font-weight: 600;">${totalGrades} evaluaciones consolidadas</div>
           </div>
           <div class="bi-kpi-card">
             <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Población Estudiantil</div>
-            <div style="font-size: 30px; font-weight: 900; color: #0f172a; margin: 2px 0;">${studentAverages.size}</div>
+            <div style="font-size: 28px; font-weight: 900; color: #0f172a; margin: 2px 0;">${totalActivePop || studentAverages.size}</div>
             <div style="font-size: 9px; color: #64748b; font-weight: 600;">Estudiantes activos en seguimiento</div>
           </div>
           <div class="bi-kpi-card">
             <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">Materias / Cursos</div>
-            <div style="font-size: 30px; font-weight: 900; color: #0f172a; margin: 2px 0;">${Object.keys(detailedCourseSubjectBI).length}</div>
+            <div style="font-size: 28px; font-weight: 900; color: #0f172a; margin: 2px 0;">${Object.keys(detailedCourseSubjectBI).length}</div>
             <div style="font-size: 9px; color: #64748b; font-weight: 600;">Grupos analizados individualmente</div>
+          </div>
+          <div class="bi-kpi-card" style="background: #f0f9ff; border-color: #bae6fd;">
+            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #0369a1; letter-spacing: 0.05em;">Ausentismo Registrado</div>
+            <div style="font-size: 26px; font-weight: 900; color: #0c4a6e; margin: 2px 0;">${globalAbsRate}%</div>
+            <div style="font-size: 9px; color: #0369a1; font-weight: 600;">${totalAbsentEvents} fallas en ${totalTrackedEvents} registros</div>
+          </div>
+          <div class="bi-kpi-card" style="background: #fff1f2; border-color: #fecdd3;">
+            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #be123c; letter-spacing: 0.05em;">No Asistieron y Perdieron</div>
+            <div style="font-size: 26px; font-weight: 900; color: #881337; margin: 2px 0;">${totalAbsentAndFailing}</div>
+            <div style="font-size: 9px; color: #be123c; font-weight: 600;">Estudiantes con fallas y nota &lt; 3.0</div>
+          </div>
+          <div class="bi-kpi-card" style="background: #fffbeb; border-color: #fde68a;">
+            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #b45309; letter-spacing: 0.05em;">Extraedad (&gt; Grado + 8)</div>
+            <div style="font-size: 26px; font-weight: 900; color: #78350f; margin: 2px 0;">${totalExtraedad} <span style="font-size:13px;">(${totalExtraedadPct}%)</span></div>
+            <div style="font-size: 9px; color: #b45309; font-weight: 600;">${totalExtraedadFailing} en riesgo académico (&lt; 3.0)</div>
           </div>
         </div>
 
@@ -2992,6 +3193,59 @@ export function printAnalyticsReport(
             </div>
             <div class="gender-val" style="color: #0284c7;">${avgM}</div>
           </div>
+        </div>
+
+        <!-- GRÁFICO BI 1: AUSENTISMO Y PÉRDIDA POR GRADO -->
+        <div class="gender-box avoid-break" style="margin-top: 18px;">
+          <div class="section-title">Nivel de Ausentismo y Pérdida Académica por Grado</div>
+          <p style="font-size: 9.5px; color: #64748b; margin: 3px 0 8px 0;">Comparativo real por grado entre estudiantes con inasistencias, reprobados (&lt; 3.0) y quienes <strong>no asistieron y perdieron la materia</strong>.</p>
+          <div class="dist-legend" style="margin-bottom: 6px;">
+            <span><span class="dist-dot" style="background:#0284c7;"></span> Con Fallas</span>
+            <span><span class="dist-dot" style="background:#d97706;"></span> Reprobados (&lt; 3.0)</span>
+            <span><span class="dist-dot" style="background:#e11d48;"></span> No Asistió y Perdió</span>
+          </div>
+          ${buildAbsenceChartSvg()}
+        </div>
+
+        <!-- GRÁFICO BI 2: EXTRAEDAD POR GRADO -->
+        <div class="gender-box avoid-break" style="margin-top: 16px;">
+          <div class="section-title">Análisis de Extraedad por Grado</div>
+          <p style="font-size: 9.5px; color: #64748b; margin: 3px 0 8px 0;">Distribución de estudiantes en edad normativa frente a estudiantes con extraedad (&gt; Grado + 8 años).</p>
+          <div class="dist-legend" style="margin-bottom: 6px;">
+            <span><span class="dist-dot" style="background:#cbd5e1;"></span> Edad Normativa</span>
+            <span><span class="dist-dot" style="background:#f59e0b;"></span> Extraedad</span>
+          </div>
+          ${buildExtraedadChartSvg()}
+        </div>
+
+        <!-- TABLA PRIORITARIA: NO ASISTIERON Y PERDIERON / EXTRAEDAD EN RIESGO -->
+        <div class="avoid-break" style="margin-top: 18px;">
+          <div class="section-title" style="color: #be123c;">Estudiantes que No Asistieron y Perdieron / Casos Prioritarios (${criticalBiCases.length})</div>
+          <table class="table-honor">
+            <thead>
+              <tr>
+                <th style="width: 34%; text-align: left;">Estudiante</th>
+                <th style="width: 12%;">Grado</th>
+                <th style="width: 10%;">Fallas</th>
+                <th style="width: 10%;">Edad</th>
+                <th style="width: 34%; text-align: left;">Materias Perdidas / Condición</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${criticalBiCases.slice(0, 25).map(c => `
+                <tr>
+                  <td class="text-left">${escapeHtml(c.name)}</td>
+                  <td><strong>${escapeHtml(c.room)}</strong></td>
+                  <td><strong style="color:#0369a1;">${c.absences}</strong></td>
+                  <td>${c.age !== null ? `${c.age} a.` : '—'}</td>
+                  <td class="text-left" style="font-size:8.5px;color:#be123c;">
+                    ${c.failedSubjects.length > 0 ? escapeHtml(c.failedSubjects.join(", ")) : "Seguimiento preventivo"}
+                    ${c.isExtraedad ? ' <span style="background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px;font-weight:800;">EXTRAEDAD</span>' : ''}
+                  </td>
+                </tr>
+              `).join('') || '<tr><td colspan="5" style="color:#059669;font-weight:700;">Sin casos críticos registrados en el período.</td></tr>'}
+            </tbody>
+          </table>
         </div>
 
         <!-- CUADRO DE HONOR -->

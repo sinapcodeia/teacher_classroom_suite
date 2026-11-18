@@ -1,6 +1,6 @@
-import Papa from "papaparse";
 import { normalizeGrade } from "./constants";
 import { toTitleCase, ParentescoAcudiente, EstadoMatricula } from "@/context/AppContext";
+import { downloadRowsAsExcel } from "./spreadsheetUtils";
 
 export interface StandardizedStudentRow {
   grado: string;
@@ -100,9 +100,24 @@ export function excelSerialToISODate(serial: any): string | null {
   const str = String(serial).trim();
   if (!str) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-    const [d, m, y] = str.split("/");
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)) {
+    const [y, m, d] = str.split("/");
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    const [p1, p2, y] = str.split("/");
+    const n1 = Number(p1);
+    const n2 = Number(p2);
+    const [d, m] = n2 > 12 && n1 <= 12 ? [p2, p1] : [p1, p2];
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(str)) {
+    const [p1, p2, yy] = str.split("/");
+    const n1 = Number(p1);
+    const n2 = Number(p2);
+    const [m, d] = n1 > 12 && n2 <= 12 ? [p2, p1] : [p1, p2];
+    const fullYear = Number(yy) <= 29 ? `20${yy.padStart(2, "0")}` : `19${yy.padStart(2, "0")}`;
+    return `${fullYear}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
   const num = Number(str);
   if (!isNaN(num) && num > 10000 && num < 60000) {
@@ -114,8 +129,8 @@ export function excelSerialToISODate(serial: any): string | null {
   return null;
 }
 
-export function buildStudentTemplateCSV(withExamples: boolean): string {
-  const rows = withExamples
+export function buildStudentTemplateRows(withExamples: boolean): Record<string, any>[] {
+  return withExamples
     ? EXAMPLE_STUDENTS_ROWS
     : [
         STUDENT_CSV_HEADERS.reduce((acc, col) => {
@@ -123,50 +138,26 @@ export function buildStudentTemplateCSV(withExamples: boolean): string {
           return acc;
         }, {} as Record<string, string>),
       ];
-
-  const csv = Papa.unparse(rows, {
-    columns: [...STUDENT_CSV_HEADERS],
-  });
-  return "\uFEFF" + csv;
 }
 
 export function downloadStudentTemplate(withExamples: boolean): void {
-  const content = buildStudentTemplateCSV(withExamples);
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute(
-    "download",
-    withExamples
-      ? "Formato_Estudiantes_SIMAT_IETABA_Ejemplo.csv"
-      : "Formato_Estudiantes_SIMAT_IETABA_EnBlanco.csv"
-  );
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const rows = buildStudentTemplateRows(withExamples);
+  const filename = withExamples
+    ? "Formato_Estudiantes_SIMAT_IETABA_Ejemplo.xlsx"
+    : "Formato_Estudiantes_SIMAT_IETABA_EnBlanco.xlsx";
+  downloadRowsAsExcel(rows, filename, "Estudiantes SIMAT", STUDENT_CSV_HEADERS);
 }
 
 export function downloadStudentNoveltiesCSV(issues: StudentRowValidationIssue[]): void {
   const rows = issues.map(iss => ({
-    FILA_CSV: iss.rowNumber,
+    FILA_ARCHIVO: iss.rowNumber,
     NRO_DOCUMENTO: iss.nroDocumento,
     ESTUDIANTE: iss.studentName,
     CAMPO_CON_NOVEDAD: iss.field,
     DETALLE_NOVEDAD: iss.message,
-    ACCION_REQUERIDA: "Corregir en el archivo CSV antes de volver a cargar",
+    ACCION_REQUERIDA: "Corregir en el archivo Excel/CSV antes de volver a cargar",
   }));
-  const csv = "\uFEFF" + Papa.unparse(rows);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", "Reporte_Novedades_Estudiantes_IETABA.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadRowsAsExcel(rows, "Reporte_Novedades_Estudiantes_IETABA.xlsx", "Novedades Estudiantes");
 }
 
 const VALID_PARENTESCOS: ParentescoAcudiente[] = [

@@ -218,13 +218,26 @@ export interface Student {
 }
 
 // Legacy format kept for backward-compat on some views
-interface ScheduleEntry {
+export interface ScheduleEntry {
   day: string;
   time: string;
   subject: string;
   grade: string;
   group: string;
   color: string;
+}
+
+export interface SapredRoomMeta {
+  codSeccion?: string;
+  codAsignatura?: string;
+}
+
+export interface SapredSyncInfo {
+  date: string;
+  teacher: string;
+  period: string;
+  sheets: number;
+  cells: number;
 }
 
 interface MasterData {
@@ -234,6 +247,9 @@ interface MasterData {
   courses: string[]; // Grupos específicos (ej: 8-1, 8-2)
   activePeriod: string;
   periodStatus: Record<string, "open" | "closed">;
+  sapredOrder?: Record<string, string[]>;
+  sapredMeta?: Record<string, SapredRoomMeta>;
+  sapredLastSync?: SapredSyncInfo;
 }
 
 export interface TeacherProfile {
@@ -313,6 +329,7 @@ interface AppContextType {
   updateMasterData: (key: keyof MasterData, list: string[]) => void;
   updateMasterItem: (key: keyof MasterData, oldItem: string, newItem: string) => void;
   removeMasterItem: (key: keyof MasterData, item: string) => void;
+  saveSapredOrder: (orders: Record<string, string[]>, meta?: Record<string, SapredRoomMeta>, syncInfo?: SapredSyncInfo) => void;
   addSubject: (subject: Omit<Subject, "id">) => void;
   updateSubject: (id: string, subject: Partial<Subject>) => void;
   deleteSubject: (id: string) => void;
@@ -625,6 +642,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+
+  const saveSapredOrder = React.useCallback((
+    orders: Record<string, string[]>,
+    meta?: Record<string, SapredRoomMeta>,
+    syncInfo?: SapredSyncInfo
+  ) => {
+    updateMasterDataAndCache(prev => ({
+      ...prev,
+      sapredOrder: {
+        ...(prev.sapredOrder || {}),
+        ...orders,
+      },
+      sapredMeta: meta
+        ? {
+            ...(prev.sapredMeta || {}),
+            ...meta,
+          }
+        : prev.sapredMeta,
+      ...(syncInfo ? { sapredLastSync: syncInfo } : {}),
+    }));
+  }, [updateMasterDataAndCache]);
 
 
   // 🛡️ Actualiza estado de estudiantes y asegura persistencia inmediata en localStorage
@@ -2471,7 +2509,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       students, myStudents, setStudents, addStudent, importStudents, removeStudent, updateStudent, updateDetailedGrades, importDetailedGrades, updateSingleDetailedGrade, addGrade, addGradesBatch, saveDailyAttendance,
     addBehavioralRecord,
     deleteBehavioralRecord,
-      masterData, updateMasterData, updateMasterItem, removeMasterItem, togglePeriodStatus, setActivePeriod,
+      masterData, updateMasterData, updateMasterItem, removeMasterItem, saveSapredOrder, togglePeriodStatus, setActivePeriod,
       addSubject, updateSubject, deleteSubject,
       schedule, setSchedule,
       agendaNotes, addAgendaNote, updateAgendaNote, updateAgendaNotesBatch, deleteAgendaNotesBatch, clearAllAgendaNotes, clearPendingTasks, clearAllTasks,

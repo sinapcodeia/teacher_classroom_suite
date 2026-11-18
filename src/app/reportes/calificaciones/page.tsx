@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
+import { normalizeGrade, matchStudentCourse } from "@/lib/constants";
 import { normalizeSubjectKey } from "@/lib/gradeUtils";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -7,15 +7,17 @@ import { useApp } from "@/context/AppContext";
 
 import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
 import { 
-  Printer, ArrowLeft, Download, ShieldCheck, FileSpreadsheet, 
+  Printer, ArrowLeft, Download, FileSpreadsheet, 
   Loader2, AlertTriangle, FileWarning, ClipboardCheck, 
-  Upload, X, Check, FileText, Award 
+  Upload, X, Check, FileText, Award, ArrowUpDown 
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 import nextDynamic from "next/dynamic";
-import Papa from "papaparse";
+import { SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
+import { sortStudentsBySapredOrder } from "@/lib/sapredConnector";
 const VisualReportModal = nextDynamic(() => import("@/components/dashboard/VisualReportModal"), { ssr: false });
+const SapredConnectorModal = nextDynamic(() => import("@/components/reports/SapredConnectorModal"), { ssr: false });
 
 interface EditableGradeCellProps {
   studentId: string;
@@ -85,7 +87,7 @@ EditableGradeCell.displayName = "EditableGradeCell";
 export default function GradesReportPage() {
   const { 
     students, myStudents, masterData, profile, schedule, addGrade, 
-    updateSingleDetailedGrade, importDetailedGrades 
+    updateSingleDetailedGrade, importDetailedGrades, saveSapredOrder, updateStudent, removeStudent 
   } = useApp();
   
   const [selectedGrade, setSelectedGrade] = useState("TODOS");
@@ -96,6 +98,8 @@ export default function GradesReportPage() {
   const [mounted, setMounted] = useState(false);
 
   const [isVisualReportOpen, setIsVisualReportOpen] = useState(false);
+  const [isSapredOpen, setIsSapredOpen] = useState(false);
+  const [useSapredOrder, setUseSapredOrder] = useState(true);
 
   // Estados del importador de calificaciones
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -135,17 +139,25 @@ export default function GradesReportPage() {
     return myStudents.filter(st => st.isActive !== false && isStudentInSubjectRoom(st));
   }, [myStudents, isStudentInSubjectRoom]);
 
+  const hasSavedSapredOrder = Boolean(masterData.sapredOrder && Object.keys(masterData.sapredOrder).length > 0);
+
   const filteredStudents = useMemo(() => {
-    return studentsInSubject.filter(st => {
+    const list = studentsInSubject.filter(st => {
       if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== normalizeGrade(selectedGrade)) return false;
       if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
       return true;
-    }).sort((a, b) => {
+    });
+
+    if (useSapredOrder && hasSavedSapredOrder) {
+      return sortStudentsBySapredOrder(list, masterData.sapredOrder);
+    }
+
+    return list.sort((a, b) => {
       const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
       const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
       return nameA.localeCompare(nameB);
     });
-  }, [studentsInSubject, selectedGrade, selectedCurso]);
+  }, [studentsInSubject, selectedGrade, selectedCurso, useSapredOrder, hasSavedSapredOrder, masterData.sapredOrder]);
 
   const availableGrades = useMemo(() => 
     Array.from(new Set(studentsInSubject.map(s => normalizeGrade(s.grado)))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
@@ -309,6 +321,12 @@ export default function GradesReportPage() {
     });
   }, [filteredStudents, activeCols, selectedSubject, selectedPeriod]);
 
+  const alertByStudentId = useMemo(() => {
+    const map = new Map<string, (typeof studentsWithAlerts)[number]>();
+    studentsWithAlerts.forEach(sa => map.set(sa.student.id, sa));
+    return map;
+  }, [studentsWithAlerts]);
+
   const alertStats = useMemo(() => {
     const empty = studentsWithAlerts.filter(sa => sa.alertType === "SIN_NOTAS");
     const exams = studentsWithAlerts.filter(sa => sa.alertType === "EXAMEN_PENDIENTE");
@@ -398,10 +416,10 @@ export default function GradesReportPage() {
     }
   };
 
-  const handleDownloadCSV = () => {
-    const csvRows: string[] = [];
+  const handleDownloadCSV = async () => {
+    const aoaRows: string[][] = [];
     const addRow = (row: string[]) => {
-      csvRows.push(row.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(";"));
+      aoaRows.push(row.map(cell => (cell ?? "").toString()));
     };
 
     addRow(["COD_SECCION", "11350", "INSTITUCION EDUCATIVA INDIGENA TECNICA AGROAMBIENTAL BILINGUE AWA", ...Array(25).fill("")]);
@@ -439,15 +457,12 @@ export default function GradesReportPage() {
       addRow([conv[0], conv[1], "", ...Array(25).fill("")]);
     });
 
-    const csvContent = "\uFEFF" + csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Planilla_${selectedSubject}_${selectedGrade}_${selectedCurso}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const { downloadAOAAsExcel } = await import("@/lib/spreadsheetUtils");
+    downloadAOAAsExcel(
+      aoaRows,
+      `Planilla_${selectedSubject}_${selectedGrade}_${selectedCurso}.xlsx`,
+      `Planilla ${selectedPeriod.toUpperCase()}`
+    );
   };
 
   // Lógica de lectura y parseo del cargador de CSV
@@ -457,219 +472,218 @@ export default function GradesReportPage() {
     processCSVFile(file);
   };
 
-  const processCSVFile = (file: File) => {
+  const processCSVFile = async (file: File) => {
+    const MAX_FILE_BYTES = 15 * 1024 * 1024;
+    if (file.size > MAX_FILE_BYTES) {
+      setImportError("El archivo supera el límite máximo permitido de 15 MB.");
+      return;
+    }
     setImportFile(file);
     setImportError(null);
     setImportSuccess(false);
     setImportStats(null);
 
-    Papa.parse(file, {
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const rows = results.data as string[][];
-          if (rows.length === 0) {
-            setImportError("El archivo seleccionado está vacío.");
-            return;
-          }
-
-          // 1. Detectar grado y curso desde los metadatos de cabecera del CSV
-          let targetGrade = selectedGrade;
-          let targetCurso = selectedCurso;
-          
-          const seccionRow = rows.find(r => r[0] && r[0].toString().toUpperCase().trim() === "SECCION");
-          if (seccionRow && seccionRow[1]) {
-            const cleanSec = seccionRow[1].replace(" IETABA", "").trim();
-            const secParts = cleanSec.split("-");
-            if (secParts.length >= 1) {
-              targetGrade = normalizeGrade(secParts[0]);
-              if (secParts.length >= 2) {
-                targetCurso = secParts[1].trim().toUpperCase();
-              }
-            }
-          }
-
-          // 2. Localizar la fila de encabezados que contiene el campo "CODIGO"
-          const headerRowIdx = rows.findIndex(row => 
-            row.some(cell => cell && cell.toString().toUpperCase().trim() === "CODIGO")
-          );
-
-          if (headerRowIdx === -1) {
-            setImportError("Estructura inválida. No se encontró la columna de cabecera con el campo 'CODIGO'. Asegúrate de usar la plantilla exportada.");
-            return;
-          }
-
-          // Normalizar delimitador: PapaParse auto-detecta, pero a veces mezcla campos
-          // Si el header tiene un solo elemento con separador, lo dividimos manualmente
-          let headers = rows[headerRowIdx].map(h => (h || "").toString().trim().toUpperCase());
-          let isSemicolonSplit = false;
-          if (headers.length === 1 && headers[0].includes(";")) {
-            headers = headers[0].split(";");
-            isSemicolonSplit = true;
-          }
-
-          const colCodigoIdx = headers.indexOf("CODIGO");
-          const colApellidoIdx = headers.indexOf("APELLIDO");
-          const colNombreIdx = headers.indexOf("NOMBRE");
-
-          if (colCodigoIdx === -1) {
-            setImportError("Falta la columna 'CODIGO' en el archivo cargado.");
-            return;
-          }
-
-          // Filtrar columnas de evaluación disponibles
-          const evalCols = columns.filter(c => c.id !== "DEF").map(col => {
-            const idx = headers.indexOf(col.id.toUpperCase());
-            return { ...col, csvIdx: idx };
-          }).filter(c => c.csvIdx !== -1);
-
-          if (evalCols.length === 0) {
-            setImportError("No se encontraron columnas de calificaciones (SB1-SB8, SBH1-8, SR1-5, CV1-3, AUT) para importar.");
-            return;
-          }
-
-          const parsedData: any[] = [];
-          const novelties: string[] = [];
-          const roomChanges: any[] = [];
-          const unmatched: string[] = [];
-          let totalGradesRead = 0;
-
-          // Recorrer las filas de estudiantes
-          for (let i = headerRowIdx + 1; i < rows.length; i++) {
-            let row = rows[i];
-            if (!row || row.length === 0) continue;
-
-            if (isSemicolonSplit && row.length === 1) {
-              row = row[0].split(";");
-            }
-
-            const firstCell = (row[0] || "").toString().trim().toUpperCase();
-            if (firstCell === "CONVENCIONES" || firstCell === "CONVENCIONES Y ESCALA DE VALORACIÓN" || firstCell === "") {
-              break; // Detener lectura en la zona de leyendas
-            }
-
-            const rawCodigo = row[colCodigoIdx];
-            if (!rawCodigo) continue;
-
-            const codigo = rawCodigo.toString().replace(".0", "").trim();
-            if (!codigo || codigo === "CODIGO") continue;
-
-            // Cruce con la base de datos de estudiantes
-            const student = students.find(s => 
-              s.nroDocumento === codigo || 
-              s.id === `st-${codigo}-1` || 
-              s.id === `st-${codigo}`
-            );
-
-            const rawApellido = colApellidoIdx !== -1 ? (row[colApellidoIdx] || "").toString().trim() : "";
-            const rawNombre = colNombreIdx !== -1 ? (row[colNombreIdx] || "").toString().trim() : "";
-
-            const apParts = rawApellido.split(/\s+/).filter(Boolean);
-            const primerApellido = apParts.length > 0 ? apParts[0].toUpperCase() : "";
-            const segundoApellido = apParts.length > 1 ? apParts.slice(1).join(" ").toUpperCase() : "";
-
-            const nmParts = rawNombre.split(/\s+/).filter(Boolean);
-            const primerNombre = nmParts.length > 0 ? nmParts[0].toUpperCase() : "";
-            const segundoNombre = nmParts.length > 1 ? nmParts.slice(1).join(" ").toUpperCase() : "";
-
-            const sName = rawApellido || rawNombre
-              ? `${rawApellido} ${rawNombre}`.replace(/\s+/g, " ").trim().toUpperCase()
-              : `Estudiante ${codigo}`;
-
-            if (!student) {
-              unmatched.push(`${sName} (ID: ${codigo})`);
-              continue;
-            }
-
-            // Mapear notas
-            const detailed: any = {
-              sb: Array(8).fill(null),
-              sbh: Array(8).fill(null),
-              sr: Array(5).fill(null),
-              cv: Array(3).fill(null),
-              aut: null
-            };
-
-            const existingDetailed = student.detailedGrades?.[selectedSubject]?.[selectedPeriod.toLowerCase()];
-            if (existingDetailed) {
-              if (existingDetailed.sb) detailed.sb = [...existingDetailed.sb];
-              if (existingDetailed.sbh) detailed.sbh = [...existingDetailed.sbh];
-              if (existingDetailed.sr) detailed.sr = [...existingDetailed.sr];
-              if (existingDetailed.cv) detailed.cv = [...existingDetailed.cv];
-              detailed.aut = existingDetailed.aut;
-            }
-
-            evalCols.forEach(col => {
-              const cellVal = row[col.csvIdx];
-              if (cellVal !== undefined && cellVal !== null && cellVal !== "") {
-                const score = parseFloat(cellVal.toString().replace(",", "."));
-                if (!isNaN(score) && score >= 0 && score <= 5) {
-                  if (col.type === "SB") detailed.sb[col.idx] = score;
-                  else if (col.type === "SBH") detailed.sbh[col.idx] = score;
-                  else if (col.type === "SR") detailed.sr[col.idx] = score;
-                  else if (col.type === "CV") detailed.cv[col.idx] = score;
-                  else if (col.type === "AUT") detailed.aut = score;
-                  totalGradesRead++;
-                } else if (cellVal.toString().trim() !== "" && cellVal.toString().trim() !== "—") {
-                  novelties.push(`Nota "${cellVal}" omitida por estar fuera de rango (0.0 - 5.0) para ${sName} en ${col.id}.`);
-                }
-              }
-            });
-
-            // Validar traslados de Grado/Curso
-            const currentGradoNormalized = normalizeGrade(student.grado);
-            const targetGradeNormalized = normalizeGrade(targetGrade);
-            const isDifferentRoom = currentGradoNormalized !== targetGradeNormalized || student.curso !== targetCurso;
-
-            if (isDifferentRoom) {
-              roomChanges.push({
-                nombre: `${student.primerApellido} ${student.primerNombre}`,
-                documento: student.nroDocumento,
-                antes: `${student.grado}-${student.curso}`,
-                ahora: `${targetGrade}-${targetCurso}`
-              });
-            }
-
-            parsedData.push({
-              studentId: student.id,
-              nombre: `${primerApellido} ${segundoApellido} ${primerNombre} ${segundoNombre}`.replace(/\s+/g, " ").trim() || `${student.primerApellido} ${student.primerNombre}`,
-              documento: student.nroDocumento,
-              detailed,
-              grado: targetGrade,
-              curso: targetCurso,
-              primerNombre,
-              segundoNombre,
-              primerApellido,
-              segundoApellido
-            });
-          }
-
-          if (parsedData.length === 0) {
-            setImportError("No se encontraron registros de estudiantes válidos en el archivo.");
-            return;
-          }
-
-          setImportStats({
-            totalRows: parsedData.length,
-            targetGrade,
-            targetCurso,
-            matchedCount: parsedData.length,
-            unmatched,
-            roomChanges,
-            updatedGradesCount: totalGradesRead,
-            novelties,
-            payload: parsedData
-          });
-
-        } catch (e: any) {
-          console.error(e);
-          setImportError(`Error de lectura: ${e.message}`);
-        }
-      },
-      error: (err) => {
-        setImportError(`Error en el lector de archivos CSV: ${err.message}`);
+    try {
+      const { parseSpreadsheetFileToAOA } = await import("@/lib/spreadsheetUtils");
+      const rows = await parseSpreadsheetFileToAOA(file);
+      if (rows.length === 0) {
+        setImportError("El archivo seleccionado está vacío.");
+        return;
       }
-    });
+
+      // 1. Detectar grado y curso desde los metadatos de cabecera del archivo Excel/CSV
+      let targetGrade = selectedGrade;
+      let targetCurso = selectedCurso;
+      
+      const seccionRow = rows.find(r => r[0] && r[0].toString().toUpperCase().trim() === "SECCION");
+      if (seccionRow && seccionRow[1]) {
+        const cleanSec = seccionRow[1].replace(" IETABA", "").trim();
+        const secParts = cleanSec.split("-");
+        if (secParts.length >= 1) {
+          targetGrade = normalizeGrade(secParts[0]);
+          if (secParts.length >= 2) {
+            targetCurso = secParts[1].trim().toUpperCase();
+          }
+        }
+      }
+
+      // 2. Localizar la fila de encabezados que contiene el campo "CODIGO"
+      const headerRowIdx = rows.findIndex(row => 
+        row.some(cell => cell && cell.toString().toUpperCase().trim() === "CODIGO")
+      );
+
+      if (headerRowIdx === -1) {
+        setImportError("Estructura inválida. No se encontró la columna de cabecera con el campo 'CODIGO'. Asegúrate de usar la plantilla exportada.");
+        return;
+      }
+
+      // Normalizar delimitador si proviene de un CSV con punto y coma en una sola columna
+      let headers = rows[headerRowIdx].map(h => (h || "").toString().trim().toUpperCase());
+      let isSemicolonSplit = false;
+      if (headers.length === 1 && headers[0].includes(";")) {
+        headers = headers[0].split(";");
+        isSemicolonSplit = true;
+      }
+
+      const colCodigoIdx = headers.indexOf("CODIGO");
+      const colApellidoIdx = headers.indexOf("APELLIDO");
+      const colNombreIdx = headers.indexOf("NOMBRE");
+
+      if (colCodigoIdx === -1) {
+        setImportError("Falta la columna 'CODIGO' en el archivo cargado.");
+        return;
+      }
+
+      // Filtrar columnas de evaluación disponibles
+      const evalCols = columns.filter(c => c.id !== "DEF" && c.id !== "PARC").map(col => {
+        const idx = headers.indexOf(col.id.toUpperCase());
+        return { ...col, csvIdx: idx };
+      }).filter(c => c.csvIdx !== -1);
+
+      if (evalCols.length === 0) {
+        setImportError("No se encontraron columnas de calificaciones (SB1-SB8, SBH1-8, SR1-5, CV1-3, AUT) para importar.");
+        return;
+      }
+
+      const parsedData: any[] = [];
+      const novelties: string[] = [];
+      const roomChanges: any[] = [];
+      const unmatched: string[] = [];
+      let totalGradesRead = 0;
+
+      // Recorrer las filas de estudiantes
+      for (let i = headerRowIdx + 1; i < rows.length; i++) {
+        let row = rows[i];
+        if (!row || row.length === 0) continue;
+
+        if (isSemicolonSplit && row.length === 1) {
+          row = row[0].split(";");
+        }
+
+        const firstCell = (row[0] || "").toString().trim().toUpperCase();
+        if (firstCell === "CONVENCIONES" || firstCell === "CONVENCIONES Y ESCALA DE VALORACIÓN" || (firstCell === "" && !row[colCodigoIdx])) {
+          break; // Detener lectura en la zona de leyendas
+        }
+
+        const rawCodigo = row[colCodigoIdx];
+        if (!rawCodigo) continue;
+
+        const codigo = rawCodigo.toString().replace(".0", "").trim();
+        if (!codigo || codigo === "CODIGO") continue;
+
+        // Cruce con la base de datos de estudiantes
+        const student = students.find(s => 
+          s.nroDocumento === codigo || 
+          s.id === `st-${codigo}-1` || 
+          s.id === `st-${codigo}`
+        );
+
+        const rawApellido = colApellidoIdx !== -1 ? (row[colApellidoIdx] || "").toString().trim() : "";
+        const rawNombre = colNombreIdx !== -1 ? (row[colNombreIdx] || "").toString().trim() : "";
+
+        const apParts = rawApellido.split(/\s+/).filter(Boolean);
+        const primerApellido = apParts.length > 0 ? apParts[0].toUpperCase() : "";
+        const segundoApellido = apParts.length > 1 ? apParts.slice(1).join(" ").toUpperCase() : "";
+
+        const nmParts = rawNombre.split(/\s+/).filter(Boolean);
+        const primerNombre = nmParts.length > 0 ? nmParts[0].toUpperCase() : "";
+        const segundoNombre = nmParts.length > 1 ? nmParts.slice(1).join(" ").toUpperCase() : "";
+
+        const sName = rawApellido || rawNombre
+          ? `${rawApellido} ${rawNombre}`.replace(/\s+/g, " ").trim().toUpperCase()
+          : `Estudiante ${codigo}`;
+
+        if (!student) {
+          unmatched.push(`${sName} (ID: ${codigo})`);
+          continue;
+        }
+
+        // Mapear notas
+        const detailed: any = {
+          sb: Array(8).fill(null),
+          sbh: Array(8).fill(null),
+          sr: Array(5).fill(null),
+          cv: Array(3).fill(null),
+          aut: null,
+          rec: null
+        };
+
+        const existingDetailed = student.detailedGrades?.[selectedSubject]?.[selectedPeriod.toLowerCase()];
+        if (existingDetailed) {
+          if (existingDetailed.sb) detailed.sb = [...existingDetailed.sb];
+          if (existingDetailed.sbh) detailed.sbh = [...existingDetailed.sbh];
+          if (existingDetailed.sr) detailed.sr = [...existingDetailed.sr];
+          if (existingDetailed.cv) detailed.cv = [...existingDetailed.cv];
+          detailed.aut = existingDetailed.aut;
+          detailed.rec = existingDetailed.rec ?? null;
+        }
+
+        evalCols.forEach(col => {
+          const cellVal = row[col.csvIdx];
+          if (cellVal !== undefined && cellVal !== null && cellVal !== "") {
+            const score = parseFloat(cellVal.toString().replace(",", "."));
+            if (!isNaN(score) && score >= 0 && score <= 5) {
+              if (col.type === "SB") detailed.sb[col.idx] = score;
+              else if (col.type === "SBH") detailed.sbh[col.idx] = score;
+              else if (col.type === "SR") detailed.sr[col.idx] = score;
+              else if (col.type === "CV") detailed.cv[col.idx] = score;
+              else if (col.type === "AUT") detailed.aut = score;
+              else if (col.type === "REC") detailed.rec = score;
+              totalGradesRead++;
+            } else if (cellVal.toString().trim() !== "" && cellVal.toString().trim() !== "—") {
+              novelties.push(`Nota "${cellVal}" omitida por estar fuera de rango (0.0 - 5.0) para ${sName} en ${col.id}.`);
+            }
+          }
+        });
+
+        // Validar traslados de Grado/Curso
+        const currentGradoNormalized = normalizeGrade(student.grado);
+        const targetGradeNormalized = normalizeGrade(targetGrade);
+        const isDifferentRoom = currentGradoNormalized !== targetGradeNormalized || student.curso !== targetCurso;
+
+        if (isDifferentRoom) {
+          roomChanges.push({
+            nombre: `${student.primerApellido} ${student.primerNombre}`,
+            documento: student.nroDocumento,
+            antes: `${student.grado}-${student.curso}`,
+            ahora: `${targetGrade}-${targetCurso}`
+          });
+        }
+
+        parsedData.push({
+          studentId: student.id,
+          nombre: `${primerApellido} ${segundoApellido} ${primerNombre} ${segundoNombre}`.replace(/\s+/g, " ").trim() || `${student.primerApellido} ${student.primerNombre}`,
+          documento: student.nroDocumento,
+          detailed,
+          grado: targetGrade,
+          curso: targetCurso,
+          primerNombre,
+          segundoNombre,
+          primerApellido,
+          segundoApellido
+        });
+      }
+
+      if (parsedData.length === 0) {
+        setImportError("No se encontraron registros de estudiantes válidos en el archivo.");
+        return;
+      }
+
+      setImportStats({
+        totalRows: parsedData.length,
+        targetGrade,
+        targetCurso,
+        matchedCount: parsedData.length,
+        unmatched,
+        roomChanges,
+        updatedGradesCount: totalGradesRead,
+        novelties,
+        payload: parsedData
+      });
+    } catch (e: any) {
+      console.error(e);
+      setImportError(`Error de lectura del archivo Excel/CSV: ${e.message}`);
+    }
   };
 
   const handleApplyImport = async () => {
@@ -708,10 +722,10 @@ export default function GradesReportPage() {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.name.endsWith(".csv")) {
+    if (file && /\.(xlsx|xls|csv)$/i.test(file.name)) {
       processCSVFile(file);
     } else {
-      setImportError("Solo se admiten archivos en formato CSV (.csv).");
+      setImportError("Solo se admiten archivos Excel (.xlsx, .xls) o CSV (.csv).");
     }
   };
 
@@ -723,8 +737,8 @@ export default function GradesReportPage() {
 
   return (
     <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE"]}>
-      <div className="min-h-screen bg-surface-container-lowest p-0 md:p-8 font-inter antialiased">
-      <div className="max-w-[1200px] mx-auto mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-stretch md:items-center bg-white p-4 md:p-6 rounded-3xl md:rounded-[2rem] shadow-xl border border-outline-variant/30 print:hidden gap-4 md:gap-6">
+      <div className="min-h-screen bg-surface-container-lowest p-2 sm:p-4 lg:p-6 font-inter antialiased overflow-x-hidden">
+      <div className="max-w-[1280px] mx-auto mb-4 sm:mb-6 flex flex-col lg:flex-row justify-between items-stretch lg:items-center bg-white p-3 sm:p-4 lg:p-5 rounded-2xl sm:rounded-3xl shadow-xl border border-outline-variant/30 print:hidden gap-3 sm:gap-4">
         <div className="flex items-center gap-4">
           <Link href="/estudiantes" className="p-3 hover:bg-surface-container-low rounded-2xl transition-all">
             <ArrowLeft size={24} className="text-primary" />
@@ -776,6 +790,23 @@ export default function GradesReportPage() {
                 <option value="p2">PERIODO 2</option>
                 <option value="p3">PERIODO 3</option>
               </select>
+              {hasSavedSapredOrder && (
+                <>
+                  <div className="hidden md:block w-px h-6 bg-slate-200" />
+                  <button
+                    type="button"
+                    onClick={() => setUseSapredOrder(prev => !prev)}
+                    className={`px-2.5 py-1 rounded-lg font-black text-[9px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                      useSapredOrder
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                        : "bg-slate-200/70 text-slate-600"
+                    }`}
+                    title="Alternar entre el orden guardado de SAPRED y orden alfabético"
+                  >
+                    <ArrowUpDown size={12} /> {useSapredOrder ? "Orden: SAPRED" : "Orden: A-Z"}
+                  </button>
+                </>
+              )}
            </div>
 
            <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap justify-end">
@@ -799,6 +830,14 @@ export default function GradesReportPage() {
               </button>
               <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
                 <FileSpreadsheet size={15} /> Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSapredOpen(true)}
+                className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-700/20 hover:scale-[1.02] transition-all flex items-center gap-2 cursor-pointer"
+                title="Llenar plantilla .xls oficial de SAPRED o exportar libro multi-hoja hasta AUT"
+              >
+                <FileSpreadsheet size={15} /> Conector SAPRED (.XLS)
               </button>
               <div className="flex flex-wrap sm:flex-nowrap items-center justify-between w-full sm:w-auto bg-rose-50 border border-rose-200 rounded-xl md:rounded-2xl p-1 gap-1 shadow-sm">
                 <select
@@ -1027,7 +1066,7 @@ export default function GradesReportPage() {
 
             {/* Students Data */}
             {filteredStudents.map((st) => {
-              const alertInfo = studentsWithAlerts.find(sa => sa.student.id === st.id);
+              const alertInfo = alertByStudentId.get(st.id);
               const alertBadge = alertInfo ? (
                 alertInfo.alertType === "SIN_NOTAS" ? (
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 ml-1.5 align-middle cursor-help print:hidden animate-pulse" title="Sin Calificaciones Registradas" />
@@ -1198,14 +1237,14 @@ export default function GradesReportPage() {
                 </div>
                 <div>
                   <p className="font-extrabold text-slate-800 text-sm">Arrastra tu planilla exportada aquí</p>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-1">O selecciona el archivo desde tu dispositivo (.csv)</p>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-1">O selecciona el archivo desde tu dispositivo (.xlsx, .xls o .csv)</p>
                 </div>
                 
                 <label className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 shadow-lg shadow-slate-950/20">
                   Seleccionar Archivo
                   <input 
                     type="file" 
-                    accept=".csv" 
+                    accept={SPREADSHEET_ACCEPT} 
                     className="hidden" 
                     onChange={handleCSVUpload}
                   />
@@ -1353,7 +1392,8 @@ export default function GradesReportPage() {
                             ...item.detailed.sbh,
                             ...item.detailed.sr,
                             ...item.detailed.cv,
-                            item.detailed.aut
+                            item.detailed.aut,
+                            item.detailed.rec
                           ].filter(v => typeof v === 'number').length;
 
                           return (
@@ -1420,6 +1460,25 @@ export default function GradesReportPage() {
         grade={selectedGrade}
         course={selectedCurso}
         aiInsightText={aiInsightText}
+      />
+
+      <SapredConnectorModal
+        isOpen={isSapredOpen}
+        onClose={() => setIsSapredOpen(false)}
+        students={students}
+        schedule={schedule || []}
+        availableSubjects={availableSubjects}
+        selectedSubject={selectedSubject}
+        selectedGrade={selectedGrade}
+        selectedCurso={selectedCurso}
+        selectedPeriod={selectedPeriod}
+        teacherName={profile.name}
+        sapredOrder={masterData.sapredOrder}
+        sapredMeta={masterData.sapredMeta}
+        sapredLastSync={masterData.sapredLastSync}
+        onSaveSapredOrder={saveSapredOrder}
+        onUpdateStudent={updateStudent}
+        onRemoveStudent={removeStudent}
       />
 
       <style jsx global>{`

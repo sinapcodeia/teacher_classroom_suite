@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Upload, FileSpreadsheet, X, Check, Loader2, Download, AlertTriangle, Info } from "lucide-react";
-import Papa from "papaparse";
 import { db } from "@/lib/firebase";
 import { setDoc, doc, getDoc } from "firebase/firestore";
 import { normalizeRows, rowToTopic, downloadTemplate, downloadTejidoNoveltiesCSV, PERIOD_TITLES, TEJIDO_COLUMNS, type ParsedTejido } from "@/lib/tejidoTemplate";
+import { parseSpreadsheetFileToObjects, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
 
 interface CSVImporterProps {
   grade: string;
@@ -26,19 +26,17 @@ export default function CSVImporter({ grade, subject }: CSVImporterProps) {
   const reset = () => { setParsed(null); setFileName(""); };
   const close = () => { setShow(false); reset(); };
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: "greedy",
-      delimitersToGuess: [";", ",", "\t", "|"],
-      transformHeader: h => h.replace(/^\uFEFF/, "").trim(),
-      complete: results => setParsed(normalizeRows(results.data as any[])),
-      error: () => setParsed({ rows: [], errors: ["No se pudo leer el archivo. Guárdalo como CSV (UTF-8)."], warnings: [], unknownHeaders: [] }),
-    });
     e.target.value = "";
+    try {
+      const rows = await parseSpreadsheetFileToObjects(file);
+      setParsed(normalizeRows(rows));
+    } catch {
+      setParsed({ rows: [], errors: ["No se pudo leer el archivo. Sube un archivo Excel (.xlsx) o CSV (UTF-8)."], warnings: [], unknownHeaders: [] });
+    }
   };
 
   const handleSave = async () => {
@@ -130,7 +128,7 @@ export default function CSVImporter({ grade, subject }: CSVImporterProps) {
             <p className="text-xs text-on-surface-variant leading-relaxed">
               Cada <b>fila</b> es una <b>Higra del Conocimiento</b> (lo que se dicta en el periodo). De ella salen los
               <b> Hilos del Saber: SABER, HACER y SER</b>, y sobre la higra se preparan las clases.
-              Escribe los temas de la higra separados por <code>|</code>. Ábrelo en Excel y guárdalo como <b>CSV UTF-8</b>.
+              Escribe los temas de la higra separados por <code>|</code>. Diligéncialo directamente en <b>Excel (.xlsx)</b> y súbelo en el Paso 2.
             </p>
             <div className="flex flex-wrap gap-2">
               <button id="download-tejido-template" onClick={() => downloadTemplate(grade, subject, false)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-90">
@@ -154,9 +152,9 @@ export default function CSVImporter({ grade, subject }: CSVImporterProps) {
           <section className="space-y-2">
             <p className="text-xs font-black uppercase tracking-wider text-on-surface">2. Sube el archivo diligenciado</p>
             <div className="border-2 border-dashed border-outline-variant rounded-2xl p-8 flex flex-col items-center justify-center gap-3 hover:border-primary transition-colors cursor-pointer relative">
-              <input id="tejido-file-input" type="file" accept=".csv,text/csv" onChange={handleFile} className="absolute inset-0 opacity-0 cursor-pointer" />
+              <input id="tejido-file-input" type="file" accept={SPREADSHEET_ACCEPT} onChange={handleFile} className="absolute inset-0 opacity-0 cursor-pointer" />
               <Upload size={28} className="text-primary" />
-              <p className="font-bold text-sm text-on-surface">{fileName || "Selecciona tu archivo .csv"}</p>
+              <p className="font-bold text-sm text-on-surface">{fileName || "Selecciona tu archivo Excel (.xlsx) o .csv"}</p>
               <p className="text-[11px] text-on-surface-variant">Un archivo por grado y materia</p>
             </div>
           </section>
@@ -172,7 +170,7 @@ export default function CSVImporter({ grade, subject }: CSVImporterProps) {
                     <AlertTriangle size={16} /> Se detectaron {parsed.errors.length} novedad(es) en el archivo
                   </p>
                   <p className="text-[11px] text-red-700 mt-0.5">
-                    No se cargará ningún registro a la base de datos hasta que todas las novedades sean corregidas en el archivo CSV.
+                    No se cargará ningún registro a la base de datos hasta que todas las novedades sean corregidas en el archivo Excel/CSV.
                   </p>
                 </div>
                 <button
@@ -180,7 +178,7 @@ export default function CSVImporter({ grade, subject }: CSVImporterProps) {
                   onClick={() => downloadTejidoNoveltiesCSV(parsed.errors, fileName || "Tejido")}
                   className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
                 >
-                  <Download size={13} /> Descargar Novedades CSV
+                  <Download size={13} /> Descargar Novedades Excel
                 </button>
               </div>
               <ul className="space-y-1 max-h-48 overflow-y-auto pr-1 font-semibold">

@@ -15,7 +15,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import DatabaseBackup from "@/components/shared/DatabaseBackup";
 import { normalizeGrade } from "@/lib/constants";
-import Papa from "papaparse";
+import { parseSpreadsheetFileToObjects, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
 import {
   downloadScheduleTemplate,
   downloadScheduleNoveltiesCSV,
@@ -341,11 +341,6 @@ export default function ConfiguracionPage() {
   const [firstName, setFirstName] = useState(profile.firstName || "");
   const [lastName, setLastName] = useState(profile.lastName || "");
   const [phone, setPhone] = useState(profile.phone || "");
-  const [isDirectorGrupo, setIsDirectorGrupo] = useState(
-    profile.isDirectorGrupo === true || profile.role === "DOCENTE_DIRECTOR" || Boolean(profile.directorGrado && profile.directorCurso)
-  );
-  const [directorGrado, setDirectorGrado] = useState(profile.directorGrado || masterData.grades[0] || "5°");
-  const [directorCurso, setDirectorCurso] = useState(profile.directorCurso || masterData.courses[0] || "1");
 
   // Horario
   const [blocks, setBlocks] = useState<ScheduleBlock[]>(profile.weeklySchedule || []);
@@ -414,34 +409,35 @@ export default function ConfiguracionPage() {
     setBlocks(prev => prev.filter(b => b.id !== id));
   }, []);
 
-  const handleScheduleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScheduleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (e.target) e.target.value = "";
     setIsValidatingScheduleCSV(true);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const parsed = parseAndValidateScheduleCSV(results.data as any[], masterData.subjects);
-        const collisions: { block: ScheduleBlock; conflictWith: string }[] = [];
+    try {
+      const rows = await parseSpreadsheetFileToObjects(file);
+      const parsed = parseAndValidateScheduleCSV(rows, masterData.subjects);
+      const collisions: { block: ScheduleBlock; conflictWith: string }[] = [];
 
-        for (const blk of parsed.validBlocks) {
-          const check = await checkCollision(blk.day, blk.startTime, blk.course, user?.uid || "");
-          if (check.hasCollision && check.conflictWith) {
-            collisions.push({ block: blk, conflictWith: check.conflictWith });
-          }
+      for (const blk of parsed.validBlocks) {
+        const check = await checkCollision(blk.day, blk.startTime, blk.course, user?.uid || "");
+        if (check.hasCollision && check.conflictWith) {
+          collisions.push({ block: blk, conflictWith: check.conflictWith });
         }
+      }
 
-        setScheduleImportPreview({
-          validBlocks: parsed.validBlocks,
-          issues: parsed.issues,
-          collisions,
-        });
-        setIsValidatingScheduleCSV(false);
-        if (e.target) e.target.value = "";
-      },
-    });
+      setScheduleImportPreview({
+        validBlocks: parsed.validBlocks,
+        issues: parsed.issues,
+        collisions,
+      });
+    } catch (err) {
+      console.error("Error leyendo horario Excel/CSV:", err);
+      alert("No se pudo leer el archivo de horario. Sube un archivo Excel (.xlsx) o CSV válido.");
+    } finally {
+      setIsValidatingScheduleCSV(false);
+    }
   };
 
   if (!mounted) return (
@@ -475,7 +471,7 @@ export default function ConfiguracionPage() {
     if (confirm("¿Estás seguro de que deseas vaciar la caché local? Esto cerrará tu sesión temporalmente para recargar los datos frescos.")) {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for(let registration of registrations) {
+          for(const registration of registrations) {
             registration.unregister();
           }
         });
@@ -584,7 +580,7 @@ export default function ConfiguracionPage() {
                       <button
                         type="button"
                         onClick={() => downloadScheduleTemplate("current", blocks)}
-                        title="Exportar mi horario configurado a CSV"
+                        title="Exportar mi horario configurado a Excel (.xlsx)"
                         className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-blue-700 border border-blue-200 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-blue-50 transition-all"
                       >
                         <Download size={14} /> Exportar Actual
@@ -592,10 +588,10 @@ export default function ConfiguracionPage() {
                     )}
                     <label className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-all cursor-pointer shadow-md">
                       {isValidatingScheduleCSV ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                      <span>Subir Horario CSV</span>
+                      <span>Subir Horario Excel</span>
                       <input
                         type="file"
-                        accept=".csv"
+                        accept={SPREADSHEET_ACCEPT}
                         className="hidden"
                         onChange={handleScheduleCSVUpload}
                       />
@@ -622,7 +618,7 @@ export default function ConfiguracionPage() {
                             Formato Estandarizado de Horario
                           </span>
                           <h3 className="text-xl font-black uppercase italic text-slate-900 mt-1">
-                            Validación de Malla Horaria CSV
+                            Validación de Malla Horaria Excel
                           </h3>
                         </div>
                         <button
@@ -640,7 +636,7 @@ export default function ConfiguracionPage() {
                             <span className="text-lg font-black text-blue-950">{scheduleImportPreview.validBlocks.length}</span>
                           </div>
                           <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-center">
-                            <span className="text-[9px] font-black uppercase text-amber-700 block">Observaciones CSV</span>
+                            <span className="text-[9px] font-black uppercase text-amber-700 block">Observaciones Archivo</span>
                             <span className="text-lg font-black text-amber-950">{scheduleImportPreview.issues.length}</span>
                           </div>
                           <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-center">
@@ -669,7 +665,7 @@ export default function ConfiguracionPage() {
                               }
                               className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
                             >
-                              <Download size={13} /> Descargar Novedades CSV
+                              <Download size={13} /> Descargar Novedades Excel
                             </button>
                           </div>
                         )}
@@ -692,7 +688,7 @@ export default function ConfiguracionPage() {
                         {scheduleImportPreview.issues.length > 0 && (
                           <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 space-y-1">
                             <p className="font-black uppercase text-[10px] tracking-wider">
-                              ✕ Novedades encontradas en el archivo CSV:
+                              ✕ Novedades encontradas en el archivo Excel/CSV:
                             </p>
                             <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                               {scheduleImportPreview.issues.map((iss, idx) => (

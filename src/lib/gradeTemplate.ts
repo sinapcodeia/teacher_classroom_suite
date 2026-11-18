@@ -1,6 +1,6 @@
-import Papa from "papaparse";
 import { Student } from "@/context/AppContext";
 import { DetailedGrades, calculatePeriodGrades } from "./gradeUtils";
+import { downloadRowsAsExcel } from "./spreadsheetUtils";
 
 export const GRADEBOOK_CSV_COLUMNS = [
   "CODIGO",
@@ -46,12 +46,12 @@ export interface GradebookValidationSummary {
   riskCount: number;
 }
 
-export function buildGradebookCSV(
+export function buildGradebookRows(
   students: Student[],
   subject: string,
   selectedPeriod: string,
   mode: "current" | "blank" | "example"
-): string {
+): Record<string, any>[] {
   const rows: Record<string, any>[] = [];
 
   if (mode === "example" && students.length === 0) {
@@ -126,10 +126,7 @@ export function buildGradebookCSV(
     });
   }
 
-  const csv = Papa.unparse(rows, {
-    columns: [...GRADEBOOK_CSV_COLUMNS],
-  });
-  return "\uFEFF" + csv;
+  return rows;
 }
 
 export function downloadGradebookTemplate(
@@ -139,10 +136,7 @@ export function downloadGradebookTemplate(
   selectedPeriod: string,
   mode: "current" | "blank" | "example"
 ): void {
-  const content = buildGradebookCSV(students, subject, selectedPeriod, mode);
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const rows = buildGradebookRows(students, subject, selectedPeriod, mode);
   const periodLabel = selectedPeriod.toUpperCase();
   const suffix =
     mode === "example"
@@ -150,15 +144,12 @@ export function downloadGradebookTemplate(
       : mode === "blank"
       ? "En_Blanco"
       : "Actual";
-  link.setAttribute("href", url);
-  link.setAttribute(
-    "download",
-    `Planilla_${subject}_${course}_${periodLabel}_${suffix}.csv`
+  downloadRowsAsExcel(
+    rows,
+    `Planilla_${subject}_${course}_${periodLabel}_${suffix}.xlsx`,
+    `Planilla ${periodLabel}`,
+    GRADEBOOK_CSV_COLUMNS
   );
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 export function downloadGradebookNoveltiesCSV(
@@ -167,24 +158,19 @@ export function downloadGradebookNoveltiesCSV(
   course: string
 ): void {
   const rows = novelties.map(n => ({
-    FILA_CSV: n.rowNumber,
+    FILA_ARCHIVO: n.rowNumber,
     CODIGO_ESTUDIANTE: n.codigo,
     ESTUDIANTE: n.studentName,
     COLUMNA: n.column,
     VALOR_ENCONTRADO: n.valueFound,
     NOVEDAD_GOBERNANZA: n.reason,
-    ACCION_REQUERIDA: "Corregir en el archivo CSV antes de volver a subir la planilla",
+    ACCION_REQUERIDA: "Corregir en el archivo Excel/CSV antes de volver a subir la planilla",
   }));
-  const csv = "\uFEFF" + Papa.unparse(rows);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", `Reporte_Novedades_Planilla_${subject}_${course}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadRowsAsExcel(
+    rows,
+    `Reporte_Novedades_Planilla_${subject}_${course}.xlsx`,
+    "Novedades Planilla"
+  );
 }
 
 export function validateGradebookCSV(

@@ -1,5 +1,4 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
 import {
   downloadStudentTemplate,
   downloadStudentNoveltiesCSV,
@@ -10,11 +9,10 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { useApp, toTitleCase } from "@/context/AppContext";
 
-import jsPDF from "jspdf";
-import Papa from "papaparse";
+import { parseSpreadsheetFileToObjects, downloadRowsAsExcel, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
 import { 
   Users, Book, GraduationCap, ShieldCheck, 
-  Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, Info, RotateCcw, Clock, FileDown,
+  Trash2, Upload, ArrowLeft, CheckCircle, X, Baby, RotateCcw, Clock, FileDown,
   BarChart3, LayoutGrid, Key, ShieldAlert, Mail, UserPlus, Fingerprint, Plus, Loader2, Search, Pencil
 } from "lucide-react";
 import Link from "next/link";
@@ -24,8 +22,8 @@ import { seedCurriculum } from "@/lib/seedCurriculum";
 
 export default function AdminPage() {
   const { 
-    masterData, updateMasterData, students, setStudents, 
-    profile, setProfile, allUsers, refreshUsers, updateUserRole, createEmailUser,
+    masterData, updateMasterData, students, 
+    profile, allUsers, refreshUsers, updateUserRole, createEmailUser,
     importStudents, removeStudent, removeMasterItem, updateStudent, updateMasterItem
   } = useApp();
 
@@ -137,92 +135,92 @@ export default function AdminPage() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsImporting(true);
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const rows = results.data as any[];
+    try {
+      const rows = await parseSpreadsheetFileToObjects(file);
 
-        if (activeTab === "students") {
-          const { validRows, issues } = parseAndValidateStudentsCSV(rows, false);
+      if (activeTab === "students") {
+        const { validRows, issues } = parseAndValidateStudentsCSV(rows, false);
 
-          // REGLA DE GOBERNANZA INSTITUCIONAL: Si existe cualquier novedad/error, NO cargar nada
-          if (issues.length > 0) {
-            setIsImporting(false);
-            setGovernanceIssues(issues);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            return;
-          }
-
-          const newStudents = validRows.map(st => ({
-            ...st,
-            avgGrade: 0,
-            attendance: "100%",
-            present: true,
-            isActive: true,
-          }));
-
+        // REGLA DE GOBERNANZA INSTITUCIONAL: Si existe cualquier novedad/error, NO cargar nada
+        if (issues.length > 0) {
           setIsImporting(false);
-          if (newStudents.length === 0) {
-            setGovernanceIssues([
-              {
-                rowNumber: 1,
-                nroDocumento: "—",
-                studentName: "Archivo sin datos",
-                field: "ARCHIVO",
-                level: "error",
-                message: "No se encontraron filas de estudiantes válidas en el archivo.",
-              },
-            ]);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            return;
-          }
-
-          // Batch write to Firestore
-          importStudents(newStudents).then(() => {
-            setImportSummary({ count: newStudents.length, type: "Estudiantes" });
-            
-            // FEED MAESTRO: Limpiar y agregar solo grados y cursos válidos
-            const uniqueGrades = Array.from(new Set(newStudents.map(s => s.grado))).filter(v => v);
-            const uniqueCourses = Array.from(new Set(newStudents.map(s => s.curso))).filter(v => v);
-            
-            // Eliminar entradas mixtas previas (ej: "5-1") antes de guardar
-            const cleanGrades = masterData.grades.filter(g => !g.includes("-"));
-            const cleanCourses = masterData.courses.filter(c => !c.includes("-"));
-
-            updateMasterData("grades", Array.from(new Set([...cleanGrades, ...uniqueGrades])));
-            updateMasterData("courses", Array.from(new Set([...cleanCourses, ...uniqueCourses])));
-            
-          }).catch(err => {
-            console.error("Error importando a Firestore:", err);
-            setImportSummary({ count: newStudents.length, type: "Estudiantes (solo local)" });
-          });
+          setGovernanceIssues(issues);
           if (fileInputRef.current) fileInputRef.current.value = "";
-          return; 
-        } else if (activeTab !== "stats" && activeTab !== "users") {
-          // Importación de datos maestros (Materias, Grados, etc.)
-          const names = rows.map(row => {
-            const val = Array.isArray(row) ? row[0] : Object.values(row)[0];
-            return toTitleCase((val || "").toString().trim());
-          }).filter(n => n);
-          
-          updateMasterData(activeTab, Array.from(new Set([...masterData[activeTab], ...names])));
-          setImportSummary({ count: names.length, type: activeTab });
+          return;
         }
 
+        const newStudents = validRows.map(st => ({
+          ...st,
+          avgGrade: 0,
+          attendance: "100%",
+          present: true,
+          isActive: true,
+        }));
+
         setIsImporting(false);
+        if (newStudents.length === 0) {
+          setGovernanceIssues([
+            {
+              rowNumber: 1,
+              nroDocumento: "—",
+              studentName: "Archivo sin datos",
+              field: "ARCHIVO",
+              level: "error",
+              message: "No se encontraron filas de estudiantes válidas en el archivo.",
+            },
+          ]);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        // Batch write to Firestore
+        importStudents(newStudents).then(() => {
+          setImportSummary({ count: newStudents.length, type: "Estudiantes" });
+          
+          // FEED MAESTRO: Limpiar y agregar solo grados y cursos válidos
+          const uniqueGrades = Array.from(new Set(newStudents.map(s => s.grado))).filter(v => v);
+          const uniqueCourses = Array.from(new Set(newStudents.map(s => s.curso))).filter(v => v);
+          
+          // Eliminar entradas mixtas previas (ej: "5-1") antes de guardar
+          const cleanGrades = masterData.grades.filter(g => !g.includes("-"));
+          const cleanCourses = masterData.courses.filter(c => !c.includes("-"));
+
+          updateMasterData("grades", Array.from(new Set([...cleanGrades, ...uniqueGrades])));
+          updateMasterData("courses", Array.from(new Set([...cleanCourses, ...uniqueCourses])));
+          
+        }).catch(err => {
+          console.error("Error importando a Firestore:", err);
+          setImportSummary({ count: newStudents.length, type: "Estudiantes (solo local)" });
+        });
         if (fileInputRef.current) fileInputRef.current.value = "";
-        setTimeout(() => setImportSummary(null), 5000);
+        return; 
+      } else if (activeTab !== "stats" && activeTab !== "users") {
+        // Importación de datos maestros (Materias, Grados, etc.)
+        const names = rows.map(row => {
+          const val = Array.isArray(row) ? row[0] : Object.values(row)[0];
+          return toTitleCase((val || "").toString().trim());
+        }).filter(n => n);
+        
+        updateMasterData(activeTab, Array.from(new Set([...masterData[activeTab], ...names])));
+        setImportSummary({ count: names.length, type: activeTab });
       }
-    });
+    } catch (err) {
+      console.error("Error leyendo archivo Excel/CSV en consola master:", err);
+      alert("No se pudo leer el archivo. Sube un archivo Excel (.xlsx) o CSV válido.");
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setTimeout(() => setImportSummary(null), 5000);
+    }
   };
 
-  const downloadImportGuide = () => {
+  const downloadImportGuide = async () => {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     
     // Configuración de estilo
@@ -241,12 +239,12 @@ export default function AdminPage() {
     // Sección Estudiantes
     doc.setFontSize(14);
     doc.setTextColor(37, 99, 235); // primary
-    doc.text("1. IMPORTACIÓN DE ESTUDIANTES (.CSV)", 20, 60);
+    doc.text("1. IMPORTACIÓN DE ESTUDIANTES (Excel (.xlsx) o CSV)", 20, 60);
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("El archivo debe ser un CSV con las siguientes columnas estandarizadas SIMAT / IETABA:", 20, 68);
+    doc.text("El archivo debe ser Excel (.xlsx) o CSV con las siguientes columnas estandarizadas SIMAT / IETABA:", 20, 68);
     
     const headers = ["GRADO", "CURSO IETABA", "TIPO DOC.", "NRO DOCUMENTO", "APELLIDO 1", "APELLIDO 2", "NOMBRE 1", "NOMBRE 2", "F. NACIM.", "GÉNERO"];
     doc.setFillColor(240, 240, 240);
@@ -272,7 +270,7 @@ export default function AdminPage() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("Para Materias, Docentes o Grados, suba un CSV con una sola columna con encabezado NOMBRE.", 20, 133);
+    doc.text("Para Materias, Docentes o Grados, suba un archivo Excel (.xlsx) o CSV con una sola columna con encabezado NOMBRE.", 20, 133);
     doc.text("- Cada fila representará un nuevo elemento en el catálogo.", 20, 138);
 
     // Recomendación de Almacenamiento
@@ -291,19 +289,9 @@ export default function AdminPage() {
       return;
     }
 
-    let headers = "NOMBRE\n";
-    let fileName = `Plantilla_${activeTab}_IETABA.csv`;
-    headers += activeTab === 'teachers' ? "JUAN PEREZ" : activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
-
-    const blob = new Blob(["\uFEFF" + headers], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", fileName);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const sampleValue = activeTab === 'teachers' ? "JUAN PEREZ" : activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
+    const fileName = `Plantilla_${activeTab}_IETABA.xlsx`;
+    downloadRowsAsExcel([{ NOMBRE: sampleValue }], fileName, `Plantilla ${activeTab}`, ["NOMBRE"]);
   };
 
   const getCurrentList = () => {
@@ -378,9 +366,9 @@ export default function AdminPage() {
                    <button onClick={downloadImportGuide} className="px-6 py-4 bg-amber-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-amber-400 active:scale-95 transition-all flex items-center gap-2 group border border-amber-400/20">
                      <Clock size={16} /> Guía PDF
                    </button>
-                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-                   <button onClick={() => fileInputRef.current?.click()} className="px-6 py-4 bg-white text-on-surface rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2 group">
-                     <Upload size={16} className="group-hover:-translate-y-1 transition-transform" /> Importar CSV <span className="hidden md:inline">Maestro</span>
+                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept={SPREADSHEET_ACCEPT} className="hidden" />
+                   <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="px-6 py-4 bg-white text-on-surface rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2 group disabled:opacity-50 disabled:pointer-events-none">
+                     {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} className="group-hover:-translate-y-1 transition-transform" />} Importar Excel <span className="hidden md:inline">Maestro</span>
                    </button>
                  </>
                )}
@@ -804,7 +792,7 @@ export default function AdminPage() {
                       Novedades Detectadas en el Formato ({governanceIssues.length})
                     </h3>
                     <p className="text-xs text-rose-700 font-semibold mt-0.5">
-                      No se cargó ningún registro. Corrige las siguientes novedades en tu archivo CSV y vuelve a subirlo.
+                      No se cargó ningún registro. Corrige las siguientes novedades en tu archivo Excel (.xlsx) o CSV y vuelve a subirlo.
                     </p>
                   </div>
                   <button
@@ -819,7 +807,7 @@ export default function AdminPage() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-100 font-black uppercase text-[10px] text-slate-600 sticky top-0">
                       <tr>
-                        <th className="p-3">Fila CSV</th>
+                        <th className="p-3">Fila</th>
                         <th className="p-3">Documento</th>
                         <th className="p-3">Estudiante</th>
                         <th className="p-3">Campo</th>
@@ -845,7 +833,7 @@ export default function AdminPage() {
                     onClick={() => downloadStudentNoveltiesCSV(governanceIssues)}
                     className="flex items-center gap-2 px-5 py-3 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
                   >
-                    <FileDown size={15} /> Descargar Reporte de Novedades CSV
+                    <FileDown size={15} /> Descargar Reporte de Novedades Excel
                   </button>
                   <button
                     onClick={() => setGovernanceIssues(null)}

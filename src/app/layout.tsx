@@ -1,5 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
+});
 import { AppProvider } from "@/context/AppContext";
 import OfflineToast from "@/components/shared/OfflineToast";
 import HelpChatbot from "@/components/help/HelpChatbot";
@@ -40,8 +53,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full flex flex-col bg-background text-on-background font-inter overflow-x-hidden w-full max-w-full">
+    <html lang="es" className={`h-full antialiased ${jakarta.variable} ${outfit.variable}`} suppressHydrationWarning>
+      <body className="min-h-full flex flex-col bg-background text-on-background font-sans overflow-x-hidden w-full max-w-full">
         <AppProvider>
           {children}
           <OfflineToast />

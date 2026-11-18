@@ -1,8 +1,8 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
+import { normalizeGrade, matchStudentCourse } from "@/lib/constants";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useApp, Student } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { DetailedGrades, calculateDetailedFinal, calculatePeriodGrades } from "@/lib/gradeUtils";
 import {
   downloadGradebookTemplate,
@@ -10,10 +10,10 @@ import {
   validateGradebookCSV,
 } from "@/lib/gradeTemplate";
 import { 
-  FileSpreadsheet, Download, Upload, Save, 
-  Calculator, CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft, Lock, Unlock
+  FileSpreadsheet, Download, Upload, 
+  Calculator, CheckCircle, AlertCircle, X, Lock, Unlock
 } from "lucide-react";
-import Papa from "papaparse";
+import { parseSpreadsheetFileToObjects, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
 import GradeImportSummaryModal from "./GradeImportSummaryModal";
 import RecoveryPlanModal from "@/components/live-class/RecoveryPlanModal";
 
@@ -30,11 +30,10 @@ const PERIODS = [
 ];
 
 export default function GradebookManager({ grade, course, subject }: GradebookManagerProps) {
-  const { myStudents, updateDetailedGrades, importDetailedGrades, profile, masterData, togglePeriodStatus, setActivePeriod, students } = useApp();
+  const { myStudents, importDetailedGrades, masterData, togglePeriodStatus, setActivePeriod, students } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p1");
   const [recoveryStudent, setRecoveryStudent] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<any[] | null>(null);
@@ -107,19 +106,18 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
     downloadGradebookTemplate(filteredStudents, subject, course, selectedPeriod, mode);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        setPendingImportData(results.data);
-        setShowConfirmModal(true);
-        if (e.target) e.target.value = "";
-      }
-    });
+    if (e.target) e.target.value = "";
+    try {
+      const rows = await parseSpreadsheetFileToObjects(file);
+      setPendingImportData(rows);
+      setShowConfirmModal(true);
+    } catch (err) {
+      console.error("Error leyendo planilla Excel/CSV:", err);
+      alert("No se pudo leer el archivo. Sube un archivo Excel (.xlsx) o CSV válido.");
+    }
   };
 
   const processImport = async (targetPeriod: string) => {
@@ -313,14 +311,14 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
             <Download size={15} /> <span className="hidden sm:inline">Formato Ejemplo</span><span className="sm:hidden">EJEMPLO</span>
           </button>
           
-          <input type="file" ref={fileInputRef} className="hidden" onChange={handleImport} accept=".csv" />
+          <input type="file" ref={fileInputRef} className="hidden" onChange={handleImport} accept={SPREADSHEET_ACCEPT} />
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={isSaving || (masterData.periodStatus[selectedPeriod] === "closed" && !isTransientOpen)}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-on-surface text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
           >
             {isSaving ? <Calculator size={16} className="animate-spin" /> : <Upload size={16} />}
-            <span className="hidden sm:inline">Subir Notas CSV</span><span className="sm:hidden">IMPORTAR</span>
+            <span className="hidden sm:inline">Subir Notas Excel</span><span className="sm:hidden">IMPORTAR</span>
           </button>
         </div>
       </div>
@@ -442,13 +440,6 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
         </table>
       </div>
 
-      {showSuccess && (
-        <div className="m-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl flex items-center gap-3 animate-fade-in-up">
-           <CheckCircle size={20} />
-           <p className="text-xs font-black uppercase tracking-widest">Planilla sincronizada con éxito</p>
-        </div>
-      )}
-
       <div className="p-6 bg-surface-container-low border-t border-outline-variant">
          <div className="flex flex-wrap gap-6 items-center justify-center opacity-60">
             <div className="flex items-center gap-2">
@@ -558,7 +549,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                                 <AlertCircle size={15} /> Se detectaron {pendingValidation.novelties.length} novedad(es) en la planilla
                               </p>
                               <p className="text-[11px] text-rose-800 mt-0.5">
-                                Por regla de gobernanza, <strong>no se cargará ninguna nota</strong> hasta corregir las novedades en el archivo CSV.
+                                Por regla de gobernanza, <strong>no se cargará ninguna nota</strong> hasta corregir las novedades en el archivo Excel/CSV.
                               </p>
                             </div>
                             <button
@@ -566,7 +557,7 @@ export default function GradebookManager({ grade, course, subject }: GradebookMa
                               onClick={() => downloadGradebookNoveltiesCSV(pendingValidation.novelties, subject, course)}
                               className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
                             >
-                              <Download size={13} /> Descargar Novedades CSV
+                              <Download size={13} /> Descargar Novedades Excel
                             </button>
                           </div>
 

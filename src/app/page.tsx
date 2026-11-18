@@ -1,17 +1,15 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 import { useState, useMemo, useEffect } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp } from "@/context/AppContext";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, updateDoc, doc, deleteField } from "firebase/firestore";
 import {
   Users, BookOpen, ArrowRight, TrendingUp,
   ShieldCheck, Zap, BarChart3, Clock,
-  CheckCircle2, AlertCircle, Activity, ClipboardList, AlertTriangle, FileText,
-  Trophy, CalendarDays, UploadCloud, Target, Sparkles, Filter, Loader2, Eye, Printer, X
+  CheckCircle2, AlertCircle, Activity, AlertTriangle, FileText,
+  Trophy, CalendarDays, UploadCloud, Filter, Loader2, Eye, Printer, X
 } from "lucide-react";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
@@ -27,7 +25,6 @@ const PredictiveTrends = nextDynamic(() => import("@/components/analytics/Predic
 const PedagogicalControlPanel = nextDynamic(() => import("@/components/dashboard/PedagogicalControlPanel"), { ssr: false });
 const QuickResourceHub = nextDynamic(() => import("@/components/dashboard/QuickResourceHub"), { ssr: false });
 const GovernanceKPIs = nextDynamic(() => import("@/components/dashboard/GovernanceKPIs"), { ssr: false });
-const DatabaseBackup = nextDynamic(() => import("@/components/shared/DatabaseBackup"), { ssr: false });
 const AcademicAccumulatedWidget = nextDynamic(() => import("@/components/dashboard/AcademicAccumulatedWidget"), { ssr: false });
 
 const GREETINGS = ["¡Buenos días", "¡Buenas tardes", "¡Buenas noches"];
@@ -54,7 +51,7 @@ const QUICK_ACTIONS = (isSuperAdmin: boolean) => isSuperAdmin
 
 export default function Home() {
   const { 
-    masterData, schedule, profile, students, subjects, agendaNotes, updateAgendaNote, curriculum, myStudents,
+    masterData, schedule, profile, students, subjects, agendaNotes, curriculum, myStudents,
     globalGradeFilter: gradoFilter, setGlobalGradeFilter: setGradoFilter,
     globalCursoFilter: cursoFilter, setGlobalCursoFilter: setCursoFilter,
       globalSubjectFilter: subjectFilter, setGlobalSubjectFilter: setSubjectFilter
@@ -107,8 +104,7 @@ export default function Home() {
     return courses;
   }, [profile, schedule]);
 
-  const recentLogs = agendaNotes.filter(n => subjectFilter === "TODOS" || n.subject === subjectFilter);
-    const todaySchedule = useMemo(() => {
+  const todaySchedule = useMemo(() => {
     const days = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
     const currentDay = days[new Date().getDay()];
     // Filtrar por el día de hoy. Si es fin de semana o no hay clases, mostrará vacío.
@@ -189,55 +185,11 @@ export default function Home() {
   }, [dashboardRankings, rankingScope, filteredDashboardStudents]);
 
   // Fechas SAPRED
-  const { periodEndDate, daysLeft } = useMemo(() => {
+  const { daysLeft } = useMemo(() => {
     const end = new Date(new Date().getFullYear(), 5, 15); // Simulación: 15 de Junio
     const left = Math.max(0, Math.ceil((end.getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
-    return { periodEndDate: end, daysLeft: left };
+    return { daysLeft: left };
   }, []);
-
-  // IA Insight (Asistente)
-  const aiInsight = useMemo(() => {
-    if (criticalAbsences.length >= 3) {
-      return { 
-        message: `Atención: Tienes ${criticalAbsences.length} estudiantes en riesgo crítico de ausentismo. Sugerimos contactar coordinación o acudientes pronto.`, 
-        title: "Alerta Prioritaria",
-        icon: AlertTriangle,
-        color: "text-rose-600",
-        bg: "bg-rose-50",
-        border: "border-rose-200",
-        iconBg: "bg-rose-100"
-      };
-    } else if (pendingTasks.length > 0) {
-      return { 
-        message: `Recordatorio: Tienes ${pendingTasks.length} tareas pendientes de revisión en tu agenda. Organiza un bloque de tiempo hoy para calificarlas.`, 
-        title: "Gestión de Tiempo",
-        icon: Target,
-        color: "text-amber-600",
-        bg: "bg-amber-50",
-        border: "border-amber-200",
-        iconBg: "bg-amber-100"
-      };
-    } else if (daysLeft <= 10) {
-      return { 
-        message: `El periodo termina en ${daysLeft} días. Recuerda consolidar tus notas para subirlas al sistema SAPRED a tiempo.`, 
-        title: "Cierre de Periodo",
-        icon: UploadCloud,
-        color: "text-purple-600",
-        bg: "bg-purple-50",
-        border: "border-purple-200",
-        iconBg: "bg-purple-100"
-      };
-    }
-    return { 
-      message: "Todo en orden. Excelente control de tus grupos hoy. ¡Sigue así!", 
-      title: "Insight Positivo",
-      icon: Sparkles,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-      border: "border-blue-100",
-      iconBg: "bg-blue-100"
-    };
-  }, [criticalAbsences.length, pendingTasks.length, daysLeft]);
 
   // Filtro para excluir notas de tareas, talleres o actividades del inicio
   const filteredRecentAgendaNotes = useMemo(() => {
