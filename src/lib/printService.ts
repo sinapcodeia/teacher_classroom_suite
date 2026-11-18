@@ -1242,8 +1242,6 @@ export function printCopilotLessonPlan(
 ) {
   const content = `
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
-      
       @media print { 
         * { 
           -webkit-print-color-adjust: exact !important; 
@@ -1741,8 +1739,6 @@ export function printExecutiveReport(
       <meta charset="UTF-8">
       <title>${normalizedFileName}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-        
         *, *::before, *::after {
           box-sizing: border-box !important;
         }
@@ -2825,8 +2821,6 @@ export function printAnalyticsReport(
       <meta charset="UTF-8">
       <title>${normalizedFileName}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-        
         *, *::before, *::after {
           box-sizing: border-box !important;
         }
