@@ -15,9 +15,9 @@ import {
 import {
   TrendingUp, Users, Activity, Filter, Award, BarChart3,
   Lightbulb, Check, RotateCcw, Radar as RadarIcon, AlertTriangle,
-  UserX, Clock, Download, FileBarChart2, MessageSquare
+  UserX, Clock, Download, FileBarChart2, MessageSquare, ArrowDownRight
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 
 const COLORS = ["#059669", "#4f46e5", "#d97706", "#e11d48"];
 
@@ -72,7 +72,7 @@ interface EnrichedStudentBI {
 }
 
 export default function PredictiveTrends() {
-  const { myStudents, profile, masterData, subjects } = useApp();
+  const { myStudents, schedule, masterData, subjects } = useApp();
   const [mounted, setMounted] = useState(false);
 
   const [selectedPeriod, setSelectedPeriod] = useState<string>("p1");
@@ -80,7 +80,13 @@ export default function PredictiveTrends() {
   const [selectedGradeCourse, setSelectedGradeCourse] = useState<string>("TODOS");
   const [chartMode, setChartMode] = useState<"bar" | "area" | "radar">("bar");
   const [copiedSuggestion, setCopiedSuggestion] = useState(false);
-  const [biTableFilter, setBiTableFilter] = useState<"ALL" | "ABSENT_FAIL" | "EXTRAEDAD" | "FAILING">("ABSENT_FAIL");
+  const [biTableFilter, setBiTableFilter] = useState<"ALL" | "ABSENT_FAIL" | "ABSENT" | "EXTRAEDAD" | "FAILING">("ABSENT_FAIL");
+  const detailTableRef = useRef<HTMLDivElement | null>(null);
+
+  const jumpToTableFilter = (filter: "ALL" | "ABSENT_FAIL" | "ABSENT" | "EXTRAEDAD" | "FAILING") => {
+    setBiTableFilter(filter);
+    detailTableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (masterData?.activePeriod) {
@@ -93,17 +99,22 @@ export default function PredictiveTrends() {
   }, []);
 
   const availableGradeCourses = useMemo(() => {
-    if (profile.teachingCourses?.length) {
-      return ["TODOS", ...profile.teachingCourses];
-    }
     const courses = new Set<string>();
     myStudents.forEach(s => {
-      if (s.grado && s.curso) {
-        courses.add(`${s.grado}-${s.curso}`);
+      if (s.isActive !== false && s.grado && s.curso) {
+        courses.add(`${normalizeGrade(s.grado)}-${String(s.curso).trim().toUpperCase()}`);
       }
     });
-    return ["TODOS", ...Array.from(courses).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
-  }, [myStudents, profile.teachingCourses]);
+    (schedule || []).forEach(b => {
+      if (b.grade && b.group) {
+        courses.add(`${normalizeGrade(b.grade)}-${String(b.group).trim().toUpperCase()}`);
+      }
+    });
+    return [
+      "TODOS",
+      ...Array.from(courses).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    ];
+  }, [myStudents, schedule]);
 
   const availableSubjects = useMemo(() => {
     const list = (subjects || []).map(s => s.name);
@@ -264,6 +275,8 @@ export default function PredictiveTrends() {
         course,
         promedio: parseFloat((stats.sum / stats.count).toFixed(2)),
         evaluados: stats.count,
+        aprobados: stats.passing,
+        reprobados: stats.count - stats.passing,
         aprobacion: Math.round((stats.passing / stats.count) * 100),
       }))
       .sort((a, b) => a.course.localeCompare(b.course, undefined, { numeric: true }));
@@ -384,6 +397,7 @@ export default function PredictiveTrends() {
   const priorityCases = useMemo(() => {
     const filtered = enrichedStudents.filter(e => {
       if (biTableFilter === "ABSENT_FAIL") return e.absentAndFailing;
+      if (biTableFilter === "ABSENT") return e.absentCount > 0;
       if (biTableFilter === "EXTRAEDAD") return e.isExtraedad;
       if (biTableFilter === "FAILING") return e.isFailing;
       return e.absentAndFailing || e.isExtraedad || e.isFailing;
@@ -602,41 +616,73 @@ export default function PredictiveTrends() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-3 sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Promedio & Aprobación</p>
+          <button
+            type="button"
+            onClick={() => jumpToTableFilter("FAILING")}
+            className={`text-left bg-white/10 hover:bg-white/15 backdrop-blur rounded-2xl p-3 sm:p-4 transition-all cursor-pointer border ${
+              biTableFilter === "FAILING" ? "border-emerald-400 ring-1 ring-emerald-400" : "border-white/10"
+            }`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-200 flex items-center justify-between">
+              <span>Promedio & Aprobación</span>
+              <ArrowDownRight size={13} className="text-emerald-300" />
+            </p>
             <p className="text-xl sm:text-2xl font-black mt-1">
               {groupAverage.toFixed(2)} <span className="text-xs font-bold text-emerald-300">({biSummary.approvalRate}% apr.)</span>
             </p>
-            <p className="text-[10px] text-slate-300 mt-0.5">{biSummary.passing} aprobando · {biSummary.failing} reprobando</p>
-          </div>
+            <p className="text-[10px] text-slate-300 mt-0.5">{biSummary.passing} aprobando · {biSummary.failing} reprobando (ver)</p>
+          </button>
 
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-3 sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-rose-200 flex items-center gap-1">
-              <UserX size={12} /> No Asistieron y Perdieron
+          <button
+            type="button"
+            onClick={() => jumpToTableFilter("ABSENT_FAIL")}
+            className={`text-left bg-white/10 hover:bg-white/15 backdrop-blur rounded-2xl p-3 sm:p-4 transition-all cursor-pointer border ${
+              biTableFilter === "ABSENT_FAIL" ? "border-rose-400 ring-1 ring-rose-400" : "border-white/10"
+            }`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-rose-200 flex items-center justify-between">
+              <span className="flex items-center gap-1"><UserX size={12} /> No Asistieron y Perdieron</span>
+              <ArrowDownRight size={13} className="text-rose-300" />
             </p>
             <p className="text-xl sm:text-2xl font-black text-rose-300 mt-1">{biSummary.absentAndFailingCount}</p>
             <p className="text-[10px] text-slate-300 mt-0.5">
-              De {biSummary.failing} reprobados, {biSummary.absentAndFailingCount} tuvieron fallas
+              De {biSummary.failing} reprobados, {biSummary.absentAndFailingCount} tuvieron fallas (ver)
             </p>
-          </div>
+          </button>
 
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-3 sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-200">Ausentismo Registrado</p>
+          <button
+            type="button"
+            onClick={() => jumpToTableFilter("ABSENT")}
+            className={`text-left bg-white/10 hover:bg-white/15 backdrop-blur rounded-2xl p-3 sm:p-4 transition-all cursor-pointer border ${
+              biTableFilter === "ABSENT" ? "border-sky-400 ring-1 ring-sky-400" : "border-white/10"
+            }`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-200 flex items-center justify-between">
+              <span>Ausentismo Registrado</span>
+              <ArrowDownRight size={13} className="text-sky-300" />
+            </p>
             <p className="text-xl sm:text-2xl font-black text-sky-300 mt-1">
               {biSummary.absenteeismRate}% <span className="text-xs font-bold">({biSummary.totalAbsences} fallas)</span>
             </p>
-            <p className="text-[10px] text-slate-300 mt-0.5">{biSummary.studentsWithAbsences} estudiante(s) con ≥ 1 falla</p>
-          </div>
+            <p className="text-[10px] text-slate-300 mt-0.5">{biSummary.studentsWithAbsences} estudiante(s) con fallas (ver)</p>
+          </button>
 
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-3 sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200 flex items-center gap-1">
-              <Clock size={12} /> Extraedad (&gt; Grado + 8 años)
+          <button
+            type="button"
+            onClick={() => jumpToTableFilter("EXTRAEDAD")}
+            className={`text-left bg-white/10 hover:bg-white/15 backdrop-blur rounded-2xl p-3 sm:p-4 transition-all cursor-pointer border ${
+              biTableFilter === "EXTRAEDAD" ? "border-amber-400 ring-1 ring-amber-400" : "border-white/10"
+            }`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200 flex items-center justify-between">
+              <span className="flex items-center gap-1"><Clock size={12} /> Extraedad (&gt; Grado + 8 años)</span>
+              <ArrowDownRight size={13} className="text-amber-300" />
             </p>
             <p className="text-xl sm:text-2xl font-black text-amber-300 mt-1">
               {biSummary.extraedadCount} <span className="text-xs font-bold">({biSummary.extraedadPct}%)</span>
             </p>
-            <p className="text-[10px] text-slate-300 mt-0.5">{biSummary.extraedadRisk} en riesgo académico o de fallas</p>
-          </div>
+            <p className="text-[10px] text-slate-300 mt-0.5">{biSummary.extraedadRisk} en riesgo académico o fallas (ver)</p>
+          </button>
         </div>
       </div>
 
@@ -650,10 +696,10 @@ export default function PredictiveTrends() {
               </div>
               <div>
                 <h3 className="font-display text-base font-bold tracking-tight text-slate-900">
-                  Promedio por Aula y Meta SIEEE (3.0)
+                  Promedio por Curso vs. Nota Mínima de Aprobación (3.0)
                 </h3>
                 <p className="text-xs font-medium text-slate-500 mt-0.5">
-                  {filteredStudentsWithGrades.length} estudiantes evaluados · Promedio grupal: {groupAverage.toFixed(2)}
+                  {filteredStudentsWithGrades.length} estudiantes evaluados · Verde: ≥ 4.0 · Azul: 3.0–3.9 · Rojo: &lt; 3.0
                 </p>
               </div>
             </div>
@@ -716,17 +762,35 @@ export default function PredictiveTrends() {
                       stroke="#f59e0b"
                       strokeDasharray="5 5"
                       strokeWidth={2}
-                      label={{ value: "Mínimo 3.0", position: "insideTopRight", fill: "#b45309", fontSize: 10, fontWeight: 800 }}
+                      label={{ value: "Nota mínima aprobar: 3.0", position: "insideTopRight", fill: "#b45309", fontSize: 10, fontWeight: 800 }}
                     />
                     <Tooltip
-                      formatter={(value, _name, item) => {
-                        const payload = item?.payload as { evaluados?: number; aprobacion?: number } | undefined;
-                        return [
-                          `${Number(value).toFixed(2)} / 5.0 (${payload?.aprobacion ?? 0}% aprueba · ${payload?.evaluados ?? 0} est.)`,
-                          "Promedio",
-                        ];
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0]?.payload as {
+                          course: string;
+                          promedio: number;
+                          evaluados: number;
+                          aprobados: number;
+                          reprobados: number;
+                          aprobacion: number;
+                        };
+                        const diff = Number((d.promedio - 3.0).toFixed(2));
+                        const nivel = d.promedio >= 4.6 ? "Superior" : d.promedio >= 4.0 ? "Alto" : d.promedio >= 3.0 ? "Básico" : "Bajo (En Riesgo)";
+                        return (
+                          <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-3 shadow-xl text-xs space-y-1 max-w-[240px]">
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
+                              <span className="font-black text-slate-900">Curso {d.course}</span>
+                              <span className="font-black text-indigo-700">{d.promedio.toFixed(2)} / 5.0</span>
+                            </div>
+                            <p className="font-semibold text-slate-700">Desempeño grupal: <strong>{nivel}</strong></p>
+                            <p className="text-slate-600">{d.aprobados} de {d.evaluados} aprueban ({d.aprobacion}%){d.reprobados > 0 ? ` · ${d.reprobados} reprueban` : ""}</p>
+                            <p className={`font-bold ${diff >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                              {diff >= 0 ? `+${diff.toFixed(2)} sobre el mínimo (3.0)` : `${diff.toFixed(2)} bajo el mínimo (3.0) — requiere refuerzo`}
+                            </p>
+                          </div>
+                        );
                       }}
-                      contentStyle={{ borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 10px 20px -5px rgb(0 0 0 / 0.12)", fontSize: "11px", fontWeight: 700 }}
                     />
                     <Bar dataKey="promedio" radius={[12, 12, 4, 4]} maxBarSize={52}>
                       {trendData.map((entry, idx) => (
@@ -937,7 +1001,7 @@ export default function PredictiveTrends() {
       </div>
 
       {/* TABLA EJECUTIVA DE CASOS PRIORITARIOS (CRUCE AUSENTISMO + PÉRDIDA + EXTRAEDAD) */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-xl shadow-slate-200/40 space-y-4">
+      <div ref={detailTableRef} className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-xl shadow-slate-200/40 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <AlertTriangle size={18} className="text-rose-600 shrink-0" />
@@ -954,6 +1018,7 @@ export default function PredictiveTrends() {
           <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl">
             {[
               { id: "ABSENT_FAIL", label: `No Asistió y Perdió (${biSummary.absentAndFailingCount})` },
+              { id: "ABSENT", label: `Con Fallas (${biSummary.studentsWithAbsences})` },
               { id: "FAILING", label: `Reprobados (${biSummary.failing})` },
               { id: "EXTRAEDAD", label: `Extraedad (${biSummary.extraedadCount})` },
               { id: "ALL", label: "Todos en Alerta" },
