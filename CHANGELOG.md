@@ -19,6 +19,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 - **Responsive Proyector/PWA, Auditoría y Gráficos de Vanguardia (`src/app/globals.css`, `src/components/analytics/PredictiveTrends.tsx`, `src/components/reports/SapredConnectorModal.tsx`)**:
   - Escala proporcional automática para pantallas de proyector (`<= 1366px` / `<= 820px` alto) y PWA standalone (`@media (display-mode: standalone)`), `:focus-visible` WCAG, `prefers-reduced-motion`, validación de tamaño máximo (15 MB) en subida de archivos y cierre con `Escape`.
   - Centro de Analítica 360° afinado con **Barras con Gradientes + Etiquetas directas + Meta 3.0**, **Curva**, **Radar SIEEE de 5 pilares** (`Saber`, `Hacer`, `Ser`, `Convivencia`, `Autoevaluación`) y **Dona SIEEE** con promedio central y porcentajes exactos.
+  - **Analítica BI Avanzada (`PredictiveTrends.tsx` & `printService.ts`)**: diagnóstico ejecutivo automático, análisis por grado de **extraedad (`> Grado + 8 años`)**, **ausentismo vs. pérdida académica** (*No asistieron y perdieron*), tarjetas KPI interactivas, tooltips explicativos, citación WhatsApp en 1 clic, historial `sapredLastSync` y reportes HTML/PDF **100% offline** sin `@import` externos de Google Fonts.
 
 ---
 

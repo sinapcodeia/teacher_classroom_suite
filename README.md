@@ -10,19 +10,20 @@ Sistema de gestión institucional de alto nivel diseñado para el ecosistema edu
 
 *   **⚡ Dashboard de Alto Rendimiento:** Visualización en tiempo real de la carga académica y alertas de clase activa.
 *   **📶 Capacidad Offline-First:** Los datos se sincronizan automáticamente cuando hay conexión disponible. Todas las acciones se guardan en el almacenamiento local de forma persistente.
-*   **📊 Analítica Avanzada:** Tablero de estadísticas con análisis demográfico, riesgo académico y distribución de género.
+*   **📊 Analítica BI 360°:** Tablero de estadísticas con Recharts, extraedad por grado, ausentismo vs. pérdida académica, radar SIEEE y citación directa por WhatsApp.
+*   **🔗 Conector SAPRED 360° (.XLS Multi-Hoja):** Llenado automático hasta `AUT` preservando el orden exacto de SAPRED, validación "Todo o Nada" y ordenamiento persistente por curso.
 *   **📅 Horario Institucional:** Gestión visual de la malla horaria semanal con acceso directo a la asistencia.
 *   **📝 Control de Asistencia:** Toma de asistencia rápida con alertas integradas para cumpleaños y excelencia académica.
-*   **📁 Gestión de Datos:** Importación masiva de estudiantes y personal vía CSV con soporte para seriales de fecha de Excel.
+*   **📁 Gestión de Datos:** Importación y exportación nativa Excel (`.xlsx`, `.xls`) y `.csv` con SheetJS y soporte para seriales de fecha.
 *   **💼 Perfiles Estudiantiles:** Fichas detalladas con historial académico y contacto directo con acudientes.
 
 ## 🛠️ Tecnologías
 
-- **Frontend:** Next.js 15 (App Router), React 19.
-- **Estilos:** TailwindCSS 4, Lucide Icons.
-- **Persistencia:** LocalStorage API + Firebase Firestore (Cache persistente).
-- **Reportes:** jsPDF para generación de documentos institucionales.
-- **Utilidades:** PapaParse para procesamiento de datos masivos.
+- **Frontend:** Next.js 15 (App Router), React 19, Recharts.
+- **Estilos:** TailwindCSS 4, Lucide Icons, Tipografías `Outfit` y `Plus Jakarta Sans`.
+- **Persistencia:** LocalStorage API + Firebase Firestore (Offline-First).
+- **Reportes:** jsPDF + reportes vectoriales SVG/HTML 100% offline.
+- **Hojas de Cálculo:** SheetJS (`xlsx`) + PapaParse.
 
 ## 🚀 Inicio Rápido
 
@@ -51,6 +52,6 @@ Esta aplicación puede ser instalada en dispositivos móviles o escritorio:
 ---
 
 Desarrollado y licenciado por **[SinapCode](https://sinap-code.vercel.app/)** para IETABA.
-****EduManager — Gestión Docente de Nivel Superior**
+**EduManager — Gestión Docente de Nivel Superior**
 
 *© Todos los derechos reservados. El uso y distribución de este software está regido por los Términos de Servicio de SinapCode (https://sinap-code.vercel.app/).*

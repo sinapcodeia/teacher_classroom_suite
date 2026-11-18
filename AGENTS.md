@@ -13,11 +13,11 @@ Esta versión incluye cambios significativos: las API, convenciones y la estruct
 
 ---
 
-## Estado del Proyecto — v2.5.0 (2026-08-04)
+## Estado del Proyecto — v2.17.0 (2026-11-18)
 
 ### Arranque
-- El servidor de desarrollo se lanza SIEMPRE con: `scratch/run_dev.ps1`
-- Razón: el sistema corre desde USB externo con PATH restringido.
+- El servidor de desarrollo se lanza con: `npm run dev` (puerto `3000`).
+- La compilación de producción + Service Worker PWA se genera con: `npm run build`.
 
 ### Arquitectura Central
 - **`AppContext.tsx`** es la única fuente de verdad. Gestiona Firestore (`onSnapshot`) y localStorage.
