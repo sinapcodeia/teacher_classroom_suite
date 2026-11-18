@@ -138,8 +138,7 @@ export function calculateDetailedFinal(detailed: DetailedGrades): number {
  */
 export function calculateSubjectPeriodScore(detailed: DetailedGrades | null | undefined): number | null {
   if (!detailed || !hasDetailedData(detailed)) return null;
-  const v = calculatePeriodGrades(detailed).definitiva;
-  return v > 0 ? v : null;
+  return calculatePeriodGrades(detailed).definitiva;
 }
 
 /**
@@ -191,12 +190,18 @@ function getPeriodBlock(pMap: Record<string, DetailedGrades> | undefined, period
   return pMap[periodId] || pMap[periodId.replace("p", "")] || pMap[periodId.toUpperCase()];
 }
 
-/** Devuelve los mapas por asignatura a evaluar (todas o una en particular, sin distinguir mayúsculas). */
+/** Normaliza nombre de asignatura (sin tildes, mayúsculas, sin espacios extremos). */
+export function normalizeSubjectKey(s: string): string {
+  return (s || "").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Devuelve los mapas por asignatura a evaluar (todas o una en particular, sin distinguir tildes ni mayúsculas). */
 function getSubjectMaps(student: MinimalStudentForSummary, subject?: string): Record<string, DetailedGrades>[] {
   const dg = student.detailedGrades || {};
   if (subject && subject !== "TODOS" && subject !== "TODAS") {
     if (dg[subject]) return [dg[subject]];
-    const key = Object.keys(dg).find(k => k.trim().toUpperCase() === subject.trim().toUpperCase());
+    const targetKey = normalizeSubjectKey(subject);
+    const key = Object.keys(dg).find(k => normalizeSubjectKey(k) === targetKey);
     return key ? [dg[key]] : [];
   }
   return Object.values(dg);
@@ -222,7 +227,28 @@ export function calculateStudentPeriodAverage(
   const scores = getSubjectMaps(student, opts.subject)
     .map(m => calculateSubjectPeriodScore(getPeriodBlock(m, pId)))
     .filter((v): v is number => v !== null);
-  if (scores.length === 0) return null;
+  if (scores.length === 0) {
+    // Fallback legacy para notas antiguas en student.grades (solo P1)
+    if (pId === "p1" && Array.isArray(student.grades) && student.grades.length > 0) {
+      const targetSubj = opts.subject && opts.subject !== "TODOS" && opts.subject !== "TODAS"
+        ? normalizeSubjectKey(opts.subject) : null;
+      const legacyScores = student.grades
+        .filter((g: MinimalGradeEntry & { title?: string }) => {
+          if (g.type === "participation") return false;
+          if (g.periodId && normalizePeriodId(g.periodId) !== "p1") return false;
+          if (targetSubj && !normalizeSubjectKey(g.title || "").includes(targetSubj)) return false;
+          return typeof g.score === "number" && !Number.isNaN(g.score);
+        })
+        .map(g => g.score);
+      if (legacyScores.length > 0) {
+        const base = legacyScores.reduce((a, b) => a + b, 0) / legacyScores.length;
+        const includeBonus = opts.includeBonus !== false;
+        const bonus = includeBonus ? calculatePeriodParticipationBonus(student, pId, opts.activePeriod) : 0;
+        return round2(Math.min(5.0, base + bonus));
+      }
+    }
+    return null;
+  }
   const base = scores.reduce((a, b) => a + b, 0) / scores.length;
   const includeBonus = opts.includeBonus !== false;
   const bonus = includeBonus ? calculatePeriodParticipationBonus(student, pId, opts.activePeriod) : 0;

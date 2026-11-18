@@ -676,6 +676,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!profile || profile.isSuperAdmin || ["RECTOR", "COORDINADOR", "BIENESTAR"].includes(profile.role)) {
       return students;
     }
+    // Unir cursos explícitos + cursos derivados del horario real del docente
+    const scheduleRooms = (profile.weeklySchedule || []).map(b => `${normalizeGrade(b.grade).trim().toUpperCase()}-${(b.course || "").toString().trim().toUpperCase()}`);
+    const rawCombinedCourses = Array.from(new Set([...(profile.teachingCourses || []), ...scheduleRooms])).filter(Boolean);
+
     return students.filter(s => {
       const gNormalized = normalizeGrade(s.grado).trim().toUpperCase();
       const sCurso = (s.curso || "").toString().trim().toUpperCase();
@@ -684,7 +688,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const courseOnly = sCurso.includes('-') ? sCurso.split('-').pop()?.trim() : sCurso;
       const studentRoomAlt = `${gNormalized}-${courseOnly}`;
       
-      const normalizedTeaching = (profile.teachingCourses || []).map(tc => {
+      const normalizedTeaching = rawCombinedCourses.map(tc => {
         const parts = tc.split('-');
         if (parts.length === 2) {
           const g = normalizeGrade(parts[0]).trim().toUpperCase();
@@ -696,18 +700,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const matchesRoom = normalizedTeaching.includes(studentRoom) || 
         normalizedTeaching.includes(studentRoomAlt) ||
-        (profile.teachingCourses || []).some(tc => {
+        rawCombinedCourses.some(tc => {
           const parts = tc.split('-');
           const targetG = parts[0];
           const targetC = parts.length > 1 ? parts[1] : tc;
           return normalizeGrade(s.grado) === normalizeGrade(targetG) && matchStudentCourse(s.curso, targetC, s.grado, targetG);
         });
       
-      // Super Fallback: Si el grado coincide, lo mostramos (Gobernanza Relajada)
-      const teacherGrades = (profile.teachingGrades || []).map(g => normalizeGrade(g).trim().toUpperCase());
-      const matchesGrade = teacherGrades.includes(gNormalized);
+      // Si el docente tiene cursos explícitos o horario (ej: 6°-6, 7°-4, 8°-3), respetar la asignación exacta por salón
+      if (rawCombinedCourses.length > 0) {
+        return matchesRoom;
+      }
 
-      return matchesRoom || matchesGrade;
+      // Fallback solo cuando aún no hay cursos ni horario configurados
+      const teacherGrades = (profile.teachingGrades || []).map(g => normalizeGrade(g).trim().toUpperCase());
+      return teacherGrades.includes(gNormalized);
     });
   }, [students, profile]);
 

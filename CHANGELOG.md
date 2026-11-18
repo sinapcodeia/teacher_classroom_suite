@@ -9,6 +9,31 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/) · Versioning: [SemV
 
 ---
 
+## [2.15.0] — 2026-11-18 · Reporte Oficial de Estudiantes en Riesgo y Pendientes (PE), Gobernanza Exacta por Horario y Blindaje XSS
+
+### 📊 Nuevo Reporte Oficial de Estudiantes Perdiendo y Sin Notas (`src/lib/printService.ts`, `src/app/reportes/calificaciones/page.tsx`)
+- **Dos Tablas Separadas y Claras (`printRiskAndMissingReport`)**:
+  - **Tabla 1 (`🔴 PERDIENDO` / `🟡 MATERIA PERDIDA`)**: lista exclusivamente a estudiantes con notas registradas reprobando (`< 3.00`) en la materia o en el cierre anual.
+  - **Tabla 2 (`⚪ PE — Pendiente por Evaluar`)**: lista aparte a los estudiantes sin notas registradas, evitando mezclar ausentes/pendientes con reprobados.
+- **4 Alcances de Consulta**: `Esta Materia (Período)`, `Esta Materia (Final P1-P3)`, `Asig. Docente (Período)` y `Asig. Docente (Final P1-P3)`.
+- **Cálculo Exclusivo por Asignaturas del Docente (`Prom. Asig. Docente`)**: en cierres anuales (`Final P1-P3`) evalúa **materia por materia** (`(P1+P2+P3)/3`) únicamente sobre las asignaturas que el docente dicta en cada salón según `schedule` (`roomSubjectsMap`), evitando mezclar materias ajenas.
+- **Glosario de Nomenclaturas Oficiales**: recuadro explicativo al pie del informe (`P1, P2, P3`, `Def. Anual (P1-P3)`, `PE`, `Prom. Asig. Docente`, `🔴 PERDIENDO`, `🟡 MATERIA PERDIDA`) y nomenclatura documental ISO 15489 / 8601 (`IETABA_RIESGO_SIN_NOTAS_...`).
+
+### 🎯 Gobernanza Exacta por Salón/Horario y Evaluación por Materia (`src/context/AppContext.tsx`, `src/lib/gradeUtils.ts`, `AcademicAccumulatedWidget.tsx`)
+- **Gobernanza Estricta en `myStudents`**: une `teachingCourses` + los salones reales de `weeklySchedule`, eliminando el fallback relajado por grado que incluía salones paralelos no dictados (ej. `7-2`, `8-2` cuando se consultaba Tecnología).
+- **Motor SIEEE (`src/lib/gradeUtils.ts`)**:
+  - Añadido `normalizeSubjectKey` para emparejar asignaturas ignorando tildes y espacios (`TECNOLOGÍA` / `TECNOLOGIA`).
+  - `calculateSubjectPeriodScore` conserva el `0.0` real cuando hay casillas calificadas en cero (en vez de devolver `null`).
+  - Fallback en `calculateStudentPeriodAverage` para notas legacy (`student.grades`) en Periodo 1.
+- **Dashboard (`AcademicAccumulatedWidget.tsx`)**: al cierre anual evalúa materia por materia (`Def. Anual (P1-P3)`) para advertir cuando un estudiante tiene promedio general aprobado pero reprueba una asignatura individual.
+
+### 🛡️ Seguridad Grado Militar, Optimización de Carga y Responsive (`src/lib/printService.ts`, `src/app/reportes/calificaciones/page.tsx`)
+- **Blindaje XSS en Reportes HTML**: sanitizados con `escapeHtml(...)` todos los campos de `standardHeader` (`title`, `teacher`, `grade`, `course`, `subject`, `period`) y corregidas las clases `.badge` / `.badge-danger`.
+- **Alivianamiento de `/reportes/calificaciones`**: carga bajo demanda (`import("@/lib/printService")`) en los botones de impresión y carga diferida (`next/dynamic`) de `VisualReportModal`.
+- **Responsive y Codificación**: barra de filtros/acciones adaptativa (`flex-wrap`) sin desbordamiento móvil y restauración completa a UTF-8 puro en `calificaciones/page.tsx`.
+
+---
+
 ## [2.14.0] — 2026-11-12 · Motor Unificado SIEEE, Primeros Puestos (P1/P2/P3 y Final 3P), Dossiers en Lote e ISO 15489
 
 ### 🏆 Motor Oficial SIEEE y Primeros Puestos (`src/lib/gradeUtils.ts`)

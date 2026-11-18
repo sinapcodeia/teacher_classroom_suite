@@ -30,9 +30,14 @@ import {
   calculateGroupRankings,
   calculatePeriodParticipationBonus,
   calculateSubjectPeriodScore,
+  calculateStudentPeriodAverage,
+  calculateStudentYearBreakdown,
+  resolveGroupEvaluatedPeriods,
   normalizePeriodId,
+  normalizeSubjectKey,
   round2,
   PERIOD_IDS,
+  PASSING_GRADE,
   type PeriodId,
 } from "@/lib/gradeUtils";
 
@@ -112,9 +117,9 @@ function baseStyles(): string {
       .report-table tr:last-child td { border-bottom: none; }
       
       /* Badges & Indicators */
-      .badge { padding: 4px 8px; rounded: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+      .badge { padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: inline-block; }
       .badge-blue { background: #dbeafe; color: #1e40af; }
-      .badge-red { background: #fee2e2; color: #991b1b; }
+      .badge-red, .badge-danger { background: #fee2e2; color: #991b1b; }
       .badge-green { background: #dcfce7; color: #166534; }
       
       .perf-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; width: 60px; margin-top: 4px; }
@@ -172,14 +177,14 @@ function standardHeader(
         </div>
       </div>
       <div class="doc-meta-grid">
-        <div class="meta-item"><strong>Docente / Emisor:</strong> ${meta.teacher.toUpperCase()}</div>
-        <div class="meta-item"><strong>Grado / Curso:</strong> ${meta.grade || ""}${meta.course ? ` — ${meta.course}` : "TODOS"}</div>
-        <div class="meta-item"><strong>Asignatura:</strong> ${meta.subject || "TODAS / DIRECCIÓN DE GRUPO"}</div>
-        <div class="meta-item"><strong>Periodo Académico:</strong> ${meta.period || "AÑO LECTIVO"}</div>
+        <div class="meta-item"><strong>Docente / Emisor:</strong> ${escapeHtml(meta.teacher.toUpperCase())}</div>
+        <div class="meta-item"><strong>Grado / Curso:</strong> ${escapeHtml(meta.grade || "")}${meta.course ? ` — ${escapeHtml(meta.course)}` : "TODOS"}</div>
+        <div class="meta-item"><strong>Asignatura:</strong> ${escapeHtml(meta.subject || "TODAS / DIRECCIÓN DE GRUPO")}</div>
+        <div class="meta-item"><strong>Periodo Académico:</strong> ${escapeHtml(meta.period || "AÑO LECTIVO")}</div>
         <div class="meta-item"><strong>Fecha & Hora:</strong> ${nowFullStr()}</div>
         <div class="meta-item"><strong>Autenticidad:</strong> REGISTRO OFICIAL IETABA</div>
       </div>
-      <h1 class="doc-title-main">${title}</h1>
+      <h1 class="doc-title-main">${escapeHtml(title)}</h1>
     </div>
   `;
 }
@@ -870,6 +875,361 @@ export function printMissingGradesReport(
       <div>Documento de Control Pedagógico Oficial · Generado por ${APP_NAME} ${APP_EDITION}</div>
     </div>
   </body></html>`);
+}
+
+/**
+ * ── REPORTE DE ESTUDIANTES PERDIENDO (< 3.0) Y/O SIN NOTAS POR GRADO Y MATERIA ──
+ * Incluye automáticamente estudiantes reprobando el período/materia y estudiantes sin calificación.
+ */
+export function printRiskAndMissingReport(
+  students: any[],
+  meta: {
+    grade: string;
+    course: string;
+    teacher: string;
+    subject: string;
+    period: string;
+    scope: "subject" | "subject_final" | "period_all" | "final_all";
+    subjectsList?: string[];
+    roomSubjectsMap?: Record<string, string[]>;
+  }
+) {
+  const activeStudents = (students || []).filter(s => s && s.isActive !== false);
+  const rawPeriod = String(meta.period || "p1").toLowerCase();
+  const isFinal = meta.scope === "final_all" || meta.scope === "subject_final" || rawPeriod === "final";
+  const targetPId: PeriodId = normalizePeriodId(rawPeriod) || "p1";
+  const evaluatedPeriods = resolveGroupEvaluatedPeriods(activeStudents, isFinal ? "p3" : targetPId);
+
+  const sortedStudents = [...activeStudents].sort((a, b) => {
+    const gA = normalizeGrade(a.grado || "");
+    const gB = normalizeGrade(b.grado || "");
+    if (gA !== gB) return gA.localeCompare(gB, undefined, { numeric: true });
+    const cA = String(a.curso || "");
+    const cB = String(b.curso || "");
+    if (cA !== cB) return cA.localeCompare(cB, undefined, { numeric: true });
+    return String(a.primerApellido || "").localeCompare(String(b.primerApellido || ""));
+  });
+
+  type RiskRow = {
+    st: any;
+    score: number | null;
+    kind: "FAILING" | "NO_GRADES" | "PARTIAL_FAIL";
+    detail: string;
+  };
+
+  const rowsData: RiskRow[] = [];
+
+  sortedStudents.forEach(st => {
+    if (meta.scope === "subject") {
+      // Evaluar la nota propia de la asignatura en el período (sin bono global, igual que la sábana DEF)
+      const score = calculateStudentPeriodAverage(st, targetPId, { subject: meta.subject, includeBonus: false, activePeriod: targetPId });
+      if (score === null) {
+        rowsData.push({
+          st,
+          score: null,
+          kind: "NO_GRADES",
+          detail: `PE — Sin notas en ${meta.subject} (${targetPId.toUpperCase()})`
+        });
+      } else if (score < PASSING_GRADE) {
+        rowsData.push({
+          st,
+          score,
+          kind: "FAILING",
+          detail: `Reprobando ${meta.subject} (${targetPId.toUpperCase()}) · Falta ${(PASSING_GRADE - score).toFixed(2)} para 3.00`
+        });
+      }
+      return;
+    }
+
+    if (meta.scope === "subject_final") {
+      const subBd = calculateStudentYearBreakdown(st, "p3", {
+        subject: meta.subject,
+        includeBonus: false,
+        evaluatedPeriods
+      });
+      const score = subBd.accumulatedAvg;
+      if (score === null) {
+        rowsData.push({
+          st,
+          score: null,
+          kind: "NO_GRADES",
+          detail: `PE — Sin notas en ${meta.subject} (P1-P3)`
+        });
+      } else if (score < PASSING_GRADE || subBd.missingPeriods.length > 0) {
+        const peTxt = subBd.missingPeriods.length > 0 ? ` · PE en ${subBd.missingPeriods.map(p => p.toUpperCase()).join(", ")}` : "";
+        rowsData.push({
+          st,
+          score,
+          kind: score < PASSING_GRADE ? "FAILING" : "PARTIAL_FAIL",
+          detail: `${score < PASSING_GRADE ? `Def. Anual (P1-P3) < ${PASSING_GRADE.toFixed(2)}` : "Períodos pendientes"}${peTxt}`
+        });
+      }
+      return;
+    }
+
+    if (meta.scope === "final_all") {
+      const sCurso = (st.curso || "").toString().trim().toUpperCase();
+      const courseOnly = sCurso.includes("-") ? sCurso.split("-").pop()?.trim() || sCurso : sCurso;
+      const gNorm = normalizeGrade(st.grado).trim().toUpperCase();
+      const roomAssignedSubjs = meta.roomSubjectsMap?.[`${gNorm}-${sCurso}`] || meta.roomSubjectsMap?.[`${gNorm}-${courseOnly}`];
+      const subjByKey = new Map<string, string>();
+      const rawPool = roomAssignedSubjs && roomAssignedSubjs.length > 0
+        ? roomAssignedSubjs
+        : [...(meta.subjectsList || []), ...Object.keys(st.detailedGrades || {})];
+      rawPool.filter(Boolean).forEach(name => {
+        const k = normalizeSubjectKey(name);
+        if (k && !subjByKey.has(k)) subjByKey.set(k, name.trim().toUpperCase());
+      });
+
+      const teacherSubjAvgs: number[] = [];
+      const failingAnnualSubjs: string[] = [];
+      const pePeriodsSet = new Set<string>();
+
+      subjByKey.forEach(displaySubj => {
+        const subBd = calculateStudentYearBreakdown(st, "p3", { subject: displaySubj, includeBonus: false, evaluatedPeriods });
+        if (subBd.accumulatedAvg !== null) {
+          teacherSubjAvgs.push(subBd.accumulatedAvg);
+          if (subBd.accumulatedAvg < PASSING_GRADE) {
+            failingAnnualSubjs.push(`${displaySubj} (${subBd.accumulatedAvg.toFixed(2)})`);
+          }
+        }
+        subBd.missingPeriods.forEach(p => pePeriodsSet.add(p.toUpperCase()));
+      });
+
+      // Promedio calculado únicamente sobre las asignaturas dictadas por el docente
+      const score = teacherSubjAvgs.length > 0
+        ? round2(teacherSubjAvgs.reduce((a, b) => a + b, 0) / teacherSubjAvgs.length)
+        : null;
+
+      if (score === null) {
+        rowsData.push({
+          st,
+          score: null,
+          kind: "NO_GRADES",
+          detail: "PE — Sin notas en los 3 períodos (P1-P3)"
+        });
+      } else if (score < PASSING_GRADE || pePeriodsSet.size > 0 || failingAnnualSubjs.length > 0) {
+        const parts: string[] = [];
+        if (score < PASSING_GRADE) parts.push(`Prom. Asig. Docente < ${PASSING_GRADE.toFixed(2)}`);
+        if (failingAnnualSubjs.length > 0) parts.push(`Pierde Def. Anual (P1-P3): ${failingAnnualSubjs.join(", ")}`);
+        if (pePeriodsSet.size > 0) parts.push(`PE en ${Array.from(pePeriodsSet).sort().join(", ")}`);
+        rowsData.push({
+          st,
+          score,
+          kind: score < PASSING_GRADE ? "FAILING" : "PARTIAL_FAIL",
+          detail: parts.join(" · ")
+        });
+      }
+      return;
+    }
+
+    // scope === "period_all": evalúa cada asignatura del salón y el promedio del período
+    const sCurso = (st.curso || "").toString().trim().toUpperCase();
+    const courseOnly = sCurso.includes("-") ? sCurso.split("-").pop()?.trim() || sCurso : sCurso;
+    const gNorm = normalizeGrade(st.grado).trim().toUpperCase();
+    const roomAssignedSubjs = meta.roomSubjectsMap?.[`${gNorm}-${sCurso}`] || meta.roomSubjectsMap?.[`${gNorm}-${courseOnly}`];
+
+    // Deduplicar asignaturas ignorando tildes/mayúsculas
+    const subjByKey = new Map<string, string>();
+    const rawPool = roomAssignedSubjs && roomAssignedSubjs.length > 0
+      ? roomAssignedSubjs
+      : [...(meta.subjectsList || []), ...Object.keys(st.detailedGrades || {})];
+    rawPool.filter(Boolean).forEach(name => {
+      const k = normalizeSubjectKey(name);
+      if (k && !subjByKey.has(k)) subjByKey.set(k, name.trim().toUpperCase());
+    });
+
+    const failingSubjs: string[] = [];
+    const missingSubjs: string[] = [];
+    const validScores: number[] = [];
+
+    subjByKey.forEach((displaySubj) => {
+      const sScore = calculateStudentPeriodAverage(st, targetPId, { subject: displaySubj, includeBonus: false, activePeriod: targetPId });
+      if (sScore === null) {
+        missingSubjs.push(displaySubj);
+      } else {
+        validScores.push(sScore);
+        if (sScore < PASSING_GRADE) {
+          failingSubjs.push(`${displaySubj} (${sScore.toFixed(2)})`);
+        }
+      }
+    });
+
+    const periodAvg = validScores.length > 0
+      ? round2(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+      : calculateStudentPeriodAverage(st, targetPId, { includeBonus: false, activePeriod: targetPId });
+
+    if (periodAvg === null && failingSubjs.length === 0) {
+      rowsData.push({
+        st,
+        score: null,
+        kind: "NO_GRADES",
+        detail: `PE — Sin calificaciones en ${targetPId.toUpperCase()}`
+      });
+    } else if ((periodAvg !== null && periodAvg < PASSING_GRADE) || failingSubjs.length > 0) {
+      const parts: string[] = [];
+      if (failingSubjs.length > 0) parts.push(`Pierde: ${failingSubjs.join(", ")}`);
+      if (missingSubjs.length > 0) parts.push(`PE: ${missingSubjs.join(", ")}`);
+      rowsData.push({
+        st,
+        score: periodAvg,
+        kind: (periodAvg !== null && periodAvg < PASSING_GRADE) ? "FAILING" : "PARTIAL_FAIL",
+        detail: parts.join(" · ")
+      });
+    }
+  });
+
+  const failingCount = rowsData.filter(r => r.kind === "FAILING" || r.kind === "PARTIAL_FAIL").length;
+  const noGradesCount = rowsData.filter(r => r.kind === "NO_GRADES").length;
+
+  const scopeTitle = meta.scope === "subject"
+    ? `${meta.subject} (${targetPId.toUpperCase()})`
+    : meta.scope === "subject_final"
+    ? `${meta.subject} — Cierre Final Anual (P1-P3)`
+    : meta.scope === "final_all"
+    ? "Cierre Final Anual (P1-P3) — Asignaturas del Docente"
+    : `Período Completo ${targetPId.toUpperCase()} (Asignaturas del Docente)`;
+
+  const fileName = buildDocumentFilename(
+    "RIESGO_SIN_NOTAS",
+    isFinal ? "FINAL_ANUAL" : targetPId.toUpperCase(),
+    (meta.scope === "subject" || meta.scope === "subject_final") ? meta.subject : "ASIG_DOCENTE",
+    `${meta.grade === "TODOS" ? "TODOS" : normalizeGrade(meta.grade)}-${meta.course === "TODOS" ? "TODOS" : meta.course}`
+  );
+
+  const failingRows = rowsData.filter(r => r.kind === "FAILING" || r.kind === "PARTIAL_FAIL");
+  const noGradeRows = rowsData.filter(r => r.kind === "NO_GRADES");
+
+  const renderRows = (list: RiskRow[]) => list.map((r, i) => {
+    const s = r.st;
+    const badge = r.kind === "NO_GRADES"
+      ? `<span class="badge" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;">⚪ PE (SIN NOTAS)</span>`
+      : r.kind === "FAILING"
+      ? `<span class="badge badge-danger">🔴 PERDIENDO</span>`
+      : `<span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">🟡 MATERIA PERDIDA</span>`;
+    const scoreTxt = r.score !== null
+      ? `<strong style="color:${r.score < PASSING_GRADE ? '#dc2626' : '#d97706'};font-size:10px;">${r.score.toFixed(2)}</strong>`
+      : `<span style="background:#e2e8f0;color:#334155;font-weight:900;font-size:9px;padding:2px 6px;border-radius:4px;">PE</span>`;
+    const guardian = s.acudienteNombre || `${s.acudienteNombres || ""} ${s.acudienteApellidos || ""}`.trim() || "Sin registrar";
+    const phone = s.acudienteTelefono || "—";
+
+    return `
+      <tr>
+        <td style="text-align:center;font-weight:700;color:#64748b;">${i + 1}</td>
+        <td><strong style="color:#0f172a;">${escapeHtml(s.primerApellido)} ${escapeHtml(s.segundoApellido || "")} ${escapeHtml(s.primerNombre)} ${escapeHtml(s.segundoNombre || "")}</strong><br><span style="font-size:8px;color:#64748b;">Doc: ${escapeHtml(s.nroDocumento || "—")}</span></td>
+        <td style="text-align:center;font-weight:800;">${escapeHtml(normalizeGrade(s.grado))}-${escapeHtml(s.curso || "1")}</td>
+        <td style="text-align:center;">${scoreTxt}</td>
+        <td style="text-align:center;">${badge}</td>
+        <td style="font-size:8.5px;color:#334155;">${escapeHtml(r.detail)}</td>
+        <td style="font-size:8px;color:#334155;"><strong>${escapeHtml(guardian)}</strong><br>Tel: ${escapeHtml(phone)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const failingHtml = renderRows(failingRows);
+  const noGradeHtml = renderRows(noGradeRows);
+
+  const scoreColLabel = (meta.scope === "final_all" || meta.scope === "period_all")
+    ? "Prom. Asig. Docente"
+    : meta.scope === "subject_final"
+    ? "Def. Anual (P1-P3)"
+    : "Nota Período";
+
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${fileName}</title>
+    ${baseStyles()}</head><body>
+    ${standardHeader(`REPORTE DE ESTUDIANTES PERDIENDO Y SIN NOTAS — ${escapeHtml(scopeTitle)}`, {
+      grade: meta.grade,
+      course: meta.course,
+      teacher: meta.teacher,
+      subject: (meta.scope === "subject" || meta.scope === "subject_final") ? meta.subject : "ASIGNATURAS DEL DOCENTE",
+      period: isFinal ? "FINAL ANUAL (P1-P3)" : targetPId.toUpperCase()
+    })}
+    <div class="stats-grid">
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Total Evaluados</div>
+        <div class="stat-value">${activeStudents.length}</div>
+        <div class="stat-sub">Salones asignados al docente</div>
+      </div>
+      <div class="stat-card accent-red">
+        <div class="stat-label">1. Reprobando (&lt; 3.0)</div>
+        <div class="stat-value">${failingCount}</div>
+        <div class="stat-sub">Con notas registradas y en riesgo</div>
+      </div>
+      <div class="stat-card" style="background:#f8fafc;border-color:#cbd5e1;">
+        <div class="stat-label">2. Sin Notas / Ausentes</div>
+        <div class="stat-value" style="color:#475569;">${noGradesCount}</div>
+        <div class="stat-sub">Sin ninguna calificación registrada</div>
+      </div>
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Total en Este Reporte</div>
+        <div class="stat-value">${rowsData.length}</div>
+        <div class="stat-sub">${activeStudents.length > 0 ? Math.round((rowsData.length / activeStudents.length) * 100) : 0}% del grupo</div>
+      </div>
+    </div>
+
+    <div style="margin:14px 0 6px 0;padding:8px 12px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;font-weight:900;font-size:11px;color:#991b1b;text-transform:uppercase;">
+      1. Estudiantes Reprobando (&lt; 3.0) — ${failingRows.length} registros
+    </div>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th style="width:4%;">#</th>
+          <th style="width:24%;">Estudiante / Documento</th>
+          <th style="width:9%;">Grado</th>
+          <th style="width:11%;">${scoreColLabel}</th>
+          <th style="width:13%;">Estado</th>
+          <th style="width:23%;">Detalle Académico</th>
+          <th style="width:16%;">Acudiente / Teléfono</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${failingHtml || `<tr><td colspan="7" style="text-align:center;color:#166534;font-weight:800;padding:18px;background:#f0fdf4;">Ningún estudiante reprobando con notas registradas en este filtro.</td></tr>`}
+      </tbody>
+    </table>
+
+    <div style="margin:22px 0 6px 0;padding:8px 12px;background:#f1f5f9;border-left:4px solid #475569;border-radius:6px;font-weight:900;font-size:11px;color:#1e293b;text-transform:uppercase;page-break-before:auto;">
+      2. Estudiantes Pendientes por Evaluar (PE / Sin Notas Registradas) — ${noGradeRows.length} registros
+    </div>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th style="width:4%;">#</th>
+          <th style="width:24%;">Estudiante / Documento</th>
+          <th style="width:9%;">Grado</th>
+          <th style="width:11%;">${scoreColLabel}</th>
+          <th style="width:13%;">Estado</th>
+          <th style="width:23%;">Motivo / Observación</th>
+          <th style="width:16%;">Acudiente / Teléfono</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${noGradeHtml || `<tr><td colspan="7" style="text-align:center;color:#166534;font-weight:800;padding:18px;background:#f0fdf4;">Todos los estudiantes del grupo tienen al menos una nota registrada.</td></tr>`}
+      </tbody>
+    </table>
+
+    <div style="margin-top:22px;padding:12px 14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;page-break-inside:avoid;">
+      <div style="font-weight:900;font-size:9.5px;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">
+        📖 Glosario de Nomenclaturas y Criterios SIEEE del Informe
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:8.2px;color:#334155;line-height:1.45;">
+        <div><strong>• P1, P2, P3:</strong> Primer, Segundo y Tercer Período Académico del año lectivo.</div>
+        <div><strong>• Def. Anual (P1-P3):</strong> Nota definitiva del año por asignatura: <code>(P1 + P2 + P3) / 3</code>. Mínimo aprobatorio: <strong>3.00</strong>.</div>
+        <div><strong>• PE (Pendiente por Evaluar):</strong> No registra calificación en ese período o asignatura; computa <strong>0.00</strong> en el acumulado hasta ser evaluado.</div>
+        <div><strong>• Prom. Asig. Docente:</strong> Promedio calculado únicamente sobre las asignaturas que el docente emisor dicta en ese salón.</div>
+        <div><strong>• 🔴 PERDIENDO:</strong> Promedio inferior a 3.00 en el alcance consultado.</div>
+        <div><strong>• 🟡 MATERIA PERDIDA:</strong> Promedio general ≥ 3.00, pero reprueba al menos una asignatura individual (&lt; 3.00).</div>
+      </div>
+    </div>
+
+    <div class="footer" style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;color:#94a3b8;font-size:8px;">
+      <div>${INSTITUTION_NAME} · ${INSTITUTION_LOCATION}</div>
+      <div>${fileName} · ${APP_NAME}</div>
+    </div>
+  </body></html>`);
+  w.document.title = fileName;
+  w.document.close();
 }
 
 

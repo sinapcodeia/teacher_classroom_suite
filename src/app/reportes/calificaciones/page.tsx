@@ -1,5 +1,6 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
+import { normalizeSubjectKey } from "@/lib/gradeUtils";
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
@@ -12,9 +13,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
-import { printGradesTable, printMissingGradesReport } from "@/lib/printService";
+import nextDynamic from "next/dynamic";
 import Papa from "papaparse";
-import VisualReportModal from "@/components/dashboard/VisualReportModal";
+const VisualReportModal = nextDynamic(() => import("@/components/dashboard/VisualReportModal"), { ssr: false });
 
 interface EditableGradeCellProps {
   studentId: string;
@@ -83,7 +84,7 @@ EditableGradeCell.displayName = "EditableGradeCell";
 
 export default function GradesReportPage() {
   const { 
-    students, myStudents, masterData, profile, addGrade, 
+    students, myStudents, masterData, profile, schedule, addGrade, 
     updateSingleDetailedGrade, importDetailedGrades 
   } = useApp();
   
@@ -91,6 +92,7 @@ export default function GradesReportPage() {
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
   const [selectedSubject, setSelectedSubject] = useState("TECNOLOGÍA");
   const [selectedPeriod, setSelectedPeriod] = useState(masterData.activePeriod || "p2");
+  const [riskScope, setRiskScope] = useState<"subject" | "subject_final" | "period_all" | "final_all">("subject");
   const [mounted, setMounted] = useState(false);
 
   const [isVisualReportOpen, setIsVisualReportOpen] = useState(false);
@@ -113,30 +115,49 @@ export default function GradesReportPage() {
     setSelectedCurso("TODOS");
   }, [selectedGrade]);
 
+  // Bloques del horario donde el docente dicta la asignatura seleccionada
+  const subjectScheduleBlocks = useMemo(() => {
+    if (profile.isSuperAdmin || ["RECTOR", "COORDINADOR", "BIENESTAR"].includes(profile.role)) return null;
+    const normSubj = normalizeSubjectKey(selectedSubject);
+    const matching = (schedule || []).filter(b => normalizeSubjectKey(b.subject || "") === normSubj);
+    return matching.length > 0 ? matching : null;
+  }, [schedule, selectedSubject, profile.isSuperAdmin, profile.role]);
+
+  const isStudentInSubjectRoom = React.useCallback((st: any) => {
+    if (!subjectScheduleBlocks) return true;
+    return subjectScheduleBlocks.some(b =>
+      normalizeGrade(st.grado) === normalizeGrade(b.grade) &&
+      matchStudentCourse(st.curso, b.group, st.grado, b.grade)
+    );
+  }, [subjectScheduleBlocks]);
+
+  const studentsInSubject = useMemo(() => {
+    return myStudents.filter(st => st.isActive !== false && isStudentInSubjectRoom(st));
+  }, [myStudents, isStudentInSubjectRoom]);
+
   const filteredStudents = useMemo(() => {
-    return myStudents.filter(st => {
+    return studentsInSubject.filter(st => {
       if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== normalizeGrade(selectedGrade)) return false;
       if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
-      if (st.isActive === false) return false;
       return true;
     }).sort((a, b) => {
       const nameA = `${a.primerApellido || ""} ${a.segundoApellido || ""} ${a.primerNombre || ""} ${a.segundoNombre || ""}`.trim().toUpperCase();
       const nameB = `${b.primerApellido || ""} ${b.segundoApellido || ""} ${b.primerNombre || ""} ${b.segundoNombre || ""}`.trim().toUpperCase();
       return nameA.localeCompare(nameB);
     });
-  }, [myStudents, selectedGrade, selectedCurso]);
+  }, [studentsInSubject, selectedGrade, selectedCurso]);
 
   const availableGrades = useMemo(() => 
-    Array.from(new Set(myStudents.map(s => normalizeGrade(s.grado)))).sort()
-  , [myStudents]);
+    Array.from(new Set(studentsInSubject.map(s => normalizeGrade(s.grado)))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  , [studentsInSubject]);
 
   const availableCourses = useMemo(() => {
-    let baseList = myStudents;
+    let baseList = studentsInSubject;
     if (selectedGrade !== "TODOS") {
       baseList = baseList.filter(s => normalizeGrade(s.grado) === normalizeGrade(selectedGrade));
     }
-    return Array.from(new Set(baseList.map(s => s.curso))).sort();
-  }, [myStudents, selectedGrade]);
+    return Array.from(new Set(baseList.map(s => s.curso))).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  }, [studentsInSubject, selectedGrade]);
 
   const availableSubjects = masterData.subjects || ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"];
 
@@ -154,9 +175,13 @@ export default function GradesReportPage() {
   const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId: string) => {
     const pid = periodId.toLowerCase();
     
-    // 1. Nueva estructura DetailedGrades
-    if (st.detailedGrades?.[subject]?.[pid]) {
-      const d = st.detailedGrades[subject][pid];
+    // 1. Nueva estructura DetailedGrades (acepta tildes/mayúsculas equivalentes y llaves p1/1/P1)
+    const dg = st.detailedGrades || {};
+    const subjKey = dg[subject] ? subject : Object.keys(dg).find(k => normalizeSubjectKey(k) === normalizeSubjectKey(subject));
+    const pShort = pid.replace("p", "");
+    const pBlock = subjKey ? (dg[subjKey]?.[pid] || dg[subjKey]?.[pShort] || dg[subjKey]?.[pid.toUpperCase()]) : undefined;
+    if (pBlock) {
+      const d = pBlock;
       if (colType === "SB") return (d.sb && typeof d.sb[index] === 'number') ? d.sb[index].toFixed(1) : "";
       if (colType === "SBH") return (d.sbh && typeof d.sbh[index] === 'number') ? d.sbh[index].toFixed(1) : "";
       if (colType === "SR") return (d.sr && typeof d.sr[index] === 'number') ? d.sr[index].toFixed(1) : "";
@@ -753,7 +778,7 @@ export default function GradesReportPage() {
               </select>
            </div>
 
-           <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap md:flex-nowrap">
+           <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap justify-end">
               <button 
                 onClick={() => setIsVisualReportOpen(true)}
                 className="flex-1 md:flex-none justify-center px-4 py-3 md:px-5 md:py-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-all flex items-center gap-2"
@@ -761,13 +786,13 @@ export default function GradesReportPage() {
                 <Award size={15} /> Diplomas e Infografías
               </button>
               <button 
-                onClick={() => printGradesTable(filteredStudents, { 
+                onClick={() => import("@/lib/printService").then(({ printGradesTable }) => printGradesTable(filteredStudents, { 
                   grade: selectedGrade, 
                   course: selectedCurso, 
                   teacher: profile.name, 
                   subject: selectedSubject,
                   period: selectedPeriod.toUpperCase() 
-                })} 
+                }))} 
                 className="flex-1 md:flex-none justify-center px-4 py-3 md:px-5 md:py-4 bg-secondary text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all flex items-center gap-2"
               >
                 <Download size={15} /> PDF
@@ -775,6 +800,56 @@ export default function GradesReportPage() {
               <button onClick={handleDownloadCSV} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
                 <FileSpreadsheet size={15} /> Excel
               </button>
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between w-full sm:w-auto bg-rose-50 border border-rose-200 rounded-xl md:rounded-2xl p-1 gap-1 shadow-sm">
+                <select
+                  value={riskScope}
+                  onChange={(e) => setRiskScope(e.target.value as "subject" | "subject_final" | "period_all" | "final_all")}
+                  className="bg-transparent border-none text-[9px] font-black text-rose-900 uppercase tracking-wider pl-2 pr-1 py-1.5 focus:ring-0 cursor-pointer"
+                  title="Alcance del reporte de estudiantes perdiendo y sin notas"
+                >
+                  <option value="subject">Esta Materia (Período)</option>
+                  <option value="subject_final">Esta Materia (Final P1-P3)</option>
+                  <option value="period_all">Asig. Docente (Período)</option>
+                  <option value="final_all">Asig. Docente (Final P1-P3)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const sourceList = (riskScope === "subject" || riskScope === "subject_final")
+                      ? filteredStudents
+                      : myStudents.filter(st => {
+                          if (selectedGrade !== "TODOS" && normalizeGrade(st.grado) !== normalizeGrade(selectedGrade)) return false;
+                          if (selectedCurso !== "TODOS" && st.curso !== selectedCurso) return false;
+                          return st.isActive !== false;
+                        });
+                    const roomSubjectsMap: Record<string, string[]> = {};
+                    if (!profile.isSuperAdmin && !["RECTOR", "COORDINADOR", "BIENESTAR"].includes(profile.role)) {
+                      (schedule || []).forEach(b => {
+                        const room = `${normalizeGrade(b.grade).trim().toUpperCase()}-${(b.group || "").trim().toUpperCase()}`;
+                        const subj = (b.subject || "").trim().toUpperCase();
+                        if (!subj) return;
+                        if (!roomSubjectsMap[room]) roomSubjectsMap[room] = [];
+                        if (!roomSubjectsMap[room].includes(subj)) roomSubjectsMap[room].push(subj);
+                      });
+                    }
+                    const { printRiskAndMissingReport } = await import("@/lib/printService");
+                    printRiskAndMissingReport(sourceList, {
+                      grade: selectedGrade,
+                      course: selectedCurso,
+                      teacher: profile.name,
+                      subject: selectedSubject,
+                      period: selectedPeriod,
+                      scope: riskScope,
+                      subjectsList: availableSubjects,
+                      roomSubjectsMap: Object.keys(roomSubjectsMap).length > 0 ? roomSubjectsMap : undefined
+                    });
+                  }}
+                  className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  title="Generar PDF con estudiantes que van perdiendo (< 3.0) y estudiantes sin notas"
+                >
+                  <AlertTriangle size={14} /> Perdiendo / Sin Notas
+                </button>
+              </div>
               <button onClick={() => setIsImportOpen(true)} className="flex-1 md:flex-none justify-center px-4 py-3 md:p-4 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-[1.02] transition-all flex items-center gap-2">
                 <Upload size={15} /> Subir Notas
               </button>
@@ -800,13 +875,13 @@ export default function GradesReportPage() {
               </div>
             </div>
             <button
-              onClick={() => printMissingGradesReport(filteredStudents, {
+              onClick={() => import("@/lib/printService").then(({ printMissingGradesReport }) => printMissingGradesReport(filteredStudents, {
                 grade: selectedGrade,
                 course: selectedCurso,
                 teacher: profile.name,
                 subject: selectedSubject,
                 period: selectedPeriod
-              })}
+              }))}
               className="w-full md:w-auto px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-lg shadow-amber-600/25 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
             >
               <FileWarning size={15} /> Generar Reporte de Pendientes
@@ -828,7 +903,7 @@ export default function GradesReportPage() {
                 <div className="max-h-[120px] overflow-y-auto space-y-1.5 scrollbar-thin">
                   {alertStats.empty.map(sa => (
                     <div key={sa.student.id} className="text-[9.5px] font-bold text-slate-700 leading-tight border-b border-slate-100 pb-1 last:border-b-0">
-                      • {sa.student.primerApellido} {sa.student.primerNombre}
+                      ⬢ {sa.student.primerApellido} {sa.student.primerNombre}
                     </div>
                   ))}
                 </div>
@@ -849,7 +924,7 @@ export default function GradesReportPage() {
                 <div className="max-h-[120px] overflow-y-auto space-y-1.5 scrollbar-thin">
                   {alertStats.exams.map(sa => (
                     <div key={sa.student.id} className="text-[9.5px] text-slate-700 leading-tight border-b border-slate-100 pb-1 last:border-b-0">
-                      <span className="font-bold">• {sa.student.primerApellido} {sa.student.primerNombre}</span>
+                      <span className="font-bold">⬢ {sa.student.primerApellido} {sa.student.primerNombre}</span>
                       <div className="text-[8.5px] text-amber-600 font-semibold mt-0.5 ml-2">
                         Falta: {sa.missingExams.join(', ')}
                       </div>
@@ -873,7 +948,7 @@ export default function GradesReportPage() {
                 <div className="max-h-[120px] overflow-y-auto space-y-1.5 scrollbar-thin">
                   {alertStats.tasks.map(sa => (
                     <div key={sa.student.id} className="text-[9.5px] text-slate-700 leading-tight border-b border-slate-100 pb-1 last:border-b-0">
-                      <span className="font-bold">• {sa.student.primerApellido} {sa.student.primerNombre}</span>
+                      <span className="font-bold">⬢ {sa.student.primerApellido} {sa.student.primerNombre}</span>
                       <div className="text-[8.5px] text-blue-600 font-semibold mt-0.5 ml-2">
                         Falta: {sa.missingTasks.join(', ')}
                       </div>
@@ -893,13 +968,13 @@ export default function GradesReportPage() {
             </span>
           </div>
           <button
-            onClick={() => printMissingGradesReport(filteredStudents, {
+            onClick={() => import("@/lib/printService").then(({ printMissingGradesReport }) => printMissingGradesReport(filteredStudents, {
               grade: selectedGrade,
               course: selectedCurso,
               teacher: profile.name,
               subject: selectedSubject,
               period: selectedPeriod
-            })}
+            }))}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[8.5px] uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm shadow-green-600/10"
           >
             <Printer size={13} /> Imprimir Estado
@@ -1147,7 +1222,7 @@ export default function GradesReportPage() {
                 <h4 className="font-black text-red-800 text-xs uppercase tracking-wider">Error en la Validación del Archivo</h4>
                 <p className="text-[10px] text-red-700 font-medium leading-relaxed max-w-md">{importError}</p>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     setImportError(null);
                     setImportFile(null);
                   }}
@@ -1183,7 +1258,7 @@ export default function GradesReportPage() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       setImportFile(null);
                       setImportStats(null);
                     }}
@@ -1222,7 +1297,7 @@ export default function GradesReportPage() {
                     <div className="space-y-1 pl-1">
                       {importStats.roomChanges.map((change: any, idx: number) => (
                         <p key={idx} className="text-[9px] text-amber-700 font-semibold leading-tight">
-                          • {change.nombre} (ID: {change.documento}): Se moverá de {change.antes} a {change.ahora}
+                          ⬢ {change.nombre} (ID: {change.documento}): Se moverá de {change.antes} a {change.ahora}
                         </p>
                       ))}
                     </div>
@@ -1237,7 +1312,7 @@ export default function GradesReportPage() {
                     </h5>
                     <div className="space-y-1 pl-1">
                       {importStats.unmatched.map((unm: string, idx: number) => (
-                        <p key={idx} className="text-[9px] text-red-700 font-medium">• {unm}</p>
+                        <p key={idx} className="text-[9px] text-red-700 font-medium">⬢ {unm}</p>
                       ))}
                     </div>
                   </div>
@@ -1251,7 +1326,7 @@ export default function GradesReportPage() {
                     </h5>
                     <div className="space-y-1 pl-1">
                       {importStats.novelties.map((nov: string, idx: number) => (
-                        <p key={idx} className="text-[9px] text-slate-600 font-medium">• {nov}</p>
+                        <p key={idx} className="text-[9px] text-slate-600 font-medium">⬢ {nov}</p>
                       ))}
                     </div>
                   </div>
@@ -1306,7 +1381,7 @@ export default function GradesReportPage() {
                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                   <button 
                     disabled={isImporting}
-                    onClick={() => {
+                    onClick={async () => {
                       setImportFile(null);
                       setImportStats(null);
                     }}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { calculateGroupRankings, formatRank, PASSING_GRADE, TOTAL_ACADEMIC_PERIODS, type RankingScope } from "@/lib/gradeUtils";
+import { calculateGroupRankings, calculateStudentYearBreakdown, formatRank, normalizePeriodId, PASSING_GRADE, TOTAL_ACADEMIC_PERIODS, type RankingScope } from "@/lib/gradeUtils";
 import { 
   Trophy, AlertTriangle, CheckCircle2, TrendingUp, 
   Search, ChevronDown, ChevronUp, UserCheck, UserX, Award,
@@ -61,16 +61,39 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
       let guidanceStatus: "safe" | "warning" | "danger" | "passed" | "pending_start" = "safe";
       let guidanceText = "";
 
+      // Evaluar materia por materia su acumulado de los períodos evaluados (ej: Física (P1+P2+P3)/3 >= 3.0 gana Física independiente de Tecnología)
+      const activePId = normalizePeriodId(activePeriod) || "p3";
+      const subjsToCheck = subjectForCalc
+        ? [subjectForCalc]
+        : Object.keys(student.detailedGrades || {});
+      const failingAnnualSubjs = subjsToCheck
+        .map(subj => {
+          const subBd = calculateStudentYearBreakdown(student, activePId, {
+            subject: subj,
+            includeBonus: false,
+            evaluatedPeriods: breakdown.evaluatedPeriods
+          });
+          return { subj, score: subBd.accumulatedAvg };
+        })
+        .filter((x): x is { subj: string; score: number } => x.score !== null && x.score < PASSING_GRADE);
+
       if (breakdown.accumulatedAvg === null) {
         guidanceStatus = "pending_start";
         guidanceText = "Sin notas registradas";
       } else if (remainingPeriodsCount <= 0) {
         if (currentOverallAvg >= PASSING_GRADE) {
-          guidanceStatus = "passed";
-          guidanceText = "¡Año Aprobado!";
+          if (failingAnnualSubjs.length > 0) {
+            guidanceStatus = "warning";
+            guidanceText = `Pierde Def. Anual (P1-P3): ${failingAnnualSubjs.map(f => `${f.subj} (${f.score.toFixed(2)})`).join(", ")}`;
+          } else {
+            guidanceStatus = "passed";
+            guidanceText = "¡Año Aprobado!";
+          }
         } else {
           guidanceStatus = "danger";
-          guidanceText = "Año Reprobado (Requiere Recuperación)";
+          guidanceText = failingAnnualSubjs.length > 0
+            ? `Reprobado (${failingAnnualSubjs.map(f => `${f.subj} ${f.score.toFixed(2)}`).join(", ")})`
+            : "Año Reprobado (Requiere Recuperación)";
         }
       } else {
         minScoreNeededInNext = Number((pointsNeededRemaining / remainingPeriodsCount).toFixed(2));
@@ -88,6 +111,10 @@ export default function AcademicAccumulatedWidget({ gradoFilter, cursoFilter, su
         } else {
           guidanceStatus = "danger";
           guidanceText = `🚨 Riesgo Crítico: Requisito mayor a 5.0 (${minScoreNeededInNext.toFixed(1)}). Necesita nivelación obligatoria`;
+        }
+        if (failingAnnualSubjs.length > 0 && guidanceStatus === "safe") {
+          guidanceStatus = "warning";
+          guidanceText += ` · Acum. < 3.0 en: ${failingAnnualSubjs.map(f => `${f.subj} (${f.score.toFixed(2)})`).join(", ")}`;
         }
       }
       if (breakdown.missingPeriods.length > 0 && breakdown.accumulatedAvg !== null) {
