@@ -18,79 +18,119 @@ service cloud.firestore {
       ];
     }
 
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasUserDoc() {
+      return exists(userDocPath());
+    }
+
+    function userRole() {
+      return hasUserDoc() ? get(userDocPath()).data.role : '';
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (hasUserDoc() && get(userDocPath()).data.status == 'ACTIVE')
+      );
+    }
+
+    function isAdmin() {
+      return isActiveUser() && (isSuperAdmin() || userRole() in ['RECTOR', 'COORDINADOR']);
+    }
+
     // ── USUARIOS (/users/{userId}) ─────────────────────────────────────────
-    // Todos los usuarios autenticados pueden leer el directorio institucional de docentes.
-    // Cada usuario solo puede crear o actualizar su propio perfil (o SuperAdmin).
+    // Solo cuentas activas (o el propietario) leen perfiles; previene escalada de rol/estado.
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwnDocument(userId);
-      allow update: if isAuthenticated() && (isOwnDocument(userId) || isSuperAdmin());
+      allow read: if isAuthenticated() && (isOwnDocument(userId) || isActiveUser());
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (
+          isOwnDocument(userId) &&
+          request.resource.data.role == 'DOCENTE' &&
+          request.resource.data.status == 'PENDING' &&
+          request.resource.data.get('isSuperAdmin', false) == false
+        )
+      );
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (
+          isOwnDocument(userId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'isSuperAdmin'])
+        )
+      );
       allow delete: if isAuthenticated() && isSuperAdmin();
     }
 
     // ── DIRECTORIO INSTITUCIONAL (/directorio/{staffId}) ────────────────────
     match /directorio/{staffId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isSuperAdmin() || userRole() in ['RECTOR', 'COORDINADOR', 'DOCENTE_DIRECTOR']);
     }
 
     // ── ESTUDIANTES (/students/{studentId}) ───────────────────────────────
-    // Todos los docentes autenticados pueden leer estudiantes.
-    // Solo docentes activos y admins pueden crear/editar.
+    // Solo usuarios aprobados (ACTIVE) y SuperAdmin acceden a datos de estudiantes.
     match /students/{studentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
     }
 
     // ── NOTAS DE AGENDA (/agendaNotes/{noteId}) ───────────────────────────
     match /agendaNotes/{noteId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
     }
 
     // ── CURRÍCULO (/curriculum/{curriculumId}) ────────────────────────────
     match /curriculum/{curriculumId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
     }
 
     // ── RECUPERACIONES (/recoveryPlans/{planId}) ─────────────────────────
     match /recoveryPlans/{planId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
     }
 
     // ── PLANES PEDAGÓGICOS IA (/pedagogical_plans/{planId}) ───────────────
     match /pedagogical_plans/{planId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
     }
 
     // ── MASTER DATA (/masterData/{docId}) ─────────────────────────────────
     match /masterData/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if isActiveUser();
       allow write: if isAuthenticated() && isSuperAdmin();
     }
 
     // ── SETTINGS (/settings/{docId}) ──────────────────────────────────────
-    // Usado para masterData sincronizado en tiempo real entre dispositivos.
-    // Todos los docentes pueden leer. Solo SuperAdmin puede escribir.
+    // masterData global requiere RECTOR/COORDINADOR/SuperAdmin; docentes activos
+    // solo pueden actualizar metadatos de sincronización SAPRED.
     match /settings/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isAdmin() || (
+        isActiveUser() &&
+        docId == 'masterData' &&
+        resource != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sapredOrder', 'sapredMeta', 'sapredLastSync'])
+      );
     }
 
     // ── CONVIVENCIA (/convivencia/{id}) ───────────────────────────────────
     match /convivencia/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
     }
 
     // ── LOGS DE AUDITORÍA (/auditLogs/{logId}) ───────────────────────────
-    // Solo lectura para SuperAdmin, escritura para cualquier usuario autenticado
+    // Solo lectura para SuperAdmin, escritura para usuarios activos
     match /auditLogs/{logId} {
       allow read: if isAuthenticated() && isSuperAdmin();
-      allow create: if isAuthenticated();
+      allow create: if isActiveUser();
     }
   }
 }

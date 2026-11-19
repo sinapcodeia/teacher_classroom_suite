@@ -2,8 +2,8 @@
 import { normalizeGrade } from "@/lib/constants";
 import { useApp } from "@/context/AppContext";
 import {
-  BrainCircuit, Sparkles, TrendingUp, AlertTriangle,
-  ArrowUpRight, Activity, Target, Eye, Printer, X, BookOpen,
+  BrainCircuit, TrendingUp, AlertTriangle,
+  ArrowUpRight, Activity, Target, Eye, Printer, X,
   CheckCircle2, MessageCircle, FileText
 } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -221,7 +221,7 @@ export default function EduAISentinel({ grado = "TODOS", curso = "TODOS" }: EduA
       alert("Sin teléfono registrado. Se copió el mensaje preventivo al portapapeles.");
       return;
     }
-    window.open(`https://wa.me/${phone.startsWith("57") ? phone : "57" + phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${phone.startsWith("57") ? phone : "57" + phone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   return (

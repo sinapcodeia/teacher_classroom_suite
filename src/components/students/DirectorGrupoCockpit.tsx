@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { 
-  Users, Award, AlertTriangle, ShieldCheck, TrendingUp, 
-  MessageSquare, FileText, CheckCircle2, ChevronRight, Download, 
-  Search, Filter, Sparkles, Phone, AlertCircle, ArrowUpRight,
-  Layers, HeartHandshake, Printer, HelpCircle
+  Users, AlertTriangle, TrendingUp, 
+  MessageSquare, FileText, CheckCircle2, Download, 
+  Search, Sparkles, Phone, 
+  HeartHandshake, Printer
 } from "lucide-react";
 import { Student, useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/lib/constants";
@@ -15,7 +15,6 @@ import GuardianModal from "@/components/students/GuardianModal";
 import StudentStatusModal from "@/components/students/StudentStatusModal";
 import { Mail, ShieldAlert } from "lucide-react";
 import { Edit3 } from "lucide-react";
-import Link from "next/link";
 
 interface DirectorGrupoCockpitProps {
   selectedGrado: string;
@@ -30,7 +29,7 @@ export default function DirectorGrupoCockpit({
   onSelectStudent,
   onPrintActa
 }: DirectorGrupoCockpitProps) {
-  const { students, subjects, masterData, profile } = useApp();
+  const { students, subjects, masterData } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState<"p1" | "p2" | "p3">(
     (masterData.activePeriod as "p1" | "p2" | "p3") || "p2"
   );
@@ -61,7 +60,7 @@ export default function DirectorGrupoCockpit({
 
   // Nota definitiva de una materia en el periodo seleccionado (MOTOR OFICIAL SIEEE:
   // normaliza sobre pilares calificados y aplica Recuperación igual que el resto de la app)
-  const getStudentSubjectScore = (student: Student, subjectName: string) => {
+  const getStudentSubjectScore = useCallback((student: Student, subjectName: string) => {
     const detailed = student.detailedGrades?.[subjectName]?.[selectedPeriod];
     if (detailed) {
       const score = calculateSubjectPeriodScore(detailed);
@@ -81,7 +80,7 @@ export default function DirectorGrupoCockpit({
     }
 
     return null;
-  };
+  }, [selectedPeriod]);
 
   // 🏆 Puestos oficiales del salón (por período seleccionado y Final acumulado)
   const groupRankings = useMemo(() => calculateGroupRankings(groupStudents, {
@@ -140,7 +139,7 @@ export default function DirectorGrupoCockpit({
         faltas
       };
     });
-  }, [groupStudents, activeSubjects, selectedPeriod, groupRankings]);
+  }, [groupStudents, activeSubjects, selectedPeriod, groupRankings, getStudentSubjectScore]);
 
   // KPIs Grupales
   const kpis = useMemo(() => {
@@ -234,7 +233,7 @@ export default function DirectorGrupoCockpit({
 
     msg += `\nAtentamente,\nDirección de Grupo · IETABA`;
 
-    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   return (

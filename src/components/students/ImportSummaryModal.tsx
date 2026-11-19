@@ -2,7 +2,7 @@
 
 import { 
   CheckCircle2, AlertTriangle, XCircle, 
-  ArrowRight, Users, Hash, FileCheck, X
+  ArrowRight, FileCheck, X
 } from "lucide-react";
 
 interface Novelty {

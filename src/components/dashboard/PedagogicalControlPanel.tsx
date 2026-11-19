@@ -2,28 +2,28 @@
 
 import { useApp } from "@/context/AppContext";
 import { 
-  ClipboardList, AlertCircle, CheckCircle2, 
-  ArrowRight, Bell, Zap, Calendar, Target
+  ClipboardList, CheckCircle2, 
+  ArrowRight, Target
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 
+const WEEK_DAYS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+
 export default function PedagogicalControlPanel() {
-  const { schedule, students, agendaNotes, profile } = useApp();
+  const { schedule, students, profile } = useApp();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
   
-  const days = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
-  
   // Date calculations inside a memo or only after mount
   const { currentDay, todayStr } = useMemo(() => {
     if (!mounted) return { currentDay: "", todayStr: "" };
     const now = new Date();
     return {
-      currentDay: days[now.getDay()],
+      currentDay: WEEK_DAYS[now.getDay()],
       todayStr: now.toISOString().slice(0, 10)
     };
   }, [mounted]);
@@ -66,7 +66,7 @@ export default function PedagogicalControlPanel() {
 
 
     return list.slice(0, 4); // Limitar a 4 alertas más importantes
-  }, [todayClasses, students, todayStr, agendaNotes]);
+  }, [todayClasses, students, todayStr]);
 
   if (!mounted) return null;
   if (alerts.length === 0 && !profile.isSuperAdmin) return null;

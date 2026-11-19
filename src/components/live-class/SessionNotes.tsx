@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { FileText, Save, History, AlertCircle, Clock } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
@@ -61,7 +61,7 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
     }
   }, [existingNote, isDirty, currentNote]);
 
-  const handleSave = async (content: string) => {
+  const handleSave = useCallback(async (content: string) => {
     setCurrentNote(content);
     setIsDirty(true);
     setLastSavedContent(content);
@@ -85,7 +85,7 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [existingNote, updateAgendaNote, addAgendaNote, todayStr, course, subject]);
 
   // Debounce for auto-saving
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function SessionNotes({ subject, course }: SessionNotesProps) {
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [currentNote, existingNote]);
+  }, [currentNote, existingNote, handleSave]);
 
   return (
     <section className="flex flex-col gap-4">

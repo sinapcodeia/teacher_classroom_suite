@@ -6,7 +6,7 @@ import { calculateGroupRankings, calculateStudentYearBreakdown, formatRank, norm
 import { 
   Trophy, AlertTriangle, CheckCircle2, TrendingUp, 
   Search, ChevronDown, ChevronUp, UserCheck, UserX, Award,
-  HelpCircle, Info, Sparkles, Clock, Target, FileText, Printer, Eye
+  Printer, Eye
 } from "lucide-react";
 import { normalizeGrade } from "@/lib/constants";
 import RecoveryPlanModal from "@/components/live-class/RecoveryPlanModal";

@@ -16,7 +16,7 @@ Write-Host ""
 $validationPass = $true
 
 # Paso 1: Chequeo de sintaxis basica y estructura del proyecto
-Write-Host "[1/4] Checking package structure..." -ForegroundColor Yellow
+Write-Host "[1/5] Checking package structure..." -ForegroundColor Yellow
 if (Test-Path "package.json") {
     try {
         $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
@@ -33,7 +33,7 @@ Write-Host ""
 
 # Paso 2: Ejecutar verificacion estricta de tipos TypeScript
 if ($validationPass) {
-    Write-Host "[2/4] Running strict TypeScript type check (npm run typecheck)..." -ForegroundColor Yellow
+    Write-Host "[2/5] Running strict TypeScript type check (npm run typecheck)..." -ForegroundColor Yellow
     # Ejecutar el comando de TypeScript
     npm run typecheck
     if ($LASTEXITCODE -ne 0) {
@@ -47,7 +47,7 @@ Write-Host ""
 
 # Paso 3: Ejecutar verificacion sintactica del Linter
 if ($validationPass) {
-    Write-Host "[3/4] Running ESLint check..." -ForegroundColor Yellow
+    Write-Host "[3/5] Running ESLint check..." -ForegroundColor Yellow
     # Ejecutar el linter
     npm run lint
     if ($LASTEXITCODE -ne 0) {
@@ -58,9 +58,22 @@ if ($validationPass) {
 }
 Write-Host ""
 
-# Paso 4: Ejecutar simulacion de build en produccion (Next.js dry build)
+# Paso 4: Ejecutar pruebas automatizadas (Motor SIEEE y Conector SAPRED)
 if ($validationPass) {
-    Write-Host "[4/4] Executing production Next.js compilation (npm run build)..." -ForegroundColor Yellow
+    Write-Host "[4/5] Running automated unit tests (node scripts/run-tests.mjs)..." -ForegroundColor Yellow
+    node scripts/run-tests.mjs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: Automated unit tests failed! Fix regressions before pushing." -ForegroundColor Red
+        $validationPass = $false
+    } else {
+        Write-Host "SUCCESS: Automated unit tests PASSED successfully!" -ForegroundColor Green
+    }
+}
+Write-Host ""
+
+# Paso 5: Ejecutar simulacion de build en produccion (Next.js dry build)
+if ($validationPass) {
+    Write-Host "[5/5] Executing production Next.js compilation (npm run build)..." -ForegroundColor Yellow
     # Ejecutar la simulacion de build
     npm run build
     if ($LASTEXITCODE -ne 0) {

@@ -213,14 +213,14 @@ export function printStudentsByCourse(students: Student[], course: string, teach
   const rows = list.map((s, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td>${fullName(s)}</td>
-      <td>${s.tipoDocumento} ${s.nroDocumento}</td>
-      <td>${s.genero}</td>
+      <td>${escapeHtml(fullName(s))}</td>
+      <td>${escapeHtml(s.tipoDocumento)} ${escapeHtml(s.nroDocumento)}</td>
+      <td>${escapeHtml(s.genero)}</td>
       <td style="width:60px"></td>
     </tr>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>LISTADO_${course.toUpperCase()}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>LISTADO_${escapeHtml(course.toUpperCase())}</title>${baseStyles()}</head><body>
     ${standardHeader("Listado Oficial de Estudiantes", { course, teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Nombre Completo</th><th>Documento</th><th>Género</th><th>Firma / Visto</th></tr></thead>
@@ -242,14 +242,14 @@ export function printStudentsByGrade(students: Student[], grade: string, teacher
   const rows = list.map((s, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td>${s.curso}</td>
-      <td>${fullName(s)}</td>
-      <td>${s.tipoDocumento} ${s.nroDocumento}</td>
-      <td>${s.genero}</td>
+      <td>${escapeHtml(s.curso)}</td>
+      <td>${escapeHtml(fullName(s))}</td>
+      <td>${escapeHtml(s.tipoDocumento)} ${escapeHtml(s.nroDocumento)}</td>
+      <td>${escapeHtml(s.genero)}</td>
     </tr>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>CONSOLIDADO_${grade.replace('°', '')}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>CONSOLIDADO_${escapeHtml(grade.replace('°', ''))}</title>${baseStyles()}</head><body>
     ${standardHeader(`Consolidado Grado ${grade}`, { grade, teacher: teacherName })}
     <table>
       <thead><tr><th>#</th><th>Curso</th><th>Nombre Completo</th><th>Documento</th><th>Género</th></tr></thead>
@@ -273,14 +273,14 @@ export function printAttendanceSheet(
   const rows = list.map((s, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td>${fullName(s)}</td>
+      <td>${escapeHtml(fullName(s))}</td>
       <td style="width:50px;text-align:center"></td>
       <td style="width:50px;text-align:center"></td>
       <td style="width:120px"></td>
     </tr>
   `).join("");
 
-  open(`<!DOCTYPE html><html><head><title>ASISTENCIA_${course.toUpperCase()}_${subject.toUpperCase()}</title>${baseStyles()}</head><body>
+  open(`<!DOCTYPE html><html><head><title>ASISTENCIA_${escapeHtml(course.toUpperCase())}_${escapeHtml(subject.toUpperCase())}</title>${baseStyles()}</head><body>
     ${standardHeader("Planilla de Control de Asistencia", { course, teacher: teacherName, subject })}
     <table>
       <thead><tr><th>#</th><th>Nombre Completo</th><th>✓ Presente</th><th>✗ Ausente</th><th>Observaciones</th></tr></thead>
@@ -304,10 +304,10 @@ export function printWeeklySchedule(
     .map((s, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td>${s.day}</td>
-        <td>${s.startTime} – ${s.endTime}</td>
-        <td>${s.subject}</td>
-        <td>${s.course}</td>
+        <td>${escapeHtml(s.day)}</td>
+        <td>${escapeHtml(s.startTime)} – ${escapeHtml(s.endTime)}</td>
+        <td>${escapeHtml(s.subject)}</td>
+        <td>${escapeHtml(s.course)}</td>
       </tr>
     `).join("");
 
@@ -389,10 +389,10 @@ export function printPedagogicalPlan(
     return `
       <div style="margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
         <div style="background: ${moduleColors[m.id]}; color: #fff; padding: 12px 20px; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">
-          ${m.title}
+          ${escapeHtml(m.title)}
         </div>
         <div style="${bodyStyle}">
-          ${m.body.replace(/\n/g, "<br/>")}
+          ${escapeHtml(m.body).replace(/\n/g, "<br/>")}
         </div>
         <div style="background: #f9fafb; padding: 10px 20px; border-top: 1px solid #eee; font-size: 9px; color: #888; display: flex; justify-content: space-between; align-items: center;">
           <span>Firma Docente: _______________________</span>
@@ -413,7 +413,7 @@ export function printPedagogicalPlan(
     </style>
   ` : "";
 
-  open(`<!DOCTYPE html><html><head><title>PLANEACION_${data.subject.toUpperCase()}_${data.grade.replace('°', '')}</title>${baseStyles()}${customStyles}</head><body>
+  open(`<!DOCTYPE html><html><head><title>PLANEACION_${escapeHtml(data.subject.toUpperCase())}_${escapeHtml(data.grade.replace('°', ''))}</title>${baseStyles()}${customStyles}</head><body>
     ${standardHeader(titles[type], { grade: data.grade, teacher: teacherName, subject: data.subject })}
     ${contentHtml}
     <div class="footer">Recurso generado por IA pedagógica optimizada para IETABA. ${nowFullStr()}</div>
@@ -432,7 +432,7 @@ export function printRecoveryPlan(
   },
   teacherName: string
 ) {
-  open(`<!DOCTYPE html><html><head><title>PLAN_NIVELACION_${data.studentName.replace(/\s+/g, "_")}</title>${baseStyles()}
+  open(`<!DOCTYPE html><html><head><title>PLAN_NIVELACION_${escapeHtml(data.studentName.replace(/\s+/g, "_"))}</title>${baseStyles()}
     <style>
       body { padding: 30px !important; }
       @media print {
@@ -445,8 +445,8 @@ export function printRecoveryPlan(
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 20px; margin-bottom: 25px;">
       <h3 style="font-size: 13px; font-weight: 900; text-transform: uppercase; color: #1e40af; margin-bottom: 8px;">Ficha Técnica del Estudiante</h3>
       <p style="font-size: 11px; color: #1e3a8a; line-height: 1.6;">
-        • <strong>Estudiante:</strong> ${data.studentName.toUpperCase()}<br/>
-        • <strong>Documento:</strong> ${data.documentId}<br/>
+        • <strong>Estudiante:</strong> ${escapeHtml(data.studentName.toUpperCase())}<br/>
+        • <strong>Documento:</strong> ${escapeHtml(data.documentId)}<br/>
         • <strong>Promedio Parcial Obtenido:</strong> <span style="color:#ba1a1a; font-weight:900;">${data.average.toFixed(2)} / 5.0</span> (Nivel de Desempeño Bajo)<br/>
         • <strong>Objetivo del Plan:</strong> Superar las dificultades académicas y afianzar las competencias del periodo.
       </p>
@@ -456,7 +456,7 @@ export function printRecoveryPlan(
         Actividades de Refuerzo y Compromisos Académicos
       </div>
       <div style="padding: 24px; line-height: 1.8; font-size: 12px; color: #334155; background: #fff; text-align: justify;">
-        ${data.planText.replace(/\n/g, "<br/>")}
+        ${escapeHtml(data.planText).replace(/\n/g, "<br/>")}
       </div>
       <div style="background: #f8fafc; padding: 15px 20px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #64748b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
         <div>_______________________<br/>Firma Estudiante</div>
@@ -493,17 +493,8 @@ export function printGradesTable(
       if (colType === "CV") return d.cv[index] !== null ? d.cv[index].toFixed(1) : "";
       if (colType === "AUT") return d.aut !== null ? d.aut.toFixed(1) : "";
       if (colType === "DEF") {
-        const getAvg = (vals: (number | null)[]) => {
-          const valid = vals.filter(v => v !== null) as number[];
-          return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
-        };
-        const sbAvg = getAvg(d.sb);
-        const sbhAvg = getAvg(d.sbh);
-        const srAvg = getAvg(d.sr);
-        const cvAvg = getAvg(d.cv);
-        const aut = d.aut || 0;
-        const final = (sbAvg * 0.3) + (sbhAvg * 0.4) + (srAvg * 0.2) + (cvAvg * 0.05) + (aut * 0.05);
-        return final > 0 ? final.toFixed(1) : "0.0";
+        const final = calculateSubjectPeriodScore(d);
+        return final !== null ? final.toFixed(1) : "";
       }
     }
 
@@ -542,9 +533,9 @@ export function printGradesTable(
 
     return `
       <tr>
-        <td style="border:1px solid #000; text-align:center; font-size:8px;">${st.nroDocumento}</td>
-        <td style="border:1px solid #000; font-weight:bold;">${st.primerApellido} ${st.segundoApellido}</td>
-        <td style="border:1px solid #000;">${st.primerNombre} ${st.segundoNombre}</td>
+        <td style="border:1px solid #000; text-align:center; font-size:8px;">${escapeHtml(st.nroDocumento)}</td>
+        <td style="border:1px solid #000; font-weight:bold;">${escapeHtml(st.primerApellido)} ${escapeHtml(st.segundoApellido)}</td>
+        <td style="border:1px solid #000;">${escapeHtml(st.primerNombre)} ${escapeHtml(st.segundoNombre)}</td>
         ${colCells}
       </tr>
     `;
@@ -555,7 +546,7 @@ export function printGradesTable(
     return `<th style="border:1px solid #000; background:${isDef ? '#1e3a8a' : '#f1f5f9'}; color:${isDef ? '#fff' : '#000'}; font-size:7px; padding:2px; width:${isDef ? '35px' : '25px'};">${c.id}</th>`;
   }).join("");
 
-  open(`<!DOCTYPE html><html><head><title>SABANA_${meta.subject.toUpperCase()}_${meta.grade.replace('°', '')}_${meta.course}_${(meta.period || '').toUpperCase()}</title>${baseStyles()}
+  open(`<!DOCTYPE html><html><head><title>SABANA_${escapeHtml(meta.subject.toUpperCase())}_${escapeHtml(meta.grade.replace('°', ''))}_${escapeHtml(meta.course)}_${escapeHtml((meta.period || '').toUpperCase())}</title>${baseStyles()}
     <style>
       @page { size: landscape; margin: 0.5cm; }
       table { border: 1px solid #000; table-layout: fixed; }
@@ -1137,7 +1128,7 @@ export function printRiskAndMissingReport(
 
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${fileName}</title>
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${escapeHtml(fileName)}</title>
     ${baseStyles()}</head><body>
     ${standardHeader(`REPORTE DE ESTUDIANTES PERDIENDO Y SIN NOTAS — ${escapeHtml(scopeTitle)}`, {
       grade: meta.grade,
@@ -1509,7 +1500,6 @@ export function printExecutiveReport(
     return;
   }
   const activePeriod = (masterData.activePeriod || "p2").toLowerCase();
-  const pName = activePeriod.toUpperCase();
   const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -1517,7 +1507,6 @@ export function printExecutiveReport(
   let totalGrades = 0;
   let passedCount = 0;
   let failedCount = 0;
-  let recoveredCount = 0;
   let totalScoreSum = 0;
 
   // Sabidurías Awá (Global)
@@ -1643,7 +1632,6 @@ export function printExecutiveReport(
             }
 
             if (grades.rec !== null) {
-              recoveredCount++;
               item.recovery++;
             }
 
@@ -2406,7 +2394,6 @@ export function printAnalyticsReport(
   }
   const activePeriod = (masterData.activePeriod || "p2").toLowerCase();
   const pName = activePeriod.toUpperCase();
-  const dateStr = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   // -- CRUNCHING DE BIG DATA PEDAGÓGICO --
@@ -3436,7 +3423,6 @@ function buildDossierInnerHtml(
   // Análisis de Tendencia Temporal (P1 -> P2 -> P3)
   let trendType: "UP" | "STABLE" | "DOWN" = "STABLE";
   let trendLabel = "TENDENCIA ESTABLE";
-  let trendDeltaText = "0.0";
   let trendColor = "#0284c7";
 
   if (p2Avg > 0 && p1Avg > 0) {
@@ -3445,16 +3431,13 @@ function buildDossierInnerHtml(
       if (diff >= 0.25) {
         trendType = "UP";
         trendLabel = `TENDENCIA ASCENDENTE (+${diff.toFixed(1)})`;
-        trendDeltaText = `+${diff.toFixed(1)}`;
         trendColor = "#059669";
       } else if (diff <= -0.25) {
         trendType = "DOWN";
         trendLabel = `TENDENCIA EN RIESGO (${diff.toFixed(1)})`;
-        trendDeltaText = `${diff.toFixed(1)}`;
         trendColor = "#dc2626";
       } else {
         trendLabel = `TENDENCIA ESTABLE (${diff >= 0 ? '+' : ''}${diff.toFixed(1)})`;
-        trendDeltaText = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`;
         trendColor = "#0284c7";
       }
     } else {
@@ -3463,16 +3446,13 @@ function buildDossierInnerHtml(
       if (diff >= 0.25) {
         trendType = "UP";
         trendLabel = `P1 → P2: +${diff.toFixed(1)} (P3 En Curso)`;
-        trendDeltaText = `+${diff.toFixed(1)}`;
         trendColor = "#059669";
       } else if (diff <= -0.25) {
         trendType = "DOWN";
         trendLabel = `P1 → P2: ${diff.toFixed(1)} (P3 En Curso)`;
-        trendDeltaText = `${diff.toFixed(1)}`;
         trendColor = "#dc2626";
       } else {
         trendLabel = `P1 → P2: ESTABLE (${diff >= 0 ? '+' : ''}${diff.toFixed(1)})`;
-        trendDeltaText = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`;
         trendColor = "#0284c7";
       }
     }
@@ -3507,56 +3487,34 @@ function buildDossierInnerHtml(
 
   // Diagnóstico y semáforo SIEEE
   let statusBadge = "DESEMPEÑO BÁSICO";
-  let statusText = "El estudiante alcanza los desempeños requeridos pero debe fortalecer sus hábitos de estudio.";
   let statusColor = "#d97706";
-  let bgGradient = "linear-gradient(135deg, #fffbeb, #fef3c7)";
-  let borderColor = "#fcd34d";
 
   if (currentPeriodAvg === 0) {
       statusBadge = "EN CURSO / SIN CALIFICAR";
-      statusText = "El periodo aún no tiene calificaciones registradas.";
       statusColor = "#64748b";
-      bgGradient = "linear-gradient(135deg, #f8fafc, #f1f5f9)";
-      borderColor = "#cbd5e1";
     } else if (currentPeriodAvg >= 4.6) {
     statusBadge = "DESEMPEÑO SUPERIOR (EXCELENCIA)";
-    statusText = "El estudiante demuestra un dominio excepcional de las competencias, autonomía, liderazgo constructivo y alto compromiso formativo.";
     statusColor = "#059669";
-    bgGradient = "linear-gradient(135deg, #f0fdf4, #dcfce7)";
-    borderColor = "#86efac";
   } else if (currentPeriodAvg >= 4.0) {
     statusBadge = "DESEMPEÑO ALTO (PROMOVIDO)";
-    statusText = "El estudiante alcanza satisfactoriamente los objetivos del área con buena disciplina, participación activa y cumplimiento regular.";
     statusColor = "#0284c7";
-    bgGradient = "linear-gradient(135deg, #f0f9ff, #e0f2fe)";
-    borderColor = "#7dd3fc";
   } else if (currentPeriodAvg >= 3.0) {
     statusBadge = "DESEMPEÑO BÁSICO (APROBADO CON REFUERZO)";
-    statusText = "El estudiante cumple con el umbral mínimo institucional. Se requiere consolidar el tiempo de estudio diario en el hogar para evitar riesgos.";
     statusColor = "#d97706";
-    bgGradient = "linear-gradient(135deg, #fffbeb, #fef3c7)";
-    borderColor = "#fcd34d";
   } else {
     statusBadge = "DESEMPEÑO BAJO (EN RIESGO ACADÉMICO PRIORITARIO)";
-    statusText = "El estudiante presenta deficiencias significativas en las competencias clave. Requiere plan de apoyo urgente y acompañamiento diario en casa.";
     statusColor = "#dc2626";
-    bgGradient = "linear-gradient(135deg, #fef2f2, #fee2e2)";
-    borderColor = "#fca5a5";
   }
 
   // Análisis de Asistencia y Ausentismo
   const attendanceRecords = student.attendanceRecord || {};
   const totalDaysTracked = Object.keys(attendanceRecords).length;
-  let inasistencias = 0;
-  let tardanzas = 0;
   let excusas = 0;
   let asistencias = 0;
 
   Object.values(attendanceRecords).forEach((val: any) => {
-    if (val === "absent" || val === "A") inasistencias++;
-    else if (val === "late" || val === "T") tardanzas++;
-    else if (val === "excused" || val === "E") excusas++;
-    else asistencias++;
+    if (val === "excused" || val === "E") excusas++;
+    else if (val !== "absent" && val !== "A" && val !== "late" && val !== "T") asistencias++;
   });
 
   const attendancePct = totalDaysTracked > 0 ? Math.round(((asistencias + excusas) / totalDaysTracked) * 100) : 100;

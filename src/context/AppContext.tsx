@@ -1,14 +1,19 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, firebaseConfig } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { 
   doc, getDoc, setDoc, collection, getDocs, updateDoc, 
   writeBatch, onSnapshot, query, where 
 } from "firebase/firestore";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
-import { DetailedGrades, StudentAcademicSummary, calculateDetailedFinal, calculateStudentAcademicSummary, defaultGroupKey, resolveGroupEvaluatedPeriods, hasDetailedData, PeriodId } from "@/lib/gradeUtils";
+import {
+  normalizeGrade,
+  matchStudentCourse,
+  SUPER_ADMIN_EMAILS,
+  INSTITUTION_FULL_NAME,
+} from "@/lib/constants";
+import { DetailedGrades, calculateStudentAcademicSummary, defaultGroupKey, resolveGroupEvaluatedPeriods, hasDetailedData, PeriodId } from "@/lib/gradeUtils";
 
 
 
@@ -400,8 +405,6 @@ const DEFAULT_PROFILE: TeacherProfile = {
   weeklySchedule: [],
 };
 
-const SUPER_ADMINS = ["sinapcodeia@gmail.com", "antonio_rburgos@msn.com"];
-
 // ── SCHEDULE COLORS ───────────────────────────────────────────────────────────
 const BLOCK_COLORS = [
   "bg-amber-100 text-amber-900 border-amber-200",
@@ -557,6 +560,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [agendaNotes, setAgendaNotes] = useState<AgendaNote[]>([]);
   const [curriculum, setCurriculum] = useState<Curriculum[]>([]);
   const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
+  const acceptedTermsRef = React.useRef(false);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
 
@@ -765,8 +769,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let unsubs: Array<() => void> = [];
 
-    // --- MOCK/SANDBOX AUTHENTICATION BYPASS FOR LOCAL DEVELOPMENT ---
-    if (typeof window !== "undefined" && localStorage.getItem("demo_role")) {
+    // --- MOCK/SANDBOX AUTHENTICATION BYPASS SOLO PARA DESARROLLO LOCAL ---
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined" && localStorage.getItem("demo_role")) {
       const demoRole = localStorage.getItem("demo_role");
       const email = demoRole === "superadmin" ? "sinapcodeia@gmail.com" : "docenciainformatica2025@gmail.com";
       const isSuperAdmin = demoRole === "superadmin";
@@ -872,7 +876,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (firebaseUser) {
         const userDocRef = doc(db, "users", firebaseUser.uid);
-        const isSuperAdmin = SUPER_ADMINS.includes(firebaseUser.email || "");
+        const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(firebaseUser.email || "");
 
         // 1. Verificar existencia/actualizar en segundo plano de manera no bloqueante
         const checkAndCreateUser = async () => {
@@ -981,13 +985,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             photoURL: firebaseUser.photoURL || "",
             role: (savedData.role as Profile["role"]) || "DOCENTE",
             status: (savedData.status as Profile["status"]) || "ACTIVE",
-            // FIX: "once accepted, always accepted" — never downgrade from true to false.
-            // Scenario: Firestore write failed silently (offline/permissions), acceptedTerms stays undefined
-            // in Firestore but user already accepted. The onSnapshot re-fires and would reset to false.
-            // Solution: current in-memory profile.acceptedTerms is also checked as a fallback.
+            // "once accepted, always accepted": evitar rebote a false usando ref estable sin stale closure
             acceptedTerms: savedData.acceptedTerms === true
               || (typeof window !== "undefined" && localStorage.getItem(`edu_terms_accepted_${firebaseUser.uid}`) === "true")
-              || (profile && profile.acceptedTerms === true)  // never override in-memory true with false
+              || acceptedTermsRef.current
               || false,
             isSuperAdmin,
             teachingGrades: currentGrades,
@@ -997,6 +998,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             weeklySchedule: currentSchedule,
           };
 
+          if (builtProfile.acceptedTerms) {
+            acceptedTermsRef.current = true;
+          }
           setProfile(builtProfile);
 
           if (typeof window !== "undefined") {
@@ -1156,6 +1160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        acceptedTermsRef.current = false;
         setUser(null);
         setProfile(DEFAULT_PROFILE);
         setSchedule(blocksToEntries(DEFAULT_SCHEDULE_BLOCKS));
@@ -1251,7 +1256,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── USER MANAGEMENT ───────────────────────────────────────────────────────
-  const refreshUsers = async () => {
+  const refreshUsers = React.useCallback(async () => {
     try {
       const usersSnap = await getDocs(collection(db, "users"));
       const usersList = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
@@ -1259,7 +1264,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("Error al cargar usuarios:", err);
     }
-  };
+  }, []);
 
   const loginOffline = async (emailToUse?: string) => {
     const targetEmail = (emailToUse || "docente.local@ietaba.edu.co").toLowerCase();
@@ -1297,17 +1302,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    // 2. Si no hay cache global, buscar por email específico
+    // 2. Si no hay caché global, buscar por email específico en este dispositivo
     const individualProfileRaw = typeof window !== "undefined" ? localStorage.getItem(`edu_profile_${targetEmail}`) : null;
     let profileData: Profile;
     const offlineUid = "offline-uid-123";
     if (individualProfileRaw) {
       profileData = JSON.parse(individualProfileRaw);
+    } else if (process.env.NODE_ENV !== "development") {
+      throw new Error(
+        "No hay una sesión previa guardada en este dispositivo. Conéctate a internet para iniciar sesión por primera vez."
+      );
     } else {
       profileData = {
         email: targetEmail,
         name: "Docente (Modo Local)",
-        institution: "I.E. TÉCNICA AGROPECUARIA BUENAVISTA - IETABA",
+        institution: INSTITUTION_FULL_NAME,
         role: "DOCENTE",
         status: "ACTIVE",
         acceptedTerms: true,
@@ -1383,19 +1392,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createEmailUser = async (email: string, pass: string, name: string, role: Profile["role"]) => {
+    const { initializeApp, deleteApp } = await import("firebase/app");
+    const { getAuth, createUserWithEmailAndPassword, signOut: secondarySignOut } = await import("firebase/auth");
+    // App secundaria efímera para registrar sin cerrar la sesión del administrador actual
+    const secondaryApp = initializeApp(firebaseConfig, `user-creator-${Date.now()}`);
+    const secondaryAuth = getAuth(secondaryApp);
     try {
-      const { createUserWithEmailAndPassword } = await import("firebase/auth");
-      const res = await createUserWithEmailAndPassword(auth, email, pass);
+      const res = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
       await setDoc(doc(db, "users", res.user.uid), {
-        email, displayName: name, role, status: "ACTIVE",
-        isProfileComplete: false, firstName: "", lastName: "",
-        teachingGrades: [], teachingCourses: [], teachingSubjectsList: [],
-        weeklySchedule: [], createdAt: new Date().toISOString(),
+        email,
+        displayName: name,
+        role,
+        status: "ACTIVE",
+        acceptedTerms: false,
+        isProfileComplete: false,
+        firstName: "",
+        lastName: "",
+        teachingGrades: [],
+        teachingCourses: [],
+        teachingSubjectsList: [],
+        weeklySchedule: [],
+        createdAt: new Date().toISOString(),
       });
       await refreshUsers();
     } catch (err) {
       console.error("Error al crear usuario por email:", err);
       throw err;
+    } finally {
+      await secondarySignOut(secondaryAuth).catch(() => {});
+      await deleteApp(secondaryApp).catch(() => {});
     }
   };
 
@@ -1407,6 +1432,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const acceptTerms = async () => {
     if (!user) return;
+    acceptedTermsRef.current = true;
     
     // 1. Update local state immediately (optimistic UI — no wait for Firestore)
     setProfile(prev => ({ ...prev, acceptedTerms: true }));
@@ -1553,7 +1579,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateMasterItem = (category: keyof MasterData, oldValue: string, newValue: string) => {
-    setMasterData(prev => {
+    updateMasterDataAndCache(prev => {
       let finalValue = newValue;
       if (category === "grades") finalValue = normalizeGrade(newValue);
       const current = prev[category];
@@ -1566,7 +1592,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeMasterItem = (key: keyof MasterData, itemToDelete: string) => {
-    setMasterData(prev => {
+    updateMasterDataAndCache(prev => {
       const current = prev[key];
       if (Array.isArray(current)) {
         return { ...prev, [key]: current.filter(item => item !== itemToDelete) };
@@ -1577,6 +1603,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
   const logout = async () => {
+    acceptedTermsRef.current = false;
     if (typeof window !== "undefined") {
       localStorage.removeItem("demo_role");
       localStorage.removeItem("offline_user");
@@ -1584,6 +1611,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("edu_students");
       localStorage.removeItem("edu_agendaNotes");
       localStorage.removeItem("edu_curriculum");
+      localStorage.removeItem("edu_directorio");
+      localStorage.removeItem("edu_masterData");
+      localStorage.removeItem("edu_subjects");
       
       const keysToRemove = Object.keys(localStorage).filter(
         k => k.startsWith("edu_profile_") || k.startsWith("edu_terms_accepted_")
@@ -1601,9 +1631,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    *  Si se pasa una lista vacía, se ignora para proteger la información.
    */
   const updateMasterData = (key: keyof MasterData, listaNueva: string[]) => {
-    setMasterData(prev => {
-      if (listaNueva.length === 0) return prev;
-      
+    if (listaNueva.length === 0) return;
+    updateMasterDataAndCache(prev => {
       let finalLista = listaNueva;
       if (key === "grades") {
         finalLista = listaNueva.map(g => normalizeGrade(g));

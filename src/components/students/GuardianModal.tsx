@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  X, Phone, User, Users, Heart, MapPin, Mail, 
-  MessageSquare, CheckCircle2, ShieldCheck, AlertCircle, 
-  Sparkles, Save, Loader2 
+  X, Phone, Users, MapPin, Mail, 
+  MessageSquare, CheckCircle2, AlertCircle, 
+  Save, Loader2 
 } from "lucide-react";
 import { Student, useApp, ParentescoAcudiente } from "@/context/AppContext";
 import { 
@@ -96,7 +96,7 @@ export default function GuardianModal({
     }
     const formatted = cleanPhone.startsWith("57") ? cleanPhone : `57${cleanPhone}`;
     const testMsg = `Cordial saludo ${nombres || "Acudiente"}, nos comunicamos de la IETABA respecto al seguimiento escolar de ${student.primerNombre} ${student.primerApellido}.`;
-    window.open(`https://wa.me/${formatted}?text=${encodeURIComponent(testMsg)}`, "_blank");
+    window.open(`https://wa.me/${formatted}?text=${encodeURIComponent(testMsg)}`, "_blank", "noopener,noreferrer");
   };
 
   const handleSave = async (e: React.FormEvent) => {

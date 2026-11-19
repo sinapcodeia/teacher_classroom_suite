@@ -240,7 +240,7 @@ export default function ClassInsights({ course, subject, grade, onApplyWorkshopT
       alert("El estudiante no tiene teléfono registrado. Se copió la citación al portapapeles.");
       return;
     }
-    window.open(`https://wa.me/${phone.startsWith("57") ? phone : "57" + phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${phone.startsWith("57") ? phone : "57" + phone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   return (

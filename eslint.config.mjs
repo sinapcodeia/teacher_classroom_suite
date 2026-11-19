@@ -16,10 +16,14 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
-      // Disable strict rules that block builds on a growing codebase
+      // Mantener compatibilidad en any/img mientras se exige limpieza de código muerto y dependencias de hooks
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "react-hooks/exhaustive-deps": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_"
+      }],
+      "react-hooks/exhaustive-deps": "warn",
       "@next/next/no-img-element": "off",
     },
   },

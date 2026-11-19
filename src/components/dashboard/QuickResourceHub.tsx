@@ -1,9 +1,9 @@
 "use client";
 
 import { 
-  BookOpen, Calculator, FileSpreadsheet, 
-  Presentation, LayoutGrid, Sparkles, ArrowUpRight,
-  ClipboardList, Users, History
+  BookOpen, FileSpreadsheet, 
+  LayoutGrid, Sparkles, ArrowUpRight,
+  ClipboardList, Users
 } from "lucide-react";
 import Link from "next/link";
 

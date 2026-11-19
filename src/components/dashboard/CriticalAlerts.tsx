@@ -1,8 +1,8 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 import { useApp } from "@/context/AppContext";
-import { AlertTriangle, ChevronRight, TrendingDown } from "lucide-react";
+import { ChevronRight, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 

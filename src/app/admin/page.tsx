@@ -5,6 +5,14 @@ import {
   parseAndValidateStudentsCSV,
   StudentRowValidationIssue,
 } from "@/lib/studentTemplate";
+import {
+  downloadStaffTemplateExcel,
+  downloadStaffNoveltiesExcel,
+  isStructuredStaffRows,
+  parseAndValidateStaffSpreadsheet,
+  buildStaffFirestoreDoc,
+  StaffValidationIssue,
+} from "@/lib/staffTemplate";
 
 import { useState, useRef, useEffect } from "react";
 import { useApp, toTitleCase } from "@/context/AppContext";
@@ -32,6 +40,7 @@ export default function AdminPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<any>(null);
   const [governanceIssues, setGovernanceIssues] = useState<StudentRowValidationIssue[] | null>(null);
+  const [rawStaffIssues, setRawStaffIssues] = useState<StaffValidationIssue[] | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null); // Estudiante u objeto maestro
   const [editValue, setEditValue] = useState("");
@@ -54,7 +63,7 @@ export default function AdminPage() {
     if (activeTab === "users" && isSuperAdmin) {
       refreshUsers();
     }
-  }, [activeTab, isSuperAdmin]);
+  }, [activeTab, isSuperAdmin, refreshUsers]);
 
   // Activate a pending user: set status ACTIVE in Firestore
   const activateUser = async (uid: string, role: string) => {
@@ -118,7 +127,7 @@ export default function AdminPage() {
         updateMasterItem(activeTab, typeof editingItem === 'string' ? editingItem : editingItem, editValue);
       }
       setEditingItem(null);
-    } catch (err) {
+    } catch (_err) {
       alert("Error al guardar cambios");
     }
   };
@@ -140,6 +149,7 @@ export default function AdminPage() {
     if (!file) return;
 
     setIsImporting(true);
+    setRawStaffIssues(null);
     try {
       const rows = await parseSpreadsheetFileToObjects(file);
 
@@ -199,6 +209,115 @@ export default function AdminPage() {
         });
         if (fileInputRef.current) fileInputRef.current.value = "";
         return; 
+      } else if (activeTab === "teachers" && isStructuredStaffRows(rows)) {
+        const { validRows, issues, hasBlockingErrors } = parseAndValidateStaffSpreadsheet(rows);
+
+        if (hasBlockingErrors) {
+          setIsImporting(false);
+          setRawStaffIssues(issues);
+          setGovernanceIssues(
+            issues.map(iss => ({
+              rowNumber: iss.rowNumber,
+              nroDocumento: iss.nroDocumento,
+              studentName: iss.staffName,
+              field: iss.field,
+              level: iss.level,
+              message: iss.message,
+            }))
+          );
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        const staffDocs = validRows.map(buildStaffFirestoreDoc);
+        setIsImporting(false);
+
+        if (staffDocs.length === 0) {
+          const emptyIssue: StaffValidationIssue = {
+            rowNumber: 1,
+            nroDocumento: "—",
+            staffName: "Archivo sin datos",
+            field: "ARCHIVO",
+            level: "error",
+            message: "No se encontraron filas de docentes válidas en el archivo.",
+          };
+          setRawStaffIssues([emptyIssue]);
+          setGovernanceIssues([
+            {
+              rowNumber: emptyIssue.rowNumber,
+              nroDocumento: emptyIssue.nroDocumento,
+              studentName: emptyIssue.staffName,
+              field: emptyIssue.field,
+              level: emptyIssue.level,
+              message: emptyIssue.message,
+            },
+          ]);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        // Sincronizar lista maestra de docentes (sin eliminar registros existentes)
+        const mergedTeacherNames = Array.from(
+          new Set([...masterData.teachers, ...staffDocs.map(d => d.name).filter(Boolean)])
+        );
+        updateMasterData("teachers", mergedTeacherNames);
+
+        // Respaldo offline-first en localStorage["edu_directorio"]
+        try {
+          const cachedRaw = typeof window !== "undefined" ? localStorage.getItem("edu_directorio") : null;
+          const cachedList: Array<Record<string, any>> = cachedRaw ? JSON.parse(cachedRaw) : [];
+          const byUid = new Map<string, Record<string, any>>();
+          if (Array.isArray(cachedList)) {
+            cachedList.forEach(item => {
+              if (item?.uid) byUid.set(String(item.uid), item);
+            });
+          }
+          staffDocs.forEach(d => byUid.set(d.uid, d));
+          if (typeof window !== "undefined") {
+            localStorage.setItem("edu_directorio", JSON.stringify(Array.from(byUid.values())));
+          }
+        } catch (storageErr) {
+          console.warn("No se pudo actualizar caché local edu_directorio:", storageErr);
+        }
+
+        // Persistir en Firestore /directorio en lotes con tolerancia offline
+        try {
+          const { db } = await import("@/lib/firebase");
+          const { writeBatch, doc } = await import("firebase/firestore");
+          const CHUNK_SIZE = 400;
+          const batchCommits = async () => {
+            for (let i = 0; i < staffDocs.length; i += CHUNK_SIZE) {
+              const chunk = staffDocs.slice(i, i + CHUNK_SIZE);
+              const batch = writeBatch(db);
+              chunk.forEach(staffDoc => {
+                batch.set(doc(db, "directorio", staffDoc.uid), staffDoc, { merge: true });
+              });
+              await batch.commit();
+            }
+          };
+
+          const timeoutPromise = new Promise<"TIMEOUT">(resolve =>
+            setTimeout(() => resolve("TIMEOUT"), 6000)
+          );
+          const raceResult = await Promise.race([
+            batchCommits().then(() => "OK" as const),
+            timeoutPromise,
+          ]);
+
+          setImportSummary({
+            count: staffDocs.length,
+            type:
+              raceResult === "OK"
+                ? "Docentes (Directorio)"
+                : "Docentes (en cola / modo local)",
+          });
+        } catch (fsErr) {
+          console.error("Error importando docentes a Firestore:", fsErr);
+          setImportSummary({ count: staffDocs.length, type: "Docentes (solo local)" });
+        }
+
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
       } else if (activeTab !== "stats" && activeTab !== "users") {
         // Importación de datos maestros (Materias, Grados, etc.)
         const names = rows.map(row => {
@@ -289,7 +408,12 @@ export default function AdminPage() {
       return;
     }
 
-    const sampleValue = activeTab === 'teachers' ? "JUAN PEREZ" : activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
+    if (activeTab === 'teachers') {
+      downloadStaffTemplateExcel(true);
+      return;
+    }
+
+    const sampleValue = activeTab === 'subjects' ? "MATEMÁTICAS" : "6°";
     const fileName = `Plantilla_${activeTab}_IETABA.xlsx`;
     downloadRowsAsExcel([{ NOMBRE: sampleValue }], fileName, `Plantilla ${activeTab}`, ["NOMBRE"]);
   };
@@ -796,7 +920,10 @@ export default function AdminPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setGovernanceIssues(null)}
+                    onClick={() => {
+                      setGovernanceIssues(null);
+                      setRawStaffIssues(null);
+                    }}
                     className="p-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-all"
                   >
                     <X size={20} />
@@ -809,7 +936,7 @@ export default function AdminPage() {
                       <tr>
                         <th className="p-3">Fila</th>
                         <th className="p-3">Documento</th>
-                        <th className="p-3">Estudiante</th>
+                        <th className="p-3">{rawStaffIssues ? "Docente / Directivo" : "Estudiante"}</th>
                         <th className="p-3">Campo</th>
                         <th className="p-3">Detalle de la Novedad</th>
                       </tr>
@@ -830,13 +957,20 @@ export default function AdminPage() {
 
                 <div className="flex justify-between items-center pt-3 border-t border-slate-100 shrink-0">
                   <button
-                    onClick={() => downloadStudentNoveltiesCSV(governanceIssues)}
+                    onClick={() =>
+                      rawStaffIssues
+                        ? downloadStaffNoveltiesExcel(rawStaffIssues)
+                        : downloadStudentNoveltiesCSV(governanceIssues)
+                    }
                     className="flex items-center gap-2 px-5 py-3 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
                   >
                     <FileDown size={15} /> Descargar Reporte de Novedades Excel
                   </button>
                   <button
-                    onClick={() => setGovernanceIssues(null)}
+                    onClick={() => {
+                      setGovernanceIssues(null);
+                      setRawStaffIssues(null);
+                    }}
                     className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                   >
                     Entendido, Corregiré el Archivo

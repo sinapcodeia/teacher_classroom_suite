@@ -1,10 +1,11 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
+import RoleGuard from "@/components/shared/RoleGuard";
 import nextDynamic from "next/dynamic";
 
 const AttendanceList = nextDynamic(() => import("@/components/live-class/AttendanceList"), { ssr: false });
@@ -15,7 +16,7 @@ const EvaluatedActivitiesSummary = nextDynamic(() => import("@/components/live-c
 const ClassInsights = nextDynamic(() => import("@/components/live-class/ClassInsights"), { ssr: false });
 const GradebookManager = nextDynamic(() => import("@/components/live-class/GradebookManager"), { ssr: false });
 const SessionReminders = nextDynamic(() => import("@/components/live-class/SessionReminders"), { ssr: false });
-import { ArrowLeft, Plus, CheckCircle, HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle, ChevronRight } from "lucide-react";
+import { HardDrive, LayoutDashboard, LayoutGrid, FileSpreadsheet, GraduationCap, Layers, AlertCircle, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { useEffect, useState, useMemo, Suspense } from "react";
@@ -462,14 +463,16 @@ function LiveClassPageContent() {
 
 export default function LiveClassPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col min-h-screen bg-surface-container-lowest justify-center items-center">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-primary">Cargando aula...</p>
-      </div>
-    }>
-      <LiveClassPageContent />
-    </Suspense>
+    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE", "DOCENTE_DIRECTOR"]}>
+      <Suspense fallback={
+        <div className="flex flex-col min-h-screen bg-surface-container-lowest justify-center items-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-primary">Cargando aula...</p>
+        </div>
+      }>
+        <LiveClassPageContent />
+      </Suspense>
+    </RoleGuard>
   );
 }
 

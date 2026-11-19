@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import RoleGuard from "@/components/shared/RoleGuard";
@@ -8,15 +8,25 @@ import { useApp } from "@/context/AppContext";
 import { 
   Building2, Users, Award, Briefcase, BookOpen, 
   Search, Layers, Download, Printer, MessageSquare, 
-  Phone, Mail, Copy, Check, RotateCcw, X 
+  Phone, Mail, Copy, Check, RotateCcw, X,
+  Upload, FileSpreadsheet, FileDown, AlertTriangle, CheckCircle2, Loader2
 } from "lucide-react";
 import { normalizeGrade, normalizePhone } from "@/lib/constants";
-import { exportToCSV } from "@/lib/reports";
+import { downloadRowsAsExcel, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetUtils";
+import {
+  downloadStaffTemplateExcel,
+  downloadStaffNoveltiesExcel,
+  parseAndValidateStaffSpreadsheet,
+  buildStaffFirestoreDoc,
+  StaffParseResult,
+} from "@/lib/staffTemplate";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
 
 interface StaffMember {
   uid: string;
+  nroDocumento?: string;
+  sedeArea?: string;
   name: string;
   firstName?: string;
   lastName?: string;
@@ -181,8 +191,72 @@ function getAllRoomsForStaff(m: StaffMember): string[] {
   return Array.from(roomsSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
+function mapFirestoreDocToStaffMember(docId: string, data: Record<string, any>): StaffMember {
+  const isDir =
+    data.role === "DOCENTE_DIRECTOR" ||
+    data.isDirectorGrupo === true ||
+    Boolean(data.directorGrado && data.directorCurso);
+  return {
+    uid: docId,
+    nroDocumento: data.nroDocumento || "",
+    sedeArea: data.sedeArea || "",
+    name: String(data.displayName || data.name || "DOCENTE").toUpperCase(),
+    firstName: data.firstName || "",
+    lastName: data.lastName || "",
+    email: String(data.email || "").trim().toLowerCase(),
+    phone: data.phone || "",
+    role: isDir ? "DOCENTE_DIRECTOR" : (data.role || "DOCENTE"),
+    status: data.status || "ACTIVE",
+    isSuperAdmin: Boolean(data.isSuperAdmin),
+    isDirectorGrupo: isDir,
+    directorGrado: data.directorGrado || "",
+    directorCurso: data.directorCurso || "",
+    teachingGrades: Array.isArray(data.teachingGrades) ? data.teachingGrades : [],
+    teachingCourses: Array.isArray(data.teachingCourses) ? data.teachingCourses : [],
+    teachingSubjectsList: Array.isArray(data.teachingSubjectsList) ? data.teachingSubjectsList : [],
+    weeklySchedule: Array.isArray(data.weeklySchedule) ? data.weeklySchedule : [],
+    photoURL: data.photoURL || "",
+  };
+}
+
+function mergeStaffRecords(base: StaffMember, incoming: StaffMember): StaffMember {
+  const isDir = base.isDirectorGrupo || incoming.isDirectorGrupo;
+  return {
+    ...base,
+    nroDocumento: base.nroDocumento || incoming.nroDocumento || "",
+    sedeArea: incoming.sedeArea || base.sedeArea || "",
+    name: base.name && base.name !== "DOCENTE" ? base.name : incoming.name,
+    firstName: base.firstName || incoming.firstName || "",
+    lastName: base.lastName || incoming.lastName || "",
+    email: base.email || incoming.email || "",
+    phone: base.phone || incoming.phone || "",
+    role: isDir ? "DOCENTE_DIRECTOR" : base.role || incoming.role,
+    isDirectorGrupo: isDir,
+    directorGrado: base.directorGrado || incoming.directorGrado || "",
+    directorCurso: base.directorCurso || incoming.directorCurso || "",
+    teachingGrades:
+      base.teachingGrades && base.teachingGrades.length > 0
+        ? base.teachingGrades
+        : incoming.teachingGrades || [],
+    teachingCourses:
+      base.teachingCourses && base.teachingCourses.length > 0
+        ? base.teachingCourses
+        : incoming.teachingCourses || [],
+    teachingSubjectsList:
+      base.teachingSubjectsList && base.teachingSubjectsList.length > 0
+        ? base.teachingSubjectsList
+        : incoming.teachingSubjectsList || [],
+    weeklySchedule:
+      base.weeklySchedule && base.weeklySchedule.length > 0
+        ? base.weeklySchedule
+        : incoming.weeklySchedule || [],
+    photoURL: base.photoURL || incoming.photoURL || "",
+    isSuperAdmin: Boolean(base.isSuperAdmin || incoming.isSuperAdmin),
+  };
+}
+
 export default function DirectorioPage() {
-  const { profile, masterData } = useApp();
+  const { profile, masterData, updateMasterData } = useApp();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -193,87 +267,228 @@ export default function DirectorioPage() {
   const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
-  // Cargar lista de funcionarios y docentes desde Firestore con fallback local
-  useEffect(() => {
-    async function loadStaff() {
-      setLoading(true);
-      const list: StaffMember[] = [];
+  // Estados del modal de importación de directorio y docentes
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<StaffParseResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+  const [isSavingImport, setIsSavingImport] = useState(false);
 
-      try {
-        let usersSnap: any = null;
-        try {
-          usersSnap = await getDocs(collection(db, "users"));
-        } catch {
-          try {
-            usersSnap = await getDocs(collection(db, "directorio"));
-          } catch {
-            // Ignorar permisos restringidos de Firestore
-          }
-        }
+  const canImportStaff = Boolean(
+    profile &&
+      (["RECTOR", "COORDINADOR", "DOCENTE_DIRECTOR"].includes(profile.role) ||
+        profile.isSuperAdmin)
+  );
 
-        if (usersSnap && usersSnap.docs && usersSnap.docs.length > 0) {
-          usersSnap.forEach((docSnap: any) => {
-            const data = docSnap.data() as any;
-            const isDir = data.role === "DOCENTE_DIRECTOR" || data.isDirectorGrupo === true || Boolean(data.directorGrado && data.directorCurso);
-            list.push({
-              uid: docSnap.id,
-              name: (data.displayName || data.name || "DOCENTE").toUpperCase(),
-              firstName: data.firstName || "",
-              lastName: data.lastName || "",
-              email: data.email || "",
-              phone: data.phone || "",
-              role: isDir ? "DOCENTE_DIRECTOR" : (data.role || "DOCENTE"),
-              status: data.status || "ACTIVE",
-              isSuperAdmin: data.isSuperAdmin || false,
-              isDirectorGrupo: isDir,
-              directorGrado: data.directorGrado || "",
-              directorCurso: data.directorCurso || "",
-              teachingGrades: data.teachingGrades || [],
-              teachingCourses: data.teachingCourses || [],
-              teachingSubjectsList: data.teachingSubjectsList || [],
-              weeklySchedule: data.weeklySchedule || [],
-              photoURL: data.photoURL || ""
-            });
-          });
-        }
-      } catch {
-        // Fallback silencioso
+  // Cargar y fusionar users + directorio desde Firestore con caché offline localStorage["edu_directorio"]
+  const loadStaff = useCallback(async () => {
+    setLoading(true);
+    const mergedMap = new Map<string, StaffMember>();
+
+    const upsertToMap = (member: StaffMember) => {
+      const emailKey = member.email ? `email:${member.email.toLowerCase()}` : "";
+      const key = emailKey || `uid:${member.uid}`;
+      const existing = mergedMap.get(key);
+      if (existing) {
+        mergedMap.set(key, mergeStaffRecords(existing, member));
+      } else {
+        mergedMap.set(key, member);
+      }
+    };
+
+    try {
+      const [usersRes, dirRes] = await Promise.allSettled([
+        getDocs(collection(db, "users")),
+        getDocs(collection(db, "directorio")),
+      ]);
+
+      if (usersRes.status === "fulfilled" && usersRes.value.docs.length > 0) {
+        usersRes.value.docs.forEach(docSnap => {
+          upsertToMap(mapFirestoreDocToStaffMember(docSnap.id, docSnap.data()));
+        });
       }
 
-      // Si la lista no contiene al usuario actual o está vacía, sincronizar con profile
-      if (profile) {
-        const alreadyInList = list.some(m => m.email?.toLowerCase() === profile.email?.toLowerCase() || m.uid === (profile as any).uid);
-        if (!alreadyInList) {
-          const isDir = profile.isDirectorGrupo || profile.role === "DOCENTE_DIRECTOR";
-          list.push({
-            uid: (profile as any).uid || "current-user",
-            name: (profile.name || "DOCENTE").toUpperCase(),
-            firstName: profile.firstName || "",
-            lastName: profile.lastName || "",
-            email: profile.email || "",
-            phone: profile.phone || "",
-            role: isDir ? "DOCENTE_DIRECTOR" : (profile.role as any || "DOCENTE"),
-            status: "ACTIVE",
-            isSuperAdmin: profile.isSuperAdmin,
-            isDirectorGrupo: isDir,
-            directorGrado: profile.directorGrado || "",
-            directorCurso: profile.directorCurso || "",
-            teachingGrades: profile.teachingGrades || [],
-            teachingCourses: profile.teachingCourses || [],
-            teachingSubjectsList: profile.teachingSubjectsList || [],
-            weeklySchedule: profile.weeklySchedule || []
-          });
-        }
+      if (dirRes.status === "fulfilled" && dirRes.value.docs.length > 0) {
+        dirRes.value.docs.forEach(docSnap => {
+          upsertToMap(mapFirestoreDocToStaffMember(docSnap.id, docSnap.data()));
+        });
       }
-
-      // Ordenar alfabéticamente
-      list.sort((a, b) => a.name.localeCompare(b.name));
-      setStaffList(list);
-      setLoading(false);
+    } catch {
+      // Fallback silencioso a caché local
     }
 
-    loadStaff();
+    if (mergedMap.size === 0 && typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("edu_directorio");
+        if (cached) {
+          const parsed = JSON.parse(cached) as StaffMember[];
+          if (Array.isArray(parsed)) {
+            parsed.forEach(m => upsertToMap(m));
+          }
+        }
+      } catch {
+        // Ignorar caché corrupta
+      }
+    }
+
+    const list = Array.from(mergedMap.values());
+
+    if (profile) {
+      const alreadyInList = list.some(
+        m =>
+          (profile.email && m.email?.toLowerCase() === profile.email.toLowerCase()) ||
+          m.uid === (profile as { uid?: string }).uid
+      );
+      if (!alreadyInList) {
+        const isDir = profile.isDirectorGrupo || profile.role === "DOCENTE_DIRECTOR";
+        list.push({
+          uid: (profile as { uid?: string }).uid || "current-user",
+          name: (profile.name || "DOCENTE").toUpperCase(),
+          firstName: profile.firstName || "",
+          lastName: profile.lastName || "",
+          email: (profile.email || "").toLowerCase(),
+          phone: profile.phone || "",
+          role: isDir ? "DOCENTE_DIRECTOR" : (profile.role || "DOCENTE"),
+          status: "ACTIVE",
+          isSuperAdmin: profile.isSuperAdmin,
+          isDirectorGrupo: isDir,
+          directorGrado: profile.directorGrado || "",
+          directorCurso: profile.directorCurso || "",
+          teachingGrades: profile.teachingGrades || [],
+          teachingCourses: profile.teachingCourses || [],
+          teachingSubjectsList: profile.teachingSubjectsList || [],
+          weeklySchedule: profile.weeklySchedule || [],
+        });
+      }
+    }
+
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    setStaffList(list);
+    if (typeof window !== "undefined" && list.length > 0) {
+      try {
+        localStorage.setItem("edu_directorio", JSON.stringify(list));
+      } catch {
+        // Ignorar error de cuota
+      }
+    }
+    setLoading(false);
   }, [profile]);
+
+  useEffect(() => {
+    loadStaff();
+  }, [loadStaff]);
+
+  useEffect(() => {
+    if (!isImportModalOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsImportModalOpen(false);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isImportModalOpen]);
+
+  const handleStaffFileChange = async (file: File) => {
+    const MAX_FILE_BYTES = 15 * 1024 * 1024;
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      setImportError("Formato inválido. Sube un archivo Excel (.xlsx, .xls) o CSV (.csv).");
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      setImportError("El archivo supera el límite máximo de 15 MB.");
+      return;
+    }
+
+    setImportFile(file);
+    setImportError(null);
+    setImportSuccessMsg(null);
+    setImportResult(null);
+
+    try {
+      const { parseSpreadsheetFileToObjects } = await import("@/lib/spreadsheetUtils");
+      const rows = await parseSpreadsheetFileToObjects(file);
+      const parsed = parseAndValidateStaffSpreadsheet(rows);
+      if (parsed.totalRawRows === 0) {
+        setImportError("El archivo seleccionado no contiene filas de funcionarios.");
+        return;
+      }
+      setImportResult(parsed);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error desconocido al leer el archivo.";
+      setImportError(`No se pudo leer el archivo: ${message}`);
+    }
+  };
+
+  const handleConfirmStaffImport = async () => {
+    if (!importResult || importResult.hasBlockingErrors || importResult.validRows.length === 0) return;
+
+    setIsSavingImport(true);
+    setImportError(null);
+    try {
+      const docs = importResult.validRows.map(buildStaffFirestoreDoc);
+
+      // 1. Actualización optimista inmediata en memoria y caché local (0ms offline)
+      setStaffList(prev => {
+        const mergedMap = new Map<string, StaffMember>();
+        prev.forEach(item => {
+          const k = item.email ? `email:${item.email.toLowerCase()}` : `uid:${item.uid}`;
+          mergedMap.set(k, item);
+        });
+        docs.forEach(d => {
+          const incoming = mapFirestoreDocToStaffMember(d.uid, d);
+          const k = incoming.email ? `email:${incoming.email.toLowerCase()}` : `uid:${incoming.uid}`;
+          const existing = mergedMap.get(k);
+          mergedMap.set(k, existing ? mergeStaffRecords(existing, incoming) : incoming);
+        });
+        const nextList = Array.from(mergedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("edu_directorio", JSON.stringify(nextList));
+          } catch {
+            // Ignorar cuota
+          }
+        }
+        return nextList;
+      });
+
+      // 2. Sincronizar masterData.teachers
+      const updatedTeachers = Array.from(
+        new Set([...(masterData.teachers || []), ...docs.map(d => d.name)])
+      ).sort((a, b) => a.localeCompare(b));
+      updateMasterData("teachers", updatedTeachers);
+
+      // 3. Persistir en Firestore colección /directorio en lotes (máx 400 por batch, sin bloquear offline)
+      if (db && (typeof navigator === "undefined" || navigator.onLine)) {
+        const CHUNK_SIZE = 400;
+        for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+          const chunk = docs.slice(i, i + CHUNK_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach(payload => {
+            batch.set(doc(db, "directorio", payload.uid), payload, { merge: true });
+          });
+          await Promise.race([
+            batch.commit(),
+            new Promise<void>(resolve => setTimeout(resolve, 2500)),
+          ]);
+        }
+      }
+
+      setImportSuccessMsg(
+        `¡${docs.length} funcionario(s)/docente(s) guardados en la base de datos del directorio!`
+      );
+      setTimeout(() => {
+        setIsImportModalOpen(false);
+        setImportFile(null);
+        setImportResult(null);
+        setImportSuccessMsg(null);
+      }, 1800);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al guardar en Firestore.";
+      setImportError(`Error al sincronizar el directorio: ${message}`);
+    } finally {
+      setIsSavingImport(false);
+    }
+  };
 
   // Lista de todos los salones únicos disponibles para el filtro
   const allAvailableRooms = useMemo(() => {
@@ -375,8 +590,8 @@ export default function DirectorioPage() {
     setTimeout(() => setCopiedEmail(null), 2000);
   };
 
-  // Exportar a CSV
-  const handleExportCSV = () => {
+  // Exportar a Excel (.xlsx)
+  const handleExportExcel = () => {
     const data = filteredStaff.map(m => {
       const isDirector = m.isDirectorGrupo || m.role === "DOCENTE_DIRECTOR";
       const dirGrupo = isDirector && m.directorGrado ? `Grado ${m.directorGrado} - Curso ${m.directorCurso || "1"}` : "NO";
@@ -388,16 +603,19 @@ export default function DirectorioPage() {
       }).join(" | ");
 
       return {
+        "NRO DOCUMENTO": m.nroDocumento || "",
         "NOMBRE COMPLETO": m.name,
         "ROL INSTITUCIONAL": isDirector ? "DOCENTE DIRECTOR" : m.role,
         "CORREO ELECTRÓNICO": m.email,
         "TELÉFONO / WHATSAPP": m.phone || "SIN REGISTRO",
         "DIRECCIÓN DE GRUPO": dirGrupo,
         "CARGA ACADÉMICA (MATERIA Y SALONES)": workloadStr || "NO REGISTRADA",
+        "SEDE / AREA": m.sedeArea || "",
       };
     });
 
-    exportToCSV(data, `DIRECTORIO_INSTITUCIONAL_IETABA_${new Date().toISOString().slice(0, 10)}`);
+    const dateTag = new Date().toISOString().slice(0, 10);
+    downloadRowsAsExcel(data, `DIRECTORIO_INSTITUCIONAL_IETABA_${dateTag}.xlsx`, "Directorio IETABA");
   };
 
   const handlePrint = () => {
@@ -431,19 +649,49 @@ export default function DirectorioPage() {
             </div>
 
             {/* Botones de Acción */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
-                onClick={handleExportCSV}
-                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 hover:border-slate-300"
-                title="Descargar base de datos en Excel / CSV"
+                type="button"
+                onClick={() => downloadStaffTemplateExcel(true)}
+                className="min-h-[40px] px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+                title="Descargar formato oficial Excel (.xlsx) para cargar docentes y directorio"
+              >
+                <FileSpreadsheet size={14} className="text-emerald-700" />
+                <span>Plantilla Excel</span>
+              </button>
+
+              {canImportStaff && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImportFile(null);
+                    setImportResult(null);
+                    setImportError(null);
+                    setImportSuccessMsg(null);
+                    setIsImportModalOpen(true);
+                  }}
+                  className="min-h-[40px] px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                  title="Cargar masivamente docentes y directorio desde Excel"
+                >
+                  <Upload size={14} />
+                  <span>Importar Docentes</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="min-h-[40px] px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 hover:border-slate-300 cursor-pointer"
+                title="Descargar base de datos en Excel (.xlsx)"
               >
                 <Download size={14} className="text-teal-700" />
-                <span className="hidden sm:inline">Exportar CSV</span>
+                <span className="hidden sm:inline">Exportar Excel</span>
               </button>
 
               <button
+                type="button"
                 onClick={handlePrint}
-                className="px-4 py-2 bg-teal-700 hover:bg-teal-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-teal-700/20 flex items-center gap-2"
+                className="min-h-[40px] px-4 py-2 bg-teal-700 hover:bg-teal-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-teal-700/20 flex items-center gap-2 cursor-pointer"
                 title="Imprimir informe oficial del personal"
               >
                 <Printer size={14} />
@@ -1020,6 +1268,208 @@ export default function DirectorioPage() {
           )}
 
         </main>
+
+        {/* ── MODAL DE IMPORTACIÓN MASIVA DE DOCENTES Y DIRECTORIO ── */}
+        {isImportModalOpen && (
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-import-modal-title"
+          >
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-[2rem] w-full max-w-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[92dvh] overflow-y-auto custom-scrollbar space-y-4">
+              <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+                <div>
+                  <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full uppercase tracking-widest">
+                    Gobernanza Institucional · &quot;Todo o Nada&quot;
+                  </span>
+                  <h3 id="staff-import-modal-title" className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase mt-2">
+                    Importar Base de Datos de Docentes / Directorio
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Sube el formato oficial Excel (.xlsx) o CSV para actualizar la planta docente y directiva.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors cursor-pointer"
+                  aria-label="Cerrar modal de importación"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Botones de Plantilla */}
+              <div className="flex flex-wrap gap-2 bg-slate-50 border border-slate-200/70 rounded-2xl p-3">
+                <button
+                  type="button"
+                  onClick={() => downloadStaffTemplateExcel(true)}
+                  className="min-h-[40px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileDown size={14} /> Plantilla con Ejemplos (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadStaffTemplateExcel(false)}
+                  className="min-h-[40px] px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileSpreadsheet size={14} /> Plantilla en Blanco (.xlsx)
+                </button>
+              </div>
+
+              {importError && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-800 text-xs font-semibold">
+                  <AlertTriangle size={18} className="shrink-0 mt-0.5 text-red-600" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              {importSuccessMsg && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3 text-emerald-900 text-xs font-bold">
+                  <CheckCircle2 size={18} className="shrink-0 mt-0.5 text-emerald-600" />
+                  <span>{importSuccessMsg}</span>
+                </div>
+              )}
+
+              {!importResult && !importSuccessMsg && (
+                <div className="border-2 border-dashed border-slate-300 bg-slate-50/70 rounded-3xl p-8 text-center space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                    <Upload size={26} />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-slate-800 text-sm">
+                      Selecciona el archivo del directorio docente (.xlsx, .xls o .csv)
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1 max-w-lg mx-auto">
+                      Se auditarán documentos, correos, roles y dirección de grupo. Si hay algún error bloqueante, no se guardará ningún registro hasta corregirlo.
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-black uppercase tracking-widest cursor-pointer transition-all">
+                    <Upload size={14} /> Seleccionar Archivo
+                    <input
+                      type="file"
+                      accept={SPREADSHEET_ACCEPT}
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (f) handleStaffFileChange(f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {importResult && !importSuccessMsg && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs">
+                    <div>
+                      <span className="font-bold text-slate-800">{importFile?.name}</span>
+                      <span className="text-slate-500 ml-2">({importResult.totalRawRows} fila(s) leídas)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportFile(null);
+                        setImportResult(null);
+                        setImportError(null);
+                      }}
+                      className="text-[10px] font-black text-red-600 hover:underline uppercase tracking-wider cursor-pointer"
+                    >
+                      Cambiar archivo
+                    </button>
+                  </div>
+
+                  {/* Novedades / Errores bloqueantes */}
+                  {importResult.issues.length > 0 && (
+                    <div className={`border rounded-2xl p-4 space-y-3 ${importResult.hasBlockingErrors ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className={`flex items-center gap-2 font-black text-xs uppercase tracking-wider ${importResult.hasBlockingErrors ? "text-red-800" : "text-amber-800"}`}>
+                          <AlertTriangle size={16} className="shrink-0" />
+                          {importResult.hasBlockingErrors
+                            ? `Carga Bloqueada · ${importResult.issues.filter(i => i.level === "error").length} error(es) detectado(s)`
+                            : `Advertencias (${importResult.issues.length})`}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => downloadStaffNoveltiesExcel(importResult.issues)}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                        >
+                          <Download size={13} /> Descargar Novedades (.xlsx)
+                        </button>
+                      </div>
+
+                      <div className="max-h-44 overflow-y-auto bg-white/90 rounded-xl border border-slate-200 divide-y divide-slate-100">
+                        {importResult.issues.slice(0, 50).map((iss, idx) => (
+                          <div key={idx} className="p-2.5 text-[10px] flex flex-col gap-0.5">
+                            <div className="flex items-center justify-between font-bold text-slate-900">
+                              <span>Fila #{iss.rowNumber} · {iss.staffName} ({iss.nroDocumento})</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${iss.level === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+                                {iss.field}
+                              </span>
+                            </div>
+                            <span className={iss.level === "error" ? "text-red-700" : "text-amber-800"}>{iss.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Vista previa de registros válidos */}
+                  {!importResult.hasBlockingErrors && importResult.validRows.length > 0 && (
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                      <div className="max-h-56 overflow-y-auto">
+                        <table className="w-full text-left text-[10px] border-collapse">
+                          <thead className="bg-slate-50 font-black text-slate-600 uppercase border-b border-slate-200 sticky top-0">
+                            <tr>
+                              <th className="p-2.5">Documento</th>
+                              <th className="p-2.5">Funcionario</th>
+                              <th className="p-2.5">Rol</th>
+                              <th className="p-2.5">Correo</th>
+                              <th className="p-2.5">Asignaturas / Cursos</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {importResult.validRows.slice(0, 30).map((r, i) => (
+                              <tr key={i} className="hover:bg-slate-50/70">
+                                <td className="p-2.5 font-mono font-bold text-slate-700">{r.nroDocumento}</td>
+                                <td className="p-2.5 font-bold text-slate-900">
+                                  {r.primerApellido} {r.segundoApellido} {r.primerNombre} {r.segundoNombre}
+                                </td>
+                                <td className="p-2.5 font-bold text-indigo-700">
+                                  {r.role}{r.isDirectorGrupo ? ` (${r.directorGrado}-${r.directorCurso})` : ""}
+                                </td>
+                                <td className="p-2.5 text-slate-600">{r.email}</td>
+                                <td className="p-2.5 text-slate-600">
+                                  {r.teachingSubjectsList.join(", ") || "—"} {r.teachingCourses.length > 0 ? `[${r.teachingCourses.join(", ")}]` : ""}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={importResult.hasBlockingErrors || importResult.validRows.length === 0 || isSavingImport}
+                      onClick={handleConfirmStaffImport}
+                      className="min-h-[44px] px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+                    >
+                      {isSavingImport ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                      {importResult.hasBlockingErrors
+                        ? "Bloqueado por Novedades"
+                        : `Guardar ${importResult.validRows.length} Docente(s) en Directorio BD`}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <BottomNavBar />
 

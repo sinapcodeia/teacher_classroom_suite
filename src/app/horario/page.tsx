@@ -2,6 +2,7 @@
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
+import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp, ScheduleBlock } from "@/context/AppContext";
 import {
   Calendar, Clock, BookOpen, GraduationCap, ArrowLeft,
@@ -119,6 +120,7 @@ export default function HorarioPage() {
   );
 
   return (
+    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE", "DOCENTE_DIRECTOR"]}>
     <div className="flex flex-col min-h-screen bg-surface-container-lowest font-inter">
       <TopAppBar />
       
@@ -427,5 +429,6 @@ export default function HorarioPage() {
         }
       `}</style>
     </div>
+    </RoleGuard>
   );
 }

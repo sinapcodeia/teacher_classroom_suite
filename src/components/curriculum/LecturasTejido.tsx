@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, FileText, Printer, CheckCircle, Sparkles } from "lucide-react";
+import { BookOpen, Printer, CheckCircle, Sparkles } from "lucide-react";
 
 interface LecturasTejidoProps {
   onPrint: (adaptedPlan: any, type: string) => void;

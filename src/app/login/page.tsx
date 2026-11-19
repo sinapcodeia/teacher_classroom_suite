@@ -23,6 +23,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [view, setView] = useState<"login" | "reset">("login");
+  const [hasCachedOfflineSession, setHasCachedOfflineSession] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasCachedOfflineSession(
+        Boolean(localStorage.getItem("offline_user") && localStorage.getItem("offline_profile"))
+      );
+    }
+  }, []);
 
   const handleOfflineLogin = async () => {
     setError("");
@@ -32,6 +41,7 @@ export default function LoginPage() {
       router.replace("/");
     } catch (err) {
       console.error("Error al acceder en modo local:", err);
+      setError(err instanceof Error ? err.message : "No se pudo iniciar en modo local.");
       setSigningIn(false);
     }
   };
@@ -217,8 +227,8 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                {/* Sandbox / Demo Access Buttons */}
-                {(process.env.NODE_ENV === "development" || (typeof window !== "undefined" && !navigator.onLine)) && (
+                {/* Botones Sandbox / Demo estrictamente en desarrollo local */}
+                {process.env.NODE_ENV === "development" && (
                   <>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
                       <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", textAlign: "center", margin: "0 0 4px" }}>
@@ -314,26 +324,28 @@ export default function LoginPage() {
                   )}
                 </button>
 
-                {/* Emergency Offline Access Button */}
-                <button
-                  type="button"
-                  onClick={handleOfflineLogin}
-                  disabled={signingIn}
-                  style={{
-                    width: "100%", padding: "14px 24px", marginTop: 12,
-                    background: "rgba(245, 158, 11, 0.15)", borderRadius: 16,
-                    border: "1px solid rgba(245, 158, 11, 0.35)",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                    fontSize: 11, fontWeight: 900, color: "#fbbf24",
-                    letterSpacing: "0.08em", textTransform: "uppercase",
-                    cursor: "pointer", transition: "all 0.2s"
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(245, 158, 11, 0.25)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(245, 158, 11, 0.15)")}
-                >
-                  <Sparkles size={16} />
-                  Ingresar en Modo Local (Sin Internet)
-                </button>
+                {/* Botón de acceso local offline solo si hay sesión previa cacheada o estamos en desarrollo */}
+                {((!isOnline && hasCachedOfflineSession) || process.env.NODE_ENV === "development") && (
+                  <button
+                    type="button"
+                    onClick={handleOfflineLogin}
+                    disabled={signingIn}
+                    style={{
+                      width: "100%", padding: "14px 24px", marginTop: 12,
+                      background: "rgba(245, 158, 11, 0.15)", borderRadius: 16,
+                      border: "1px solid rgba(245, 158, 11, 0.35)",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                      fontSize: 11, fontWeight: 900, color: "#fbbf24",
+                      letterSpacing: "0.08em", textTransform: "uppercase",
+                      cursor: "pointer", transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(245, 158, 11, 0.25)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "rgba(245, 158, 11, 0.15)")}
+                  >
+                    <Sparkles size={16} />
+                    Ingresar en Modo Local (Sin Internet)
+                  </button>
+                )}
 
                 {/* Separator */}
                 <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "24px 0" }}>

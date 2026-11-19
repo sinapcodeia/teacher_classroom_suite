@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, matchStudentCourse } from "@/lib/constants";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import React from "react";
@@ -105,7 +105,7 @@ const StudentRow = React.memo(({
 StudentRow.displayName = "StudentRow";
 
 export default function ActivityGrader({ course, subject, grade, externalSelection }: ActivityGraderProps) {
-  const { students, myStudents, addGrade, addGradesBatch, updateSingleDetailedGrade, masterData } = useApp();
+  const { myStudents, addGrade, addGradesBatch, updateSingleDetailedGrade, masterData } = useApp();
   const [targetCategory, setTargetCategory] = useState<"sb" | "sbh" | "sr" | "cv" | "aut" | "rec">("sbh");
   const [targetSlot, setTargetSlot] = useState(0);
 
@@ -305,10 +305,10 @@ export default function ActivityGrader({ course, subject, grade, externalSelecti
     });
 
     return Array.from(activityMap.values()).sort((a, b) => b.date.localeCompare(a.date));
-  }, [filteredStudents, subject, grade, getActivePeriod]);
+  }, [filteredStudents, subject, getActivePeriod]);
 
   // Dynamic grade pre-loading from detailedGrades when category/slot details change
-  // IMPORTANTE: usamos JSON.stringify(filteredStudents.map(s=>s.id)) para evitar re-renders
+  // IMPORTANTE: usamos filteredStudentIds para evitar re-renders
   // en cascada cuando Firestore actualiza datos individuales de estudiantes.
   const filteredStudentIds = useMemo(() => filteredStudents.map(s => s.id).join(','), [filteredStudents]);
 
@@ -320,7 +320,7 @@ export default function ActivityGrader({ course, subject, grade, externalSelecti
         const parsed = JSON.parse(savedDraft);
         if (parsed.grades && Object.keys(parsed.grades).length > 0) {
           setGrades(parsed.grades);
-          if (parsed.activityTitle && !activityTitle) setActivityTitle(parsed.activityTitle);
+          if (parsed.activityTitle && !activityTitleRef.current) setActivityTitle(parsed.activityTitle);
           setIsDraftRecovered(true);
           setSavedIds(new Set());
           return;
@@ -352,7 +352,7 @@ export default function ActivityGrader({ course, subject, grade, externalSelecti
 
     setGrades(loadedGrades);
     setSavedIds(new Set()); // Reset save flags when slot changes
-   
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Se usa filteredStudentIds y activityTitleRef para no recargar el calificador ante actualizaciones no estructurales de Firestore
   }, [targetCategory, targetSlot, subject, course, grade, filteredStudentIds, getActivePeriod, draftKey]);
 
   // Sync individual student score when selection changes

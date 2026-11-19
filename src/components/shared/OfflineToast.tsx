@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { Wifi, WifiOff, X } from "lucide-react";
 
@@ -8,11 +8,11 @@ export default function OfflineToast() {
   const { isOnline } = useApp();
   const [show, setShow] = useState(false);
   const [status, setStatus] = useState<"online" | "offline">("online");
-  const [isFirstRender, setIsFirstRender] = useState(true);
+  const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
-    if (isFirstRender) {
-      setIsFirstRender(false);
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
       if (!isOnline) {
         setStatus("offline");
         setShow(true);

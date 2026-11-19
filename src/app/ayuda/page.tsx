@@ -3,28 +3,32 @@
 import React, { useState } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
+import RoleGuard from "@/components/shared/RoleGuard";
 import { 
   BookOpen, HelpCircle, Sparkles, Search, CheckCircle2, 
-  ShieldCheck, Calculator, FileText, ArrowRight, Layers,
-  Phone, AlertTriangle, ExternalLink, Printer, Scale
+  Calculator, ArrowRight
 } from "lucide-react";
 import Link from "next/link";
 import { KNOWLEDGE_ARTICLES, FAQS } from "@/lib/knowledgeBase";
+import { APP_VERSION_LABEL } from "@/lib/version";
 
 export default function AyudaPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
 
-  // Interactive SIEEE Simulator State
+  // Simulador interactivo SIEEE (con Recuperación REC opcional)
   const [simSb, setSimSb] = useState<number>(4.0);
   const [simSbh, setSimSbh] = useState<number>(4.2);
   const [simSr, setSimSr] = useState<number>(4.5);
   const [simCv, setSimCv] = useState<number>(5.0);
   const [simAut, setSimAut] = useState<number>(4.0);
+  const [hasRec, setHasRec] = useState<boolean>(false);
+  const [simRec, setSimRec] = useState<number>(3.5);
 
-  const simDefinitiva = Number(
+  const simParcial = Number(
     ((simSb * 0.30) + (simSbh * 0.40) + (simSr * 0.20) + (simCv * 0.05) + (simAut * 0.05)).toFixed(2)
   );
+  const simDefinitiva = hasRec ? simRec : simParcial;
 
   const simNivel = simDefinitiva >= 4.6 ? "Superior" : simDefinitiva >= 4.0 ? "Alto" : simDefinitiva >= 3.0 ? "Básico" : "Bajo";
   const simColor = simDefinitiva >= 4.6 ? "text-emerald-700 bg-emerald-100 border-emerald-300" :
@@ -35,10 +39,15 @@ export default function AyudaPage() {
   const categories = [
     { id: "todos", label: "Todos los temas" },
     { id: "calificaciones", label: "Calificaciones & SIEEE" },
-    { id: "periodos", label: "Cierre de Periodos" },
-    { id: "reportes", label: "Dossier 360° & Reportes" },
+    { id: "sapred", label: "Conector SAPRED (.xls)" },
+    { id: "reportes", label: "Dossier 360° & Riesgo PE" },
+    { id: "estudiantes", label: "Estudiantes & Cockpit" },
+    { id: "directorio", label: "Directorio Docentes" },
+    { id: "curriculo", label: "Currículo Awá" },
+    { id: "periodos", label: "Cierre de Períodos" },
     { id: "convivencia", label: "Observador Ley 1620" },
-    { id: "offline", label: "Modo Offline" }
+    { id: "offline", label: "Modo Offline" },
+    { id: "seguridad", label: "Excel Todo o Nada & Roles" }
   ];
 
   const filteredArticles = KNOWLEDGE_ARTICLES.filter(a => {
@@ -50,6 +59,7 @@ export default function AyudaPage() {
   });
 
   return (
+    <RoleGuard>
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       <TopAppBar />
 
@@ -58,13 +68,13 @@ export default function AyudaPage() {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
           <div className="space-y-4 flex-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs font-black uppercase tracking-widest border border-teal-400/30">
-              <Sparkles size={14} /> Centro de Ayuda & Inteligencia Pedagógica
+              <Sparkles size={14} /> Centro de Ayuda & Manual {APP_VERSION_LABEL}
             </div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tight">
               Manual de Usuario y Asistente EduAwá
             </h1>
             <p className="text-slate-300 text-sm md:text-base max-w-2xl font-medium leading-relaxed">
-              Aprende a dominar el calificador de Sabidurías Awá, la emisión del Dossier 360°, el cierre seguro de periodos y la toma de asistencia en el territorio.
+              Domina el calificador SIEEE, Conector SAPRED (.xls), Directorio de Docentes, Dossier 360°, Observador Ley 1620, formatos Excel &quot;Todo o Nada&quot; y Modo Offline territorial.
             </p>
 
             {/* Search Bar */}
@@ -232,6 +242,42 @@ export default function AyudaPage() {
               </div>
             </div>
           </div>
+
+          {/* Control opcional de Recuperación REC + Nota metodológica */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-xs font-black text-slate-800 cursor-pointer select-none bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl">
+                <input
+                  type="checkbox"
+                  checked={hasRec}
+                  onChange={e => setHasRec(e.target.checked)}
+                  className="accent-rose-600 w-4 h-4 cursor-pointer"
+                />
+                <span>Simular Recuperación (REC)</span>
+              </label>
+              {hasRec && (
+                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                  <span className="text-xs font-bold text-slate-600">Nota REC:</span>
+                  <input
+                    type="range" min="1.0" max="5.0" step="0.1"
+                    value={simRec}
+                    onChange={e => setSimRec(parseFloat(e.target.value))}
+                    className="w-28 accent-rose-600 cursor-pointer"
+                  />
+                  <span className="text-xs font-black text-rose-700">{simRec.toFixed(1)}</span>
+                </div>
+              )}
+              {hasRec && (
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Parcial calculada: <strong>{simParcial.toFixed(2)}</strong> → reemplazada por REC
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] font-medium text-slate-500 leading-relaxed max-w-xl">
+              <strong>Regla SIEEE IETABA:</strong> Si faltan pilares por calificar, el motor normaliza solo sobre los pesos activos (ej. 4.0 en SB + 4.0 en SBH = 4.00). La definitiva anual es <strong>(P1 + P2 + P3) / 3</strong>.
+            </p>
+          </div>
         </div>
 
         {/* ── ARTÍCULOS Y GUÍAS DEL MANUAL ── */}
@@ -263,6 +309,12 @@ export default function AyudaPage() {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {art.tips && (
+                    <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl px-3.5 py-2.5 text-[11px] font-medium text-amber-900">
+                      <strong className="font-black">Nota práctica: </strong>{art.tips}
                     </div>
                   )}
                 </div>
@@ -307,5 +359,6 @@ export default function AyudaPage() {
         <BottomNavBar />
       </div>
     </div>
+    </RoleGuard>
   );
 }

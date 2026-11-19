@@ -1,7 +1,7 @@
 "use client";
 
 import { 
-  CheckCircle2, AlertTriangle, XCircle, 
+  CheckCircle2, 
   FileCheck, X, RefreshCw, UserCheck, AlertCircle, Calculator
 } from "lucide-react";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Award, Calendar, ChevronDown, ChevronUp, Layers,
   Sparkles, UserCheck, Eye, X, Edit3
@@ -61,7 +61,7 @@ export default function EvaluatedActivitiesSummary({
   const [inspectedActivity, setInspectedActivity] = useState<EvaluatedActivityItem | null>(null);
   const [selectedProfileStudent, setSelectedProfileStudent] = useState<any>(null);
 
-  const getStudentScoreForSlot = (
+  const getStudentScoreForSlot = useCallback((
     student: any,
     cat: "sb" | "sbh" | "sr" | "cv" | "aut" | "rec",
     slot: number
@@ -77,7 +77,7 @@ export default function EvaluatedActivitiesSummary({
       return arr[slot];
     }
     return null;
-  };
+  }, [subject, periodId]);
 
   const activities: EvaluatedActivityItem[] = useMemo(() => {
     if (!students || students.length === 0 || !subject) return [];
@@ -202,7 +202,7 @@ export default function EvaluatedActivitiesSummary({
       }
       return a.category.localeCompare(b.category);
     });
-  }, [students, subject, periodId]);
+  }, [students, subject, periodId, getStudentScoreForSlot]);
 
   const filtered = useMemo(() => {
     if (filterCategory === "ALL") return activities;

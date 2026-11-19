@@ -1,11 +1,11 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   User, Calendar, Hash, GraduationCap, MapPin, Star, BookOpen,
   Plus, ClipboardList, Phone, RefreshCw, TrendingUp, AlertTriangle,
-  ChevronRight, Activity, Edit, X, Loader2, CheckCircle,
+  Activity, Edit, X, Loader2, CheckCircle,
   Sparkles, Target, Brain, ArrowUpRight, FileText, Scale
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -13,8 +13,8 @@ import { printStudentProfileReport, printStudentCommitmentAgreement } from "@/li
 import { calculateSubjectPeriodScore } from "@/lib/gradeUtils";
 import GuardianModal from "@/components/students/GuardianModal";
 import StudentStatusModal from "@/components/students/StudentStatusModal";
-import { Mail, ShieldAlert } from "lucide-react";
-import { MessageSquare, PhoneCall } from "lucide-react";
+import { Mail } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -278,7 +278,6 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
   ) => {
     if (!student) return { alerts: [], suggestions: [], priority: "LOW", iconColor: "text-emerald-500", bgColor: "bg-emerald-50/50" };
 
-    const activePid = (masterData.activePeriod || "p2").toUpperCase();
     const grades = [p1, p2, p3].filter(g => g !== null) as number[];
     const currentYearAvg = grades.length > 0 ? grades.reduce((a, b) => a + b, 0) / grades.length : null;
 
@@ -1322,6 +1321,18 @@ export default function StudentProfile({ id, initialSubject }: { id: string; ini
           </div>
         </div>
       )}
+
+      <GuardianModal
+        isOpen={showGuardianModal}
+        onClose={() => setShowGuardianModal(false)}
+        student={student}
+      />
+
+      <StudentStatusModal
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        student={student}
+      />
     </div>
   );
 }

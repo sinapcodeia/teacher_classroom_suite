@@ -1,21 +1,20 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 
-import { APP_NAME, APP_EDITION, APP_BRAND } from "@/lib/constants";
-import { Printer, ArrowLeft, Download, ShieldCheck, Loader2 } from "lucide-react";
+import { APP_NAME, APP_EDITION } from "@/lib/constants";
+import { Printer, ArrowLeft, Download, Loader2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/shared/RoleGuard";
 
 import Image from "next/image";
-import { useEffect } from "react";
 
 export default function AttendanceReportPage() {
-  const { students, myStudents, masterData, profile } = useApp();
+  const { myStudents, profile } = useApp();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -26,8 +25,6 @@ export default function AttendanceReportPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedGrade, setSelectedGrade] = useState("TODOS");
   const [selectedCurso, setSelectedCurso] = useState("TODOS");
-  const [selectedTeacher, setSelectedTeacher] = useState(profile.name);
-  const [selectedSubject, setSelectedSubject] = useState("TODAS");
 
   const months = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
   const years = ["2024", "2025", "2026"];

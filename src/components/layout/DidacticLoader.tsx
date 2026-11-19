@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Sparkles, Pencil, HelpCircle } from "lucide-react";
+import { BookOpen, Sparkles, Pencil } from "lucide-react";
 
 const DIDACTIC_QUOTES = [
   "Tejiendo saberes ancestrales con los hilos de los mayores Awá...",

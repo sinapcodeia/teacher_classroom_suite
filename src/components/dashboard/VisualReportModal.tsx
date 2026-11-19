@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { X, Download, Award, BarChart3, HelpCircle, User } from "lucide-react";
+import { X, Download, Award, BarChart3 } from "lucide-react";
 import { Student } from "@/context/AppContext";
 import { calculateGroupRankings, normalizePeriodId } from "@/lib/gradeUtils";
 
@@ -56,6 +56,7 @@ export default function VisualReportModal({
     } else {
       drawInfographic(canvas);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Redibujo intencional controlado por pestaña, estudiante seleccionado y filtros del reporte
   }, [isOpen, activeTab, selectedStudentId, diplomaCategory, students, subject, period, teacherName, grade, course]);
 
   if (!isOpen) return null;
@@ -286,7 +287,6 @@ export default function VisualReportModal({
     // 3. Stats calculations
     const totalSt = students.length;
     const passedSt = students.filter(s => s.avgGrade >= 3.0).length;
-    const failedSt = totalSt - passedSt;
     const passRate = totalSt > 0 ? Math.round((passedSt / totalSt) * 100) : 0;
     const classAvg = totalSt > 0
       ? parseFloat((students.reduce((acc, s) => acc + (s.avgGrade || 0), 0) / totalSt).toFixed(2))

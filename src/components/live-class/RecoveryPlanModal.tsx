@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Sparkles, AlertTriangle, Printer, CheckCircle, GraduationCap, BookOpen, FileText } from "lucide-react";
+import { X, Sparkles, Printer } from "lucide-react";
 import { printRecoveryPlan } from "@/lib/printService";
 import { useApp } from "@/context/AppContext";
 import { normalizeGrade } from "@/lib/constants";
@@ -115,7 +115,7 @@ Firma del Acudiente / Familia`;
         setIsGenerating(false);
       }, 800);
     }
-  }, [isOpen, student, subject, profile.name, curriculum]);
+  }, [isOpen, student, subject, profile.name, curriculum, average, studentName]);
 
   const handlePrint = () => {
     if (!generatedPlanText || !student) return;

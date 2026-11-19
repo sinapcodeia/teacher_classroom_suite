@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  X, UserCheck, UserX, AlertTriangle, ShieldAlert, 
-  CheckCircle2, Loader2, HeartHandshake, History, FileText 
+  X, UserCheck, AlertTriangle, ShieldAlert, 
+  CheckCircle2, Loader2 
 } from "lucide-react";
 import { Student, useApp, EstadoMatricula } from "@/context/AppContext";
 import { normalizeUpperCaseName } from "@/lib/constants";

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
 import nextDynamic from "next/dynamic";
@@ -42,21 +42,27 @@ export default function StudentsPage() {
     profile?.isSuperAdmin === true ||
     ["RECTOR", "COORDINADOR"].includes(profile?.role || "");
 
-  // Si el docente es Director de Grupo y tiene grado asignado, autoseleccionarlo por defecto
+  const hasAutoSelectedDirectorRef = useRef(false);
+
+  // Si el docente es Director de Grupo y tiene grado asignado, autoseleccionarlo una vez al inicio
   useEffect(() => {
-    if (isDirector && profile?.directorGrado && gradoFilter === "TODOS") {
+    if (!hasAutoSelectedDirectorRef.current && isDirector && profile?.directorGrado && gradoFilter === "TODOS") {
+      hasAutoSelectedDirectorRef.current = true;
       setGradoFilter(profile.directorGrado);
       if (profile.directorCurso) setCursoFilter(profile.directorCurso);
     }
-  }, [isDirector, profile?.directorGrado, profile?.directorCurso]);
+  }, [isDirector, profile?.directorGrado, profile?.directorCurso, gradoFilter, setGradoFilter, setCursoFilter]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (myStudents.length > 0 && !selectedId) {
       setSelectedId(myStudents[0].id);
     }
-  }, [myStudents]);
+  }, [myStudents, selectedId]);
 
   const [showModal, setShowModal] = useState(false);
   const [showImportResults, setShowImportResults] = useState(false);

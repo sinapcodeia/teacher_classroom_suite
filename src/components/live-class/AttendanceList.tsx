@@ -1,10 +1,10 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText, matchStudentCourse } from "@/lib/constants";
+import { normalizeGrade, parseFlexibleFloat, matchStudentCourse } from "@/lib/constants";
 
 import { useState, useMemo, useEffect } from "react";
 import { 
-  CheckCircle, XCircle, Clock, Save, Filter, User, 
-  BookOpen, BarChart3, GraduationCap, Layers, Cake, MessageSquare, Star, AlertTriangle, BellRing, AlertCircle
+  CheckCircle, XCircle, Clock, Save, Filter, 
+  GraduationCap, Cake, MessageSquare, Star, AlertTriangle, BellRing, AlertCircle
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
@@ -17,7 +17,7 @@ interface AttendanceListProps {
 }
 
 export default function AttendanceList({ subjectId, grade, course, onSelectCourse }: AttendanceListProps) {
-  const { myStudents, subjects, profile, addGrade, saveDailyAttendance, addAgendaNote, agendaNotes, updateAgendaNote } = useApp();
+  const { myStudents, subjects, addGrade, saveDailyAttendance, addAgendaNote, agendaNotes, updateAgendaNote } = useApp();
   const [isAlreadySaved, setIsAlreadySaved] = useState(false);
   const [existingNoteId, setExistingNoteId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -92,7 +92,7 @@ export default function AttendanceList({ subjectId, grade, course, onSelectCours
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 1);
       setTimeout(() => ctx.close(), 1500);
-    } catch (e) {
+    } catch {
       console.warn("Audio no soportado o bloqueado por el navegador");
     }
   };
@@ -179,16 +179,8 @@ export default function AttendanceList({ subjectId, grade, course, onSelectCours
     } else {
       setAttendance({});
     }
-     
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Se sincroniza mediante studentAttendanceKey para evitar reinicios si filteredStudents cambia por campos distintos a asistencia
   }, [subjectId, course, studentAttendanceKey, agendaNotes, subjects, draftKey]);
-
-  const stats = useMemo(() => ({
-    total: filteredStudents.length,
-    present: filteredStudents.filter(s => attendance[s.id] === 'present').length,
-    absent: filteredStudents.filter(s => attendance[s.id] === 'absent').length,
-    late: filteredStudents.filter(s => attendance[s.id] === 'late').length,
-    pending: filteredStudents.filter(s => !attendance[s.id]).length
-  }), [filteredStudents, attendance]);
 
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
     setAttendance(prev => {
@@ -215,7 +207,7 @@ export default function AttendanceList({ subjectId, grade, course, onSelectCours
       message = `¡Felicitaciones! IETABA reconoce la EXCELENCIA ACADÉMICA de ${student.primerNombre} ${student.primerApellido} por su excelente desempeño. ¡Sigan así! ⭐👏`;
     }
 
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

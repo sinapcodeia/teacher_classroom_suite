@@ -96,14 +96,6 @@ export default function Home() {
     filteredDashboardStudents.filter((s) => s.isActive !== false).length
   , [filteredDashboardStudents]);
 
-  const effectiveCourses = useMemo(() => {
-    if (profile.isSuperAdmin) return null;
-    const courses = (profile.teachingCourses?.length ?? 0) > 0
-      ? profile.teachingCourses
-      : [...new Set((schedule || []).map(b => b.group))];
-    return courses;
-  }, [profile, schedule]);
-
   const todaySchedule = useMemo(() => {
     const days = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
     const currentDay = days[new Date().getDay()];
@@ -146,18 +138,6 @@ export default function Home() {
   const [activeQuickStatModal, setActiveQuickStatModal] = useState<"estudiantes" | "materias" | "superior" | "alerta" | null>(null);
   const [selectedQuickProfileStudent, setSelectedQuickProfileStudent] = useState<any>(null);
   const [selectedQuickRecoveryStudent, setSelectedQuickRecoveryStudent] = useState<any>(null);
-
-  // Tareas pendientes (filtradas por los cursos que dicta el docente)
-  const pendingTasks = useMemo(() => {
-    return agendaNotes.filter(n => {
-      const isPendingTask = n.type === 'TASK' && !n.isCompleted;
-      if (!isPendingTask) return false;
-      
-      // Si es SuperAdmin ve todas, si es docente solo las de sus cursos
-      if (profile.isSuperAdmin) return true;
-      return effectiveCourses?.includes(n.course);
-    });
-  }, [agendaNotes, profile.isSuperAdmin, effectiveCourses]);
 
   // 🏆 Primeros Puestos (motor oficial SIEEE): por P1, P2, P3 o Final (acumulado 3 períodos)
   const [rankingScope, setRankingScope] = useState<RankingScope>(

@@ -173,16 +173,16 @@ export default function GradesReportPage() {
 
   const availableSubjects = masterData.subjects || ["TECNOLOGÍA", "MATEMÁTICAS", "FÍSICA", "ÉTICA"];
 
-  const columns = [
+  const columns = useMemo(() => [
     ...Array.from({ length: 8 }, (_, i) => ({ id: `SB${i + 1}`, type: "SB", idx: i })),
     ...Array.from({ length: 8 }, (_, i) => ({ id: `SBH${i + 1}`, type: "SBH", idx: i })),
     ...Array.from({ length: 5 }, (_, i) => ({ id: `SR${i + 1}`, type: "SR", idx: i })),
     ...Array.from({ length: 3 }, (_, i) => ({ id: `CV${i + 1}`, type: "CV", idx: i })),
     { id: "AUT", type: "AUT", idx: 0 },
-      { id: "PARC", type: "PARC", idx: 0 },
-      { id: "REC", type: "REC", idx: 0 },
-      { id: "DEF", type: "DEF", idx: 0 }
-  ];
+    { id: "PARC", type: "PARC", idx: 0 },
+    { id: "REC", type: "REC", idx: 0 },
+    { id: "DEF", type: "DEF", idx: 0 }
+  ], []);
 
   const getGradeValue = (st: any, colType: string, index: number, subject: string, periodId: string) => {
     const pid = periodId.toLowerCase();
@@ -275,7 +275,7 @@ export default function GradesReportPage() {
         return val !== "";
       });
     });
-  }, [filteredStudents, selectedSubject, selectedPeriod]);
+  }, [columns, filteredStudents, selectedSubject, selectedPeriod]);
 
   const studentsWithAlerts = useMemo(() => {
     return filteredStudents.map(st => {
@@ -376,9 +376,9 @@ export default function GradesReportPage() {
       if (sub.includes("TECNOLOGÍA") || sub.includes("INFORMÁTICA")) return "La IA sugiere un taller de creación de tablas de seguimiento para el inventario de herramientas agrícolas de la comunidad.";
       if (sub.includes("FÍSICA")) return "La IA sugiere un taller de hidrodinámica analizando la velocidad del caudal en las quebradas locales usando botellas flotantes.";
       if (sub.includes("ÉTICA")) return "La IA sugiere una dinámica de roles sobre la relación y el respeto que tiene el joven Awá hacia el cuidado de los ríos del piedemonte.";
-      return `La IA sugiere un taller colaborativo en parejas de aplicación de conceptos teóricos de ${selectedSubject} a situaciones reales de Katsa Su.`;
+      return `La IA sugiere taller colaborativo en parejas de aplicación de conceptos teóricos de ${selectedSubject} a situaciones reales de Katsa Su.`;
     }
-  }, [classAvg, selectedSubject, selectedPeriod]);
+  }, [classAvg, selectedSubject]);
 
   const handleGradeCellChange = async (studentId: string, col: any, rawValue: string) => {
     const value = rawValue.replace(",", ".");

@@ -1,20 +1,19 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 import { useMemo, useState, memo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "@/context/AppContext";
 import { 
-  Users, UserCheck, UserX, Cake, Award, 
-  BarChart3, PieChart, TrendingDown, MapPin, 
-  ChevronRight, AlertCircle, Calendar, X, GraduationCap,
-  Sparkles, FileText, CheckCircle2, AlertTriangle, ShieldCheck,
-  Building2, Briefcase, HeartHandshake, Eye, ArrowRight, User, Search
+  Users, UserCheck, Cake, Award, 
+  BarChart3, PieChart, TrendingDown, 
+  ChevronRight, Calendar, X, GraduationCap,
+  Sparkles, CheckCircle2, AlertTriangle,
+  Building2, Briefcase, HeartHandshake, Eye, Search
 } from "lucide-react";
 import StudentProfileModal from "@/components/shared/StudentProfileModal";
 
 import AttendanceAnalytics from "@/components/admin/AttendanceAnalytics";
-import { calculateStudentAcademicSummary } from "@/lib/gradeUtils";
 
 const StatisticsDashboard = memo(function StatisticsDashboard() {
   const { students } = useApp();
@@ -27,7 +26,6 @@ const StatisticsDashboard = memo(function StatisticsDashboard() {
   }, []);
   const [activeRoleView, setActiveRoleView] = useState<"rector" | "coordinador" | "apoyo" | "asistencia">("rector");
   const [gradeSearchQuery, setGradeSearchQuery] = useState<string>("");
-  const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<"acumulado" | "p1" | "p2" | "p3">("acumulado");
 
   const stats = useMemo(() => {
     // Solo procesar estudiantes activos

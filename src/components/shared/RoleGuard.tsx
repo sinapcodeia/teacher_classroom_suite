@@ -9,7 +9,7 @@ import {
   FileText, CheckCircle2, Clock
 } from "lucide-react";
 
-type Role = "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE";
+type Role = "RECTOR" | "COORDINADOR" | "BIENESTAR" | "DOCENTE" | "DOCENTE_DIRECTOR";
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -97,6 +97,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   }, [user, authLoading, profile, pathname, router]);
 
   // Safeguard: Automatically unlock button if content fits on screen or screen is large
+  const needsTermsScrollCheck = Boolean(user && profile && !profile.acceptedTerms);
   useEffect(() => {
     const checkScrollability = () => {
       if (scrollRef.current) {
@@ -106,11 +107,11 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
         }
       }
     };
-    if (user && profile && !profile.acceptedTerms) {
+    if (needsTermsScrollCheck) {
       const timer = setTimeout(checkScrollability, 600);
       return () => clearTimeout(timer);
     }
-  }, [profile?.acceptedTerms, user]);
+  }, [needsTermsScrollCheck]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
@@ -397,7 +398,13 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   }
 
   // ── 4. ACCESO DENEGADO POR ROL ──────────────────────────────
-  if (allowedRoles && !allowedRoles.includes(profile.role as Role)) {
+  const roleAllowed =
+    !allowedRoles ||
+    profile.isSuperAdmin ||
+    allowedRoles.includes(profile.role as Role) ||
+    (profile.role === "DOCENTE_DIRECTOR" && allowedRoles.includes("DOCENTE"));
+
+  if (!roleAllowed) {
     return (
       <div style={{ minHeight: "100vh", background: "var(--color-background)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 32 }}>
         <div style={{ width: 72, height: 72, borderRadius: 20, background: "var(--color-error-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}>

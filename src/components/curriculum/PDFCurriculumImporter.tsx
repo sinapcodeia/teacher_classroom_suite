@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 import { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Check, Sparkles, Loader2, Info } from "lucide-react";

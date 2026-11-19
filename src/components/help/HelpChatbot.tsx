@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { 
-  Bot, MessageSquare, HelpCircle, X, Send, Sparkles, 
-  ChevronRight, BookOpen, Search, ExternalLink, Lightbulb, 
-  CheckCircle2, ShieldAlert, Award, FileText, ArrowUpRight,
+  MessageSquare, HelpCircle, X, Send, Sparkles, 
+  ChevronRight, BookOpen, Search, Lightbulb, 
+  CheckCircle2, FileText, ArrowUpRight,
   Mic, MicOff, Volume2, VolumeX, Copy, Check, ThumbsUp, ThumbsDown,
-  Minimize2, Maximize2, Zap, Compass, RefreshCw, Layers, ShieldCheck
+  Minimize2, Maximize2, Zap, Compass, Layers, ShieldCheck,
+  Users, FileSpreadsheet
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +24,20 @@ interface Message {
   actionLink?: { label: string; url: string };
   feedback?: "up" | "down";
   isTyping?: boolean;
+}
+
+// Renderiza **negrita** sin usar dangerouslySetInnerHTML (XSS-safe)
+function renderFormattedText(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, idx) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return (
+        <strong key={idx} className="font-black">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <React.Fragment key={idx}>{part}</React.Fragment>;
+  });
 }
 
 // ── Web Audio Synth para micro-sonidos alegres no invasivos ──────────────────
@@ -62,7 +77,7 @@ function playChime(type: "pop" | "send" | "reply") {
       osc.start(now);
       osc.stop(now + 0.12);
     }
-  } catch (e) {
+  } catch {
     // Silently ignore audio restrictions
   }
 }
@@ -85,14 +100,18 @@ export default function HelpChatbot() {
   const userName = profile?.firstName || profile?.name?.split(" ")[0] || user?.displayName?.split(" ")[0] || "Docente";
   const userRole = profile?.role || (profile?.isSuperAdmin ? "Rector / SuperAdmin" : "Docente");
 
-  // Mensaje de bienvenida alegre y contextual
+  // Mensaje de bienvenida alegre y contextual (v2.17.0)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       sender: "bot",
-      text: `¡Kam saru, ${userName}! 👋 Soy **EduAwá**, tu Asistente Pedagógico de Inteligencia IETABA.\n\nEstoy conectado con **contexto 100% seguro** para orientarte en tus labores de ${userRole} (SIEEE, calificaciones, actas con 4 firmas, observador, periodos y asistencia). ¿En qué te acompaño hoy?`,
+      text: `¡Kam saru, ${userName}! 👋 Soy **EduAwá** (${APP_VERSION_LABEL}), tu Asistente Pedagógico de Inteligencia IETABA.\n\nEstoy actualizado al **100%** con el Conector SAPRED (.xls), Directorio de Docentes (16 cols), Formatos Excel 'Todo o Nada', Motor SIEEE, Dossier 360°, Observador Ley 1620 y tu rol de **${userRole}**. ¿En qué te ayudo hoy?`,
       timestamp: new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
-      suggestedArticles: KNOWLEDGE_ARTICLES.slice(0, 2)
+      suggestedArticles: KNOWLEDGE_ARTICLES.filter(a =>
+        a.id === "sapred-conector-360" ||
+        a.id === "directorio-docentes-excel" ||
+        a.id === "pesos-sieee"
+      )
     }
   ]);
 
@@ -113,46 +132,78 @@ export default function HelpChatbot() {
     }
   }, [messages, isOpen, activeTab, isTyping]);
 
-  // Sugerencias contextuales según la página donde esté el usuario
+  // Sugerencias contextuales según la ruta activa
   const getContextualPills = useCallback(() => {
+    if (pathname.includes("directorio")) {
+      return [
+        "📋 Plantilla Excel de Docentes (16 cols)",
+        "⬆️ ¿Cómo importar el directorio?",
+        "👑 Roles y DOCENTE_DIRECTOR",
+        "📤 Exportar directorio a Excel"
+      ];
+    }
+    if (pathname.includes("admin")) {
+      return [
+        "🛡️ ¿Qué es la regla Todo o Nada?",
+        "👥 ¿Cómo activar cuentas pendientes?",
+        "📋 Formatos Excel maestros",
+        "🔐 Seguridad y permisos por rol"
+      ];
+    }
     if (pathname.includes("clase-en-vivo")) {
       return [
-        "📊 ¿Cómo calificar con saberes?",
-        "⏱️ ¿Cómo usar la ruleta?",
+        "📊 Pesos y normalización SIEEE",
+        "⏱️ ¿Cómo usar la ruleta y borradores?",
         "🔄 ¿Cómo registrar nivelación REC?",
-        "🔒 ¿Cómo cerrar el periodo?"
+        "🔒 ¿Cómo cerrar el período?"
       ];
     }
     if (pathname.includes("estudiantes")) {
       return [
-        "📑 ¿Cómo elegir Periodo 2 en el Dossier?",
-        "⚖️ ¿Cómo registrar falta en el Observador?",
-        "✍️ ¿Cómo generar el Acta con 4 firmas?",
-        "🔍 ¿Cómo filtrar por cursos?"
+        "📑 Dossier 360° Final y Lote PDF",
+        "👑 Cockpit Director de Grupo",
+        "⚖️ Observador Ley 1620",
+        "✍️ Acta de Compromiso 4 firmas"
       ];
     }
     if (pathname.includes("curriculo")) {
       return [
-        "🌿 ¿Qué es piankammuMi?",
+        "🌿 Higra del Conocimiento y Piankammu Mi",
         "🤖 ¿Cómo usar el Copiloto de Lecciones?",
         "♿ ¿Cómo adaptar con PIAR?",
-        "📈 ¿Qué mide el Radar de Competencias?"
+        "🛡️ Formato Excel Tejidos Awá"
       ];
     }
     if (pathname.includes("reportes")) {
       return [
-        "📋 ¿Cómo descargar la Sábana en CSV?",
-        "🖨️ ¿Cómo imprimir boletines?",
-        "📉 ¿Cómo ver la escala valorativa?",
-        "🏫 ¿Cómo consolidar notas del año?"
+        "🔗 ¿Cómo usar el Conector SAPRED (.xls)?",
+        "📉 Reporte de Perdiendo y PE",
+        "📋 Descargar sábana en Excel (.xlsx)",
+        "🏆 ¿Cómo funcionan los Primeros Puestos?"
+      ];
+    }
+    if (pathname.includes("horario") || pathname.includes("agenda")) {
+      return [
+        "📅 Importar horario Excel sin colisiones",
+        "📝 ¿Cómo usar la Agenda Escolar?",
+        "📡 ¿Se guarda en modo offline?",
+        "⏱️ Tomar asistencia en Clase en Vivo"
+      ];
+    }
+    if (pathname.includes("configuracion")) {
+      return [
+        "📡 ¿Cómo funciona el modo offline?",
+        "📅 Cargar mi malla horaria en Excel",
+        "💾 Respaldo local de datos",
+        "🔐 Reglas de acceso seguro"
       ];
     }
     return [
-      "✨ Pesos del SIEEE",
-      "📑 Dossier del Periodo 2",
-      "🔒 Cierre de Periodo",
-      "📡 Modo Offline en veredas",
-      "⚖️ Observador Ley 1620"
+      "🔗 Conector SAPRED (.xls)",
+      "📋 Plantilla Docentes 16 cols",
+      "🛡️ Regla Todo o Nada Excel",
+      "🏆 Primeros Puestos y SIEEE",
+      "📡 Modo Offline real"
     ];
   }, [pathname]);
 
@@ -198,7 +249,7 @@ export default function HelpChatbot() {
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (e) {
+    } catch {
       setIsListening(false);
     }
   };
@@ -454,8 +505,8 @@ export default function HelpChatbot() {
                             : "bg-white text-slate-800 border border-slate-200/90 rounded-tl-xs"
                         }`}
                       >
-                        <div className="whitespace-pre-line font-medium text-slate-800">
-                          {msg.text}
+                        <div className={`whitespace-pre-line font-medium ${msg.sender === "user" ? "text-white" : "text-slate-800"}`}>
+                          {renderFormattedText(msg.text)}
                         </div>
 
                         {/* Botón de acción directa si viene con la respuesta */}
@@ -644,7 +695,7 @@ export default function HelpChatbot() {
                   </div>
                   <div>
                     <h5 className="text-xs font-black text-slate-800">Calificador SIEEE</h5>
-                    <p className="text-[10px] text-slate-500">Registrar notas en los 5 saberes</p>
+                    <p className="text-[10px] text-slate-500">Saberes, REC, asistencia y ruleta</p>
                   </div>
                 </Link>
 
@@ -657,8 +708,36 @@ export default function HelpChatbot() {
                     <FileText size={16} />
                   </div>
                   <div>
-                    <h5 className="text-xs font-black text-slate-800">Dossier 360° PDF</h5>
-                    <p className="text-[10px] text-slate-500">Informes con selector de periodos</p>
+                    <h5 className="text-xs font-black text-slate-800">Dossier 360° y Lote</h5>
+                    <p className="text-[10px] text-slate-500">Dossiers P1–P3/Final, Cockpit y Actas</p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/reportes/calificaciones"
+                  onClick={() => setIsOpen(false)}
+                  className="bg-white p-3 rounded-2xl border border-slate-200 hover:border-teal-400 shadow-xs hover:shadow-md transition-all flex items-start gap-3 group"
+                >
+                  <div className="p-2 bg-amber-50 text-amber-700 rounded-xl group-hover:scale-105 transition-transform">
+                    <FileSpreadsheet size={16} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-slate-800">Conector SAPRED y Sábanas</h5>
+                    <p className="text-[10px] text-slate-500">.xls SAPRED, Excel (.xlsx) y Riesgo PE</p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/directorio"
+                  onClick={() => setIsOpen(false)}
+                  className="bg-white p-3 rounded-2xl border border-slate-200 hover:border-teal-400 shadow-xs hover:shadow-md transition-all flex items-start gap-3 group"
+                >
+                  <div className="p-2 bg-sky-50 text-sky-700 rounded-xl group-hover:scale-105 transition-transform">
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-slate-800">Directorio Docentes</h5>
+                    <p className="text-[10px] text-slate-500">Plantilla 16 cols y contacto WhatsApp</p>
                   </div>
                 </Link>
 
@@ -672,23 +751,39 @@ export default function HelpChatbot() {
                   </div>
                   <div>
                     <h5 className="text-xs font-black text-slate-800">Tejido Awá y PIAR</h5>
-                    <p className="text-[10px] text-slate-500">Mallas curriculares y Copiloto IA</p>
+                    <p className="text-[10px] text-slate-500">Higra, Hilos del Saber y Copiloto IA</p>
                   </div>
                 </Link>
 
                 <Link
-                  href="/reportes"
+                  href="/ayuda"
                   onClick={() => setIsOpen(false)}
                   className="bg-white p-3 rounded-2xl border border-slate-200 hover:border-teal-400 shadow-xs hover:shadow-md transition-all flex items-start gap-3 group"
                 >
-                  <div className="p-2 bg-amber-50 text-amber-700 rounded-xl group-hover:scale-105 transition-transform">
+                  <div className="p-2 bg-teal-50 text-teal-700 rounded-xl group-hover:scale-105 transition-transform">
                     <Layers size={16} />
                   </div>
                   <div>
-                    <h5 className="text-xs font-black text-slate-800">Sábanas y Boletines</h5>
-                    <p className="text-[10px] text-slate-500">Exportar notas a CSV y PDF</p>
+                    <h5 className="text-xs font-black text-slate-800">Manual y Simulador</h5>
+                    <p className="text-[10px] text-slate-500">Guías completas y calculadora SIEEE</p>
                   </div>
                 </Link>
+
+                {(profile?.isSuperAdmin || ["RECTOR", "COORDINADOR"].includes(profile?.role || "")) && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsOpen(false)}
+                    className="sm:col-span-2 bg-slate-900 text-white p-3 rounded-2xl border border-slate-800 hover:border-teal-400 shadow-xs hover:shadow-md transition-all flex items-start gap-3 group"
+                  >
+                    <div className="p-2 bg-teal-500/20 text-teal-300 rounded-xl group-hover:scale-105 transition-transform">
+                      <ShieldCheck size={16} />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black text-white">Consola Maestra Admin</h5>
+                      <p className="text-[10px] text-slate-300">Activar cuentas PENDING y formatos Todo o Nada</p>
+                    </div>
+                  </Link>
+                )}
               </div>
 
               <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3 text-[11px] text-amber-900 leading-relaxed space-y-1">
@@ -697,7 +792,7 @@ export default function HelpChatbot() {
                   Consejo del día:
                 </p>
                 <p>
-                  Para entregar notas a padres de familia antes del cierre del Periodo 3, selecciona <strong>Periodo 2</strong> en el Dossier para mostrar el informe con todas las notas consolidadas.
+                  En el Conector SAPRED (<strong>.xls</strong>) y en el Dossier 360° puedes alternar entre <strong>Orden: SAPRED</strong>, descargar reportes <strong>PE (Pendiente por Evaluar)</strong> y elegir <strong>Periodo 1–3 o Final</strong>. Todo trabaja offline en IndexedDB al haber iniciado sesión una vez.
                 </p>
               </div>
             </div>

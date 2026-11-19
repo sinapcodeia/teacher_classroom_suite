@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Sparkles, HelpCircle, ShieldAlert, Award } from "lucide-react";
+import { Sparkles, Award } from "lucide-react";
 
 interface RadarCompetenciasProps {
   plan: {

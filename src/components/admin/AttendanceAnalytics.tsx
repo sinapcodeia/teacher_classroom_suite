@@ -1,14 +1,13 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "@/context/AppContext";
 import { 
-  Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, 
-  Users, UserCheck, Search, ChevronRight, FileSpreadsheet,
-  AlertCircle, ShieldAlert, Award, ArrowUpRight, Filter,
-  ChevronLeft, ArrowRight, UserCheck2, UserX, Sparkles, X
+  Calendar, Search, ChevronRight,
+  ShieldAlert, Filter,
+  ChevronLeft, UserCheck2, Sparkles, X
 } from "lucide-react";
 
 interface AttendanceAnalyticsProps {
@@ -401,7 +400,7 @@ export default function AttendanceAnalytics({ onSelectStudent }: AttendanceAnaly
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs font-bold">
-              {paginatedMetrics.length > 0 ? paginatedMetrics.map(({ student, mPresentes, mAusentes, mExcusas, mRetardos, pctMonth }) => {
+              {paginatedMetrics.length > 0 ? paginatedMetrics.map(({ student, mPresentes: _mPresentes, mAusentes, mExcusas, mRetardos, pctMonth }) => {
                 const isCritical = mAusentes >= 3;
                 const isWarning = mAusentes >= 1 && mAusentes < 3;
 

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { 
-  Bell, CheckCircle2, ClipboardList, AlertTriangle, 
-  X, ArrowRight, Zap, Target, BookOpen, Clock, CalendarDays, Sparkles, Check
+  CheckCircle2, ClipboardList, AlertTriangle, 
+  X, ArrowRight, Clock, Sparkles, Check
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 

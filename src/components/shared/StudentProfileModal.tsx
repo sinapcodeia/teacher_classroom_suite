@@ -1,11 +1,11 @@
 "use client";
 
-import { normalizeGrade, parseFlexibleFloat, sanitizeText, APP_VERSION_LABEL } from "@/lib/constants";
+import { normalizeGrade, APP_VERSION_LABEL } from "@/lib/constants";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useMemo } from "react";
 import { 
-  X, User, BarChart3, Cake, Phone, Calendar, BookOpen, 
-  ShieldAlert, Plus, Trash2, FileText, CheckCircle2, 
+  X, User, BarChart3, Phone, Calendar, 
+  ShieldAlert, Plus, Trash2, FileText, 
   AlertTriangle, Award, Scale, Sparkles, Send
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -569,7 +569,6 @@ export default function StudentProfileModal({ student, onClose }: { student: any
                       const isPositive = rec.type === "POSITIVA";
                       const isLeve = rec.type === "LEVE";
                       const isGrave = rec.type === "GRAVE";
-                      const isGravisima = rec.type === "GRAVISIMA";
 
                       const badgeStyle = isPositive
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200"

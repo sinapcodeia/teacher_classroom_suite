@@ -39,8 +39,12 @@ for (const sName of wb.SheetNames) {
     const code = String(row[0]).replace(/\.0+$/, "").trim();
     if (sName === "5-1__TPI") expectedOrder5_1.push(code);
     if (!studentsMap.has(code)) {
-      const [ap1 = "AP", ap2 = ""] = String(row[1] ?? "").trim().split(/\s+/);
-      const [nm1 = "NM", nm2 = ""] = String(row[2] ?? "").trim().split(/\s+/);
+      const apTokens = String(row[1] ?? "").trim().split(/\s+/).filter(Boolean);
+      const nmTokens = String(row[2] ?? "").trim().split(/\s+/).filter(Boolean);
+      const ap1 = apTokens[0] || "AP";
+      const ap2 = apTokens.slice(1).join(" ");
+      const nm1 = nmTokens[0] || "NM";
+      const nm2 = nmTokens.slice(1).join(" ");
       studentsMap.set(code, {
         id: `st-${code}`,
         nroDocumento: code,

@@ -1,5 +1,5 @@
 "use client";
-import { normalizeGrade, parseFlexibleFloat, sanitizeText } from "@/lib/constants";
+import { normalizeGrade } from "@/lib/constants";
 
 import { useState, useMemo } from "react";
 import { X, Sparkles, User, HelpCircle, AlertCircle, Printer, CheckCircle } from "lucide-react";
@@ -44,7 +44,7 @@ const ADAPTATION_TYPES = [
 ];
 
 export default function PiarAdaptationModal({ isOpen, onClose, plan, onPrint, grade, subject }: PiarAdaptationModalProps) {
-  const { myStudents, profile, curriculum } = useApp();
+  const { myStudents, curriculum } = useApp();
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [adaptationType, setAdaptationType] = useState("slow");
   const [isGenerating, setIsGenerating] = useState(false);

@@ -141,7 +141,7 @@ export default function GovernanceKPIs({ grado, curso, subject }: GovernanceKPIs
       alert("El estudiante no tiene teléfono de acudiente registrado. Se copió el mensaje de felicitación al portapapeles.");
       return;
     }
-    window.open(`https://wa.me/${phone.startsWith("57") ? phone : "57" + phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${phone.startsWith("57") ? phone : "57" + phone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   const monthName = new Date().toLocaleDateString("es-CO", { month: "long" });

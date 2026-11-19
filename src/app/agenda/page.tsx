@@ -4,13 +4,14 @@
 
 import TopAppBar from "@/components/layout/TopAppBar";
 import BottomNavBar from "@/components/layout/BottomNavBar";
+import RoleGuard from "@/components/shared/RoleGuard";
 import { useApp } from "@/context/AppContext";
 import { 
   Calendar, Clock, FileText, Plus, Search, 
-  Filter, CheckCircle2, AlertTriangle, MessageSquare, 
-  LayoutGrid, List, Sparkles, CalendarDays, Loader2,
+  CheckCircle2, AlertTriangle, 
+  List, Sparkles, Loader2,
   TrendingUp, CheckCircle, Circle, ChevronRight, Bookmark, 
-  FolderKanban, Kanban, Activity, HelpCircle, User, BookOpen
+  FolderKanban, Kanban
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
@@ -21,7 +22,7 @@ export default function AgendaPage() {
     agendaNotes, addAgendaNote, updateAgendaNote, 
     updateAgendaNotesBatch, deleteAgendaNotesBatch,
     clearAllAgendaNotes, clearPendingTasks, clearAllTasks, 
-    profile, subjects 
+    subjects 
   } = useApp();
 
   const [mounted, setMounted] = useState(false);
@@ -229,6 +230,7 @@ export default function AgendaPage() {
   );
 
   return (
+    <RoleGuard allowedRoles={["RECTOR", "COORDINADOR", "BIENESTAR", "DOCENTE", "DOCENTE_DIRECTOR"]}>
     <div className="flex flex-col min-h-screen bg-slate-50/50 text-slate-800 font-inter antialiased">
       <TopAppBar />
 
@@ -1169,5 +1171,6 @@ export default function AgendaPage() {
 
       <BottomNavBar />
     </div>
+    </RoleGuard>
   );
 }
